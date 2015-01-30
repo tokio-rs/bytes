@@ -1,0 +1,11 @@
+[package]
+
+name = "bytes"
+version = "0.0.1"
+authors = ["Carl Lerche <me@carllerche.com>"]
+description = "Types and traits for working with bytes"
+license = "MIT"
+# include = [
+#     "Cargo.toml",
+#     "src/**/*.rs",
+# ]
