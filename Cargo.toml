@@ -1,11 +1,23 @@
 [package]
 
-name = "bytes"
-version = "0.0.1"
-authors = ["Carl Lerche <me@carllerche.com>"]
+name        = "bytes"
+version     = "0.0.1"
+authors     = ["Carl Lerche <me@carllerche.com>"]
 description = "Types and traits for working with bytes"
-license = "MIT"
-# include = [
-#     "Cargo.toml",
-#     "src/**/*.rs",
-# ]
+license     = "MIT"
+
+[dev-dependencies]
+
+rand = "0.1.2"
+# iobuf = "*"
+
+
+[[bench]]
+
+name = "bench"
+path = "bench/bench.rs"
+
+[[test]]
+
+name = "test"
+path = "test/test.rs"

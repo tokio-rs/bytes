@@ -1,0 +1,347 @@
+use {Buf, ByteStr, ByteBuf, SmallByteStr};
+use std::{mem, ops, ptr};
+use std::any::{Any, TypeId};
+use std::raw::TraitObject;
+use core::nonzero::NonZero;
+
+const INLINE: usize = 1;
+
+#[unsafe_no_drop_flag]
+pub struct Bytes {
+    vtable: NonZero<usize>,
+    data: *mut (),
+}
+
+impl Bytes {
+    pub fn from_slice(bytes: &[u8]) -> Bytes {
+        SmallByteStr::from_slice(bytes)
+            .map(|small| Bytes::of(small))
+            .unwrap_or_else(|| ByteBuf::from_slice(bytes).to_bytes())
+    }
+
+    pub fn of<B: ByteStr + 'static>(bytes: B) -> Bytes {
+        unsafe {
+            if inline::<B>() {
+                let mut vtable;
+                let mut data;
+
+                {
+                    let obj: &ByteStrPriv = &bytes;
+                    let obj: TraitObject = mem::transmute(obj);
+                    let ptr: *const *mut () = mem::transmute(obj.data);
+
+                    data = *ptr;
+                    vtable = obj.vtable;
+                }
+
+                // Prevent drop from being called
+                mem::forget(bytes);
+
+                Bytes {
+                    vtable: NonZero::new(vtable as usize | INLINE),
+                    data: data,
+                }
+            } else {
+                let obj: Box<ByteStrPriv> = Box::new(bytes);
+                let obj: TraitObject = mem::transmute(obj);
+
+                Bytes {
+                    vtable: NonZero::new(obj.vtable as usize),
+                    data: obj.data,
+                }
+            }
+        }
+    }
+
+    pub fn empty() -> Bytes {
+        Bytes::of(SmallByteStr::zero())
+    }
+
+    /// If the underlying `ByteStr` is of type `B`, returns a reference to it
+    /// otherwise None.
+    pub fn downcast_ref<'a, B: ByteStr + 'static>(&'a self) -> Option<&'a B> {
+        if TypeId::of::<B>() == self.obj().get_type_id() {
+            unsafe {
+                if inline::<B>() {
+                    return Some(mem::transmute(&self.data));
+                } else {
+                    return Some(mem::transmute(self.data));
+                }
+            }
+        }
+
+        None
+    }
+
+    /// If the underlying `ByteStr` is of type `B`, returns the unwraped value,
+    /// otherwise, returns the original `Bytes` as `Err`.
+    pub fn try_unwrap<B: ByteStr + 'static>(self) -> Result<B, Bytes> {
+        if TypeId::of::<B>() == self.obj().get_type_id() {
+            unsafe {
+                // Underlying ByteStr value is of the correct type. Unwrap it
+                let mut ret;
+
+                if inline::<B>() {
+                    // The value is inline, read directly from the pointer
+                    ret = ptr::read(mem::transmute(&self.data));
+                } else {
+                    ret = ptr::read(mem::transmute(self.data));
+                }
+
+                mem::forget(self);
+                Ok(ret)
+            }
+        } else {
+            Err(self)
+        }
+    }
+
+    fn obj(&self) -> &ByteStrPriv {
+        unsafe {
+            let obj = if self.is_inline() {
+                TraitObject {
+                    data: mem::transmute(&self.data),
+                    vtable: mem::transmute(*self.vtable - 1),
+                }
+            } else {
+                TraitObject {
+                    data: self.data,
+                    vtable: mem::transmute(*self.vtable),
+                }
+            };
+
+            mem::transmute(obj)
+        }
+    }
+
+    fn obj_mut(&mut self) -> &mut ByteStrPriv {
+        unsafe { mem::transmute(self.obj()) }
+    }
+
+    fn is_inline(&self) -> bool {
+        (*self.vtable & INLINE) == INLINE
+    }
+}
+
+fn inline<B: ByteStr>() -> bool {
+    mem::size_of::<B>() <= mem::size_of::<usize>()
+}
+
+impl ByteStr for Bytes {
+
+    type Buf = Box<Buf+'static>;
+
+    fn buf(&self) -> Box<Buf+'static> {
+        self.obj().buf()
+    }
+
+    fn concat<B: ByteStr+'static>(&self, other: B) -> Bytes {
+        self.obj().concat(Bytes::of(other))
+    }
+
+    fn len(&self) -> usize {
+        self.obj().len()
+    }
+
+    fn slice(&self, begin: usize, end: usize) -> Bytes {
+        self.obj().slice(begin, end)
+    }
+
+    fn split_at(&self, mid: usize) -> (Bytes, Bytes) {
+        self.obj().split_at(mid)
+    }
+
+    fn to_bytes(self) -> Bytes {
+        self
+    }
+}
+
+impl ops::Index<usize> for Bytes {
+    type Output = u8;
+
+    fn index(&self, index: &usize) -> &u8 {
+        self.obj().index(index)
+    }
+}
+
+impl Clone for Bytes {
+    fn clone(&self) -> Bytes {
+        self.obj().clone()
+    }
+}
+
+impl Drop for Bytes {
+    fn drop(&mut self) {
+        if *self.vtable == 0 {
+            return;
+        }
+
+        unsafe {
+            if self.is_inline() {
+                self.obj_mut().drop();
+            } else {
+                let _: Box<ByteStrPriv> =
+                    mem::transmute(self.obj());
+            }
+        }
+    }
+}
+
+unsafe impl Send for Bytes { }
+unsafe impl Sync for Bytes { }
+
+trait ByteStrPriv {
+
+    fn buf(&self) -> Box<Buf+'static>;
+
+    fn clone(&self) -> Bytes;
+
+    fn concat(&self, other: Bytes) -> Bytes;
+
+    fn drop(&mut self);
+
+    fn get_type_id(&self) -> TypeId;
+
+    fn index(&self, index: &usize) -> &u8;
+
+    fn len(&self) -> usize;
+
+    fn slice(&self, begin: usize, end: usize) -> Bytes;
+
+    fn split_at(&self, mid: usize) -> (Bytes, Bytes);
+}
+
+impl<B: ByteStr + 'static> ByteStrPriv for B {
+
+    fn buf(&self) -> Box<Buf+'static> {
+        Box::new(self.buf())
+    }
+
+    fn clone(&self) -> Bytes {
+        Bytes::of(self.clone())
+    }
+
+    fn concat(&self, other: Bytes) -> Bytes {
+        self.concat(other)
+    }
+
+    fn drop(&mut self) {
+        unsafe {
+            ptr::read(mem::transmute(self))
+        }
+    }
+
+    fn get_type_id(&self) -> TypeId {
+        Any::get_type_id(self)
+    }
+
+    fn index(&self, index: &usize) -> &u8 {
+        ops::Index::index(self, index)
+    }
+
+    fn len(&self) -> usize {
+        self.len()
+    }
+
+    fn slice(&self, begin: usize, end: usize) -> Bytes {
+        self.slice(begin, end)
+    }
+
+    fn split_at(&self, mid: usize) -> (Bytes, Bytes) {
+        self.split_at(mid)
+    }
+}
+
+/*
+impl ops::Index<usize> for Bytes {
+    type Output = u8;
+
+    fn index(&self, index: &usize) -> &u8 {
+        self.bytes.index(index)
+    }
+}
+
+impl PartialEq<Bytes> for Bytes {
+    fn eq(&self, other: &Bytes) -> bool {
+        let mut i1 = self.iter();
+        let mut i2 = other.iter();
+
+        loop {
+            let el = i1.next();
+
+            if el != i2.next() {
+                return false;
+            }
+
+            if el.is_none() {
+                return true;
+            }
+        }
+    }
+}
+
+pub struct BytesIter<'a> {
+    bytes: &'a Bytes,
+    pos: usize,
+}
+
+impl<'a> Iterator for BytesIter<'a> {
+    type Item = u8;
+
+    fn next(&mut self) -> Option<u8> {
+        if self.pos == self.bytes.len() {
+            return None;
+        }
+
+        let ret = self.bytes[self.pos];
+        self.pos += 1;
+        Some(ret)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::Bytes;
+
+    #[test]
+    pub fn test_accessing_bytes() {
+        let bytes = from_slice(b"foo");
+
+        for i in 0..3us {
+            assert_eq!(b"foo"[i], bytes[i]);
+        }
+    }
+
+    /*
+     *
+     * ===== Equality =====
+     *
+     */
+
+    #[test]
+    pub fn test_literal_bytes_eq() {
+        assert!(from_slice(b"foo") == from_slice(b"foo"));
+        assert!(from_slice(b"foo") != from_slice(b"bar"));
+        assert!(from_slice(b"foo") != from_slice(b"foo*"));
+        assert!(from_slice(b"foo*") != from_slice(b"foo"));
+    }
+
+    /*
+     *
+     * ===== Helpers =====
+     *
+     */
+
+    fn from_slice(bytes: &[u8]) -> Bytes {
+        Bytes::from_slice(bytes)
+    }
+}
+*/
+
+#[test]
+pub fn test_size_of() {
+    let expect = mem::size_of::<usize>() * 2;
+
+    assert_eq!(expect, mem::size_of::<Bytes>());
+    assert_eq!(expect, mem::size_of::<Option<Bytes>>());
+}
