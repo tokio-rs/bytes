@@ -9,7 +9,7 @@ license     = "MIT"
 [dev-dependencies]
 
 rand = "0.1.2"
-# iobuf = "*"
+iobuf = "*"
 
 
 [[bench]]

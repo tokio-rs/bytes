@@ -24,12 +24,12 @@ mod rope;
 mod slice;
 
 pub mod traits {
-    pub use {Buf, BufExt, MutBuf, ByteStr};
+    pub use {Buf, BufExt, MutBuf, MutBufExt, ByteStr};
 }
 
 const MAX_CAPACITY: usize = u32::MAX as usize;
 
-/// A trait for objects that provide random and sequential access to bytes.
+/// A trait for values that provide random and sequential access to bytes.
 pub trait Buf {
 
     /// Returns the number of bytes that can be accessed from the Buf
@@ -113,12 +113,6 @@ pub trait MutBuf : Sized {
     /// length between 0 and `Buf::remaining()`.
     fn mut_bytes<'a>(&'a mut self) -> &'a mut [u8];
 
-    /// Read bytes from this Buf into the given sink and advance the cursor by
-    /// the number of bytes read.
-    fn write<S: Source>(&mut self, src: S) -> Result<usize, S::Error> {
-        src.fill(self)
-    }
-
     /// Read bytes from this Buf into the given slice and advance the cursor by
     /// the number of bytes read.
     ///
@@ -162,6 +156,13 @@ pub trait MutBuf : Sized {
 
         len
     }
+}
+
+pub trait MutBufExt {
+
+    /// Write bytes from the given source into the current `MutBuf` and advance
+    /// the cursor by the number of bytes written.
+    fn write<S: Source>(&mut self, src: S) -> Result<usize, S::Error>;
 }
 
 /*
@@ -239,13 +240,19 @@ impl<B: Buf> BufExt for B {
     }
 }
 
+impl<B: MutBuf> MutBufExt for B {
+    fn write<S: Source>(&mut self, src: S) -> Result<usize, S::Error> {
+        src.fill(self)
+    }
+}
+
 /*
  *
  * ===== Sink / Source =====
  *
  */
 
-/// An object that reads bytes from a Buf into itself
+/// An value that reads bytes from a Buf into itself
 pub trait Sink {
     type Error;
 

@@ -1,5 +1,5 @@
 use {alloc, Bytes, ByteBuf, ROByteBuf};
-use traits::{Buf, MutBuf, ByteStr};
+use traits::{Buf, MutBuf, MutBufExt, ByteStr};
 use std::{cmp, ops};
 
 /*
