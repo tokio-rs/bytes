@@ -47,7 +47,7 @@ pub trait Buf {
         self.remaining() > 0
     }
 
-    /// Read bytes from this Buf into the given slice and advance the cursor by
+    /// Read bytes from the `Buf` into the given slice and advance the cursor by
     /// the number of bytes read.
     ///
     /// If there are fewer bytes remaining than is needed to satisfy the
@@ -85,6 +85,17 @@ pub trait Buf {
         }
 
         len
+    }
+
+    /// Read a single byte from the `Buf`
+    fn read_byte(&mut self) -> Option<u8> {
+        let mut dst = [0];
+
+        if self.read_slice(&mut dst) == 0 {
+            return None;
+        }
+
+        Some(dst[0])
     }
 }
 
@@ -155,6 +166,17 @@ pub trait MutBuf : Sized {
         }
 
         len
+    }
+
+    /// Write a single byte to the `MuBuf`
+    fn write_byte(&mut self, byte: u8) -> bool {
+        let src = [byte];
+
+        if self.write_slice(&src) == 0 {
+            return false;
+        }
+
+        true
     }
 }
 
