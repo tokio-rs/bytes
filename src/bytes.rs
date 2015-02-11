@@ -6,6 +6,7 @@ use core::nonzero::NonZero;
 
 const INLINE: usize = 1;
 
+/// A specialized `ByteStr` box.
 #[unsafe_no_drop_flag]
 pub struct Bytes {
     vtable: NonZero<usize>,
@@ -251,92 +252,6 @@ impl<B: ByteStr + 'static> ByteStrPriv for B {
         self.split_at(mid)
     }
 }
-
-/*
-impl ops::Index<usize> for Bytes {
-    type Output = u8;
-
-    fn index(&self, index: &usize) -> &u8 {
-        self.bytes.index(index)
-    }
-}
-
-impl PartialEq<Bytes> for Bytes {
-    fn eq(&self, other: &Bytes) -> bool {
-        let mut i1 = self.iter();
-        let mut i2 = other.iter();
-
-        loop {
-            let el = i1.next();
-
-            if el != i2.next() {
-                return false;
-            }
-
-            if el.is_none() {
-                return true;
-            }
-        }
-    }
-}
-
-pub struct BytesIter<'a> {
-    bytes: &'a Bytes,
-    pos: usize,
-}
-
-impl<'a> Iterator for BytesIter<'a> {
-    type Item = u8;
-
-    fn next(&mut self) -> Option<u8> {
-        if self.pos == self.bytes.len() {
-            return None;
-        }
-
-        let ret = self.bytes[self.pos];
-        self.pos += 1;
-        Some(ret)
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use super::Bytes;
-
-    #[test]
-    pub fn test_accessing_bytes() {
-        let bytes = from_slice(b"foo");
-
-        for i in 0..3us {
-            assert_eq!(b"foo"[i], bytes[i]);
-        }
-    }
-
-    /*
-     *
-     * ===== Equality =====
-     *
-     */
-
-    #[test]
-    pub fn test_literal_bytes_eq() {
-        assert!(from_slice(b"foo") == from_slice(b"foo"));
-        assert!(from_slice(b"foo") != from_slice(b"bar"));
-        assert!(from_slice(b"foo") != from_slice(b"foo*"));
-        assert!(from_slice(b"foo*") != from_slice(b"foo"));
-    }
-
-    /*
-     *
-     * ===== Helpers =====
-     *
-     */
-
-    fn from_slice(bytes: &[u8]) -> Bytes {
-        Bytes::from_slice(bytes)
-    }
-}
-*/
 
 #[test]
 pub fn test_size_of() {

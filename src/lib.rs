@@ -24,12 +24,13 @@ mod rope;
 mod slice;
 
 pub mod traits {
+    //! All traits are re-exported here to allow glob imports.
     pub use {Buf, BufExt, MutBuf, MutBufExt, ByteStr};
 }
 
 const MAX_CAPACITY: usize = u32::MAX as usize;
 
-/// A trait for values that provide random and sequential access to bytes.
+/// A trait for values that provide sequential read access to bytes.
 pub trait Buf {
 
     /// Returns the number of bytes that can be accessed from the Buf
@@ -99,6 +100,7 @@ pub trait Buf {
     }
 }
 
+/// An extension trait providing extra functions applicable to all `Buf` values.
 pub trait BufExt {
 
     /// Read bytes from this Buf into the given sink and advance the cursor by
@@ -106,7 +108,7 @@ pub trait BufExt {
     fn read<S: Sink>(&mut self, dst: S) -> Result<usize, S::Error>;
 }
 
-// TODO: Remove Sized
+/// A trait for values that provide sequential write access to bytes.
 pub trait MutBuf : Sized {
 
     /// Returns the number of bytes that can be accessed from the Buf
@@ -180,6 +182,7 @@ pub trait MutBuf : Sized {
     }
 }
 
+/// An extension trait providing extra functions applicable to all `MutBuf` values.
 pub trait MutBufExt {
 
     /// Write bytes from the given source into the current `MutBuf` and advance
@@ -193,6 +196,9 @@ pub trait MutBufExt {
  *
  */
 
+/// An immutable sequence of bytes. Operations will not mutate the original
+/// value. Since only immutable access is permitted, operations do not require
+/// copying (though, sometimes copying will happen as an optimization).
 pub trait ByteStr : Clone + Sized + Send + Sync + ops::Index<usize, Output=u8> {
 
     // Until HKT lands, the buf must be bound by 'static
@@ -274,13 +280,14 @@ impl<B: MutBuf> MutBufExt for B {
  *
  */
 
-/// An value that reads bytes from a Buf into itself
+/// A value that reads bytes from a Buf into itself
 pub trait Sink {
     type Error;
 
     fn sink<B: Buf>(self, buf: &mut B) -> Result<usize, Self::Error>;
 }
 
+/// A value that writes bytes from itself into a `MutBuf`.
 pub trait Source {
     type Error;
 
@@ -389,7 +396,7 @@ impl Buf for Box<Buf+'static> {
 
 /*
  *
- * ===== BufError / BufResult =====
+ * ===== BufError  =====
  *
  */
 
@@ -398,5 +405,3 @@ pub enum BufError {
     Underflow,
     Overflow,
 }
-
-pub type BufResult<T> = Result<T, BufError>;
