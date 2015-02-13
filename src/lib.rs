@@ -3,6 +3,7 @@
 
 #![feature(core)]
 #![feature(alloc)]
+#![feature(unsafe_no_drop_flag)]
 
 pub use byte_buf::{ByteBuf, ROByteBuf, MutByteBuf};
 pub use byte_str::{SeqByteStr, SmallByteStr, SmallByteStrBuf};
