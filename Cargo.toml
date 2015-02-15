@@ -19,10 +19,7 @@ exclude       = [
 ]
 
 [dev-dependencies]
-
 rand = "0.1.2"
-iobuf = "*"
-
 
 [[bench]]
 
