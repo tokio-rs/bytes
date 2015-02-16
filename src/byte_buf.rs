@@ -152,8 +152,6 @@ impl Buf for ByteBuf {
     }
 }
 
-unsafe impl Send for ByteBuf { }
-
 /*
  *
  * ===== ROByteBuf =====
