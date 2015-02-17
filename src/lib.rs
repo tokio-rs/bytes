@@ -455,3 +455,43 @@ pub enum BufError {
     Underflow,
     Overflow,
 }
+
+/*
+ *
+ * ===== Internal utilities =====
+ *
+ */
+
+fn debug<B: ByteStr>(bytes: &B, name: &str, fmt: &mut fmt::Formatter) -> fmt::Result {
+    let mut buf = bytes.buf();
+
+    try!(write!(fmt, "{}[len={}; ", name, bytes.len()));
+
+    let mut rem = 128;
+
+    while let Some(byte) = buf.read_byte() {
+        if rem > 0 {
+            if is_ascii(byte) {
+                try!(write!(fmt, "{}", byte as char));
+            } else {
+                try!(write!(fmt, "\\x{:02X}", byte));
+            }
+
+            rem -= 1;
+        } else {
+            try!(write!(fmt, " ... "));
+            break;
+        }
+    }
+
+    try!(write!(fmt, "]"));
+
+    Ok(())
+}
+
+fn is_ascii(byte: u8) -> bool {
+    match byte {
+        10 | 13 | 32...126 => true,
+        _ => false,
+    }
+}

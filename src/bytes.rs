@@ -1,5 +1,5 @@
 use {Buf, ByteStr, ByteBuf, SmallByteStr};
-use std::{mem, ops, ptr};
+use std::{fmt, mem, ops, ptr};
 use std::any::{Any, TypeId};
 use std::raw::TraitObject;
 use core::nonzero::NonZero;
@@ -162,6 +162,12 @@ impl ops::Index<usize> for Bytes {
 
     fn index(&self, index: &usize) -> &u8 {
         self.obj().index(index)
+    }
+}
+
+impl fmt::Debug for Bytes {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        super::debug(self, "Bytes", fmt)
     }
 }
 
