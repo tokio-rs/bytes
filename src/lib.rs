@@ -7,10 +7,10 @@ pub use byte_buf::{ByteBuf, ROByteBuf, MutByteBuf};
 pub use byte_str::{SeqByteStr, SmallByteStr, SmallByteStrBuf};
 pub use bytes::Bytes;
 pub use ring::{RingBuf, RingBufReader, RingBufWriter};
-pub use rope::Rope;
+pub use rope::{Rope, RopeBuf};
 pub use slice::{SliceBuf, MutSliceBuf};
 
-use std::{cmp, io, ops, ptr, u32};
+use std::{cmp, fmt, io, ops, ptr, u32};
 
 extern crate core;
 
@@ -392,6 +392,57 @@ impl Buf for Box<Buf+'static> {
         (**self).read_slice(dst)
     }
 }
+
+impl fmt::Debug for Box<Buf+'static> {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        write!(fmt, "Box<Buf> {{ remaining: {} }}", self.remaining())
+    }
+}
+
+/*
+ *
+ * ===== Read impls =====
+ *
+ */
+
+macro_rules! impl_read {
+    ($ty:ty) => {
+        impl io::Read for $ty {
+            fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+                if !self.has_remaining() {
+                    return Ok(0);
+                }
+
+                Ok(self.read_slice(buf))
+            }
+        }
+    }
+}
+
+impl_read!(ByteBuf);
+impl_read!(ROByteBuf);
+impl_read!(RopeBuf);
+impl_read!(Box<Buf+'static>);
+
+macro_rules! impl_write {
+    ($ty:ty) => {
+        impl io::Write for $ty {
+            fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+                if !self.has_remaining() {
+                    return Ok(0);
+                }
+
+                Ok(self.write_slice(buf))
+            }
+
+            fn flush(&mut self) -> io::Result<()> {
+                Ok(())
+            }
+        }
+    }
+}
+
+impl_write!(MutByteBuf);
 
 /*
  *
