@@ -6,7 +6,7 @@
 pub use byte_buf::{ByteBuf, ROByteBuf, MutByteBuf};
 pub use byte_str::{SeqByteStr, SmallByteStr, SmallByteStrBuf};
 pub use bytes::Bytes;
-pub use ring::{RingBuf, RingBufReader, RingBufWriter};
+pub use ring::RingBuf;
 pub use rope::{Rope, RopeBuf};
 pub use slice::{SliceBuf, MutSliceBuf};
 
