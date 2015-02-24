@@ -52,16 +52,6 @@ impl RingBuf {
         self.cap
     }
 
-    // Access readable bytes as a Buf
-    pub fn reader<'a>(&'a mut self) -> RingBufReader<'a> {
-        RingBufReader { ring: self }
-    }
-
-    // Access writable bytes as a Buf
-    pub fn writer<'a>(&'a mut self) -> RingBufWriter<'a> {
-        RingBufWriter { ring: self }
-    }
-
     fn read_remaining(&self) -> usize {
         self.len
     }
@@ -141,59 +131,51 @@ impl Drop for RingBuf {
     }
 }
 
-pub struct RingBufReader<'a> {
-    ring: &'a mut RingBuf
-}
-
-impl<'a> Buf for RingBufReader<'a> {
+impl Buf for RingBuf {
 
     fn remaining(&self) -> usize {
-        self.ring.read_remaining()
+        self.read_remaining()
     }
 
-    fn bytes<'b>(&'b self) -> &'b [u8] {
-        let mut to = self.ring.pos + self.ring.len;
+    fn bytes(&self) -> &[u8] {
+        let mut to = self.pos + self.len;
 
-        if to > self.ring.cap {
-            to = self.ring.cap
+        if to > self.cap {
+            to = self.cap
         }
 
-        &self.ring.as_slice()[self.ring.pos .. to]
+        &self.as_slice()[self.pos .. to]
     }
 
     fn advance(&mut self, cnt: usize) {
-        self.ring.advance_reader(cnt)
+        self.advance_reader(cnt)
     }
 }
 
-pub struct RingBufWriter<'a> {
-    ring: &'a mut RingBuf
-}
-
-impl<'a> MutBuf for RingBufWriter<'a> {
+impl MutBuf for RingBuf {
 
     fn remaining(&self) -> usize {
-        self.ring.write_remaining()
+        self.write_remaining()
     }
 
     fn advance(&mut self, cnt: usize) {
-        self.ring.advance_writer(cnt)
+        self.advance_writer(cnt)
     }
 
-    fn mut_bytes<'b>(&'b mut self) -> &'b mut [u8] {
+    fn mut_bytes(&mut self) -> &mut [u8] {
         let mut from;
         let mut to;
 
-        from = self.ring.pos + self.ring.len;
-        from %= self.ring.cap;
+        from = self.pos + self.len;
+        from %= self.cap;
 
-        to = from + self.remaining();
+        to = from + <Self as MutBuf>::remaining(&self);
 
-        if to >= self.ring.cap {
-            to = self.ring.cap;
+        if to >= self.cap {
+            to = self.cap;
         }
 
-        &mut self.ring.as_mut_slice()[from..to]
+        &mut self.as_mut_slice()[from..to]
     }
 }
 
