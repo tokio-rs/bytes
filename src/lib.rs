@@ -307,25 +307,28 @@ impl<'a> Sink for &'a mut Vec<u8> {
     fn sink<B: Buf>(self, buf: &mut B) -> Result<usize, BufError> {
         use std::slice;
 
+        self.clear();
+
         let rem = buf.remaining();
         let cap = self.capacity();
-        let len = rem - cap;
 
         // Ensure that the vec is big enough
-        if cap < rem {
-            self.reserve(len);
+        if rem > self.capacity() {
+            self.reserve(rem - cap);
         }
 
         unsafe {
             {
                 let dst = self.as_mut_slice();
-                buf.read_slice(slice::from_raw_parts_mut(dst.as_mut_ptr(), rem));
+                let cnt = buf.read_slice(slice::from_raw_parts_mut(dst.as_mut_ptr(), rem));
+
+                debug_assert!(cnt == rem);
             }
 
             self.set_len(rem);
         }
 
-        Ok(len)
+        Ok(rem)
     }
 }
 
