@@ -90,7 +90,7 @@ impl ByteBuf {
         let cnt = len as u32;
 
         unsafe {
-            ptr::copy_nonoverlapping_memory(
+            ptr::copy_nonoverlapping(
                 dst.as_mut_ptr(),
                 self.mem.ptr().offset(self.pos as isize), len);
         }
@@ -241,7 +241,7 @@ impl MutByteBuf {
     #[inline]
     fn write_ptr(&mut self, src: *const u8, len: u32) -> usize {
         unsafe {
-            ptr::copy_nonoverlapping_memory(
+            ptr::copy_nonoverlapping(
                 self.buf.mem.ptr().offset(self.buf.pos as isize),
                 src, len as usize);
 

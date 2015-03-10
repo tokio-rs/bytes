@@ -75,7 +75,7 @@ pub trait Buf {
                 let src = self.bytes();
                 cnt = cmp::min(src.len(), len - off);
 
-                ptr::copy_nonoverlapping_memory(
+                ptr::copy_nonoverlapping(
                     dst[off..].as_mut_ptr(), src.as_ptr(), cnt);
 
                 off += src.len();
@@ -157,7 +157,7 @@ pub trait MutBuf : Sized {
                 let dst = self.mut_bytes();
                 cnt = cmp::min(dst.len(), len - off);
 
-                ptr::copy_nonoverlapping_memory(
+                ptr::copy_nonoverlapping(
                     dst.as_mut_ptr(), src[off..].as_ptr(), cnt);
 
                 off += cnt;

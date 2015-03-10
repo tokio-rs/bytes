@@ -99,10 +99,10 @@ impl Clone for RingBuf {
             let to = self.pos + self.len;
 
             if to > self.cap {
-                ptr::copy_memory(ret.ptr, self.ptr as *const u8, to % self.cap);
+                ptr::copy(ret.ptr, self.ptr as *const u8, to % self.cap);
             }
 
-            ptr::copy_memory(
+            ptr::copy(
                 ret.ptr.offset(self.pos as isize),
                 self.ptr.offset(self.pos as isize) as *const u8,
                 cmp::min(self.len, self.cap - self.pos));
