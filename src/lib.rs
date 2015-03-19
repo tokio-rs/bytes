@@ -1,7 +1,7 @@
 #![crate_name = "bytes"]
 #![unstable]
 
-#![feature(alloc, core, io, unsafe_no_drop_flag)]
+#![feature(alloc, core, unsafe_no_drop_flag)]
 
 pub use byte_buf::{ByteBuf, ROByteBuf, MutByteBuf};
 pub use byte_str::{SeqByteStr, SmallByteStr, SmallByteStrBuf};

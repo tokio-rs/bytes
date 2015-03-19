@@ -26,7 +26,7 @@ pub fn test_index() {
 }
 
 #[test]
-#[should_fail]
+#[should_panic]
 pub fn test_index_out_of_range() {
     let s = SeqByteStr::from_slice(gen_bytes(2000).as_slice());
     let _ = s[2001];

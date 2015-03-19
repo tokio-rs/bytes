@@ -1,7 +1,6 @@
 use {alloc, Bytes, SeqByteStr, MAX_CAPACITY};
 use traits::{Buf, MutBuf, MutBufExt, ByteStr};
 use std::{cmp, ptr};
-use std::num::UnsignedInt;
 
 /*
  *
@@ -57,7 +56,7 @@ impl ByteBuf {
         }
 
         // Round the capacity to the closest power of 2
-        capacity = UnsignedInt::next_power_of_two(capacity);
+        capacity = capacity.next_power_of_two();
 
         // Allocate the memory
         let mem = alloc::HEAP.allocate(capacity as usize);

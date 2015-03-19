@@ -26,7 +26,7 @@ pub fn test_index() {
 }
 
 #[test]
-#[should_fail]
+#[should_panic]
 pub fn test_index_out_of_range() {
     let s = SmallByteStr::from_slice(gen_bytes(3).as_slice()).unwrap();
     let _ = s[2001];

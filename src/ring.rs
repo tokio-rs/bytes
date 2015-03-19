@@ -1,6 +1,5 @@
 use super::{Buf, MutBuf};
 use std::{cmp, fmt, mem, ptr, slice};
-use std::num::UnsignedInt;
 use std::rt::heap;
 
 /// Buf backed by a continous chunk of memory. Maintains a read cursor and a
@@ -27,7 +26,7 @@ impl RingBuf {
         }
 
         // Round to the next power of 2 for better alignment
-        capacity = UnsignedInt::next_power_of_two(capacity);
+        capacity = capacity.next_power_of_two();
 
         // Allocate the memory
         let ptr = unsafe { heap::allocate(capacity, mem::min_align_of::<u8>()) };
