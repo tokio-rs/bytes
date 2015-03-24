@@ -24,7 +24,7 @@ mod slice;
 
 pub mod traits {
     //! All traits are re-exported here to allow glob imports.
-    pub use {Buf, BufExt, MutBuf, MutBufExt, ByteStr};
+    pub use {Buf, BufExt, MutBuf, MutBufExt, ByteStr, ToBytes};
 }
 
 const MAX_CAPACITY: usize = u32::MAX as usize;
@@ -198,7 +198,7 @@ pub trait MutBufExt {
 /// An immutable sequence of bytes. Operations will not mutate the original
 /// value. Since only immutable access is permitted, operations do not require
 /// copying (though, sometimes copying will happen as an optimization).
-pub trait ByteStr : Clone + Sized + Send + Sync + ops::Index<usize, Output=u8> {
+pub trait ByteStr : Clone + Sized + Send + Sync + ToBytes + ops::Index<usize, Output=u8> {
 
     // Until HKT lands, the buf must be bound by 'static
     type Buf: Buf+'static;
@@ -209,7 +209,7 @@ pub trait ByteStr : Clone + Sized + Send + Sync + ops::Index<usize, Output=u8> {
 
     /// Returns a new `Bytes` value representing the concatenation of `self`
     /// with the given `Bytes`.
-    fn concat<B: ByteStr+'static>(&self, other: B) -> Bytes;
+    fn concat<B: ByteStr+'static>(&self, other: &B) -> Bytes;
 
     /// Returns the number of bytes in the ByteStr
     fn len(&self) -> usize;
@@ -249,10 +249,73 @@ pub trait ByteStr : Clone + Sized + Send + Sync + ops::Index<usize, Output=u8> {
     fn split_at(&self, mid: usize) -> (Bytes, Bytes) {
         (self.slice_to(mid), self.slice_from(mid))
     }
+}
 
+impl<B1: ByteStr, B2: ByteStr> cmp::PartialEq<B2> for B1 {
+    fn eq(&self, other: &B2) -> bool {
+        if self.len() != other.len() {
+            return false;
+        }
+
+        let mut buf1 = self.buf();
+        let mut buf2 = self.buf();
+
+        while buf1.has_remaining() {
+            let len;
+
+            {
+                let b1 = buf1.bytes();
+                let b2 = buf2.bytes();
+
+                len = cmp::min(b1.len(), b2.len());
+
+                if b1[..len] != b2[..len] {
+                    return false;
+                }
+            }
+
+            buf1.advance(len);
+            buf2.advance(len);
+        }
+
+        true
+    }
+
+    fn ne(&self, other: &B2) -> bool {
+        return !self.eq(other)
+    }
+}
+
+macro_rules! impl_eq {
+    ($ty:ty) => {
+        impl cmp::Eq for $ty {}
+    }
+}
+
+impl_eq!(Bytes);
+
+/*
+ *
+ * ===== ToBytes =====
+ *
+ */
+
+pub trait ToBytes {
     /// Consumes the value and returns a `Bytes` instance containing
     /// identical bytes
     fn to_bytes(self) -> Bytes;
+}
+
+impl<'a> ToBytes for &'a [u8] {
+    fn to_bytes(self) -> Bytes {
+        Bytes::from_slice(self)
+    }
+}
+
+impl<'a> ToBytes for &'a Vec<u8> {
+    fn to_bytes(self) -> Bytes {
+        self.as_slice().to_bytes()
+    }
 }
 
 /*
@@ -351,8 +414,33 @@ impl<'a> Source for &'a Vec<u8> {
 impl<'a> Source for &'a Bytes {
     type Error = BufError;
 
-    fn fill<B: MutBuf>(self, _buf: &mut B) -> Result<usize, BufError> {
-        unimplemented!();
+    fn fill<B: MutBuf>(self, dst: &mut B) -> Result<usize, BufError> {
+        let mut src = self.buf();
+        let mut res = 0;
+
+        while src.has_remaining() && dst.has_remaining() {
+            let mut l;
+
+            {
+                let s = src.bytes();
+                let d = dst.mut_bytes();
+                l = cmp::min(s.len(), d.len());
+
+                unsafe {
+                    ptr::copy_nonoverlapping(
+                        d.as_mut_ptr(),
+                        s.as_ptr(),
+                        l);
+                }
+            }
+
+            src.advance(l);
+            dst.advance(l);
+
+            res += l;
+        }
+
+        Ok(res)
     }
 }
 

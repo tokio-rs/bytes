@@ -69,7 +69,7 @@ pub fn test_rope_concat_two_byte_str() {
     let left = Rope::from_slice(TEST_BYTES_1);
     let right = Rope::from_slice(TEST_BYTES_2);
 
-    let both = left.concat(right);
+    let both = left.concat(&right);
 
     assert_eq!(both.len(), TEST_BYTES_1.len() + TEST_BYTES_2.len());
 
@@ -87,4 +87,18 @@ pub fn test_slice_parity() {
     let _ = Rope::from_slice(bytes.as_slice()).slice(start, end);
 
     // stuff
+}
+
+#[test]
+pub fn test_rope_equality() {
+    let a = &b"Mary had a little lamb, its fleece was white as snow; ".to_bytes()
+        .concat(&b"And everywhere that Mary went, the lamb was sure to go.".to_bytes());
+
+    let b = &b"Mary had a little lamb, ".to_bytes()
+        .concat(&b"its fleece was white as snow; ".to_bytes())
+        .concat(
+            &b"And everywhere that Mary went, ".to_bytes()
+                .concat(&b"the lamb was sure to go.".to_bytes()));
+
+    assert_eq!(a, b);
 }

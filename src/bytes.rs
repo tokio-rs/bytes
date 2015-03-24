@@ -1,4 +1,5 @@
-use {Buf, ByteStr, ByteBuf, SmallByteStr};
+use {ByteBuf, SmallByteStr};
+use traits::{Buf, ByteStr, ToBytes};
 use std::{fmt, mem, ops, ptr};
 use std::any::{Any, TypeId};
 use std::raw::TraitObject;
@@ -136,8 +137,8 @@ impl ByteStr for Bytes {
         self.obj().buf()
     }
 
-    fn concat<B: ByteStr+'static>(&self, other: B) -> Bytes {
-        self.obj().concat(Bytes::of(other))
+    fn concat<B: ByteStr+'static>(&self, other: &B) -> Bytes {
+        self.obj().concat(&Bytes::of(other.clone()))
     }
 
     fn len(&self) -> usize {
@@ -151,7 +152,9 @@ impl ByteStr for Bytes {
     fn split_at(&self, mid: usize) -> (Bytes, Bytes) {
         self.obj().split_at(mid)
     }
+}
 
+impl ToBytes for Bytes {
     fn to_bytes(self) -> Bytes {
         self
     }
@@ -203,7 +206,7 @@ trait ByteStrPriv {
 
     fn clone(&self) -> Bytes;
 
-    fn concat(&self, other: Bytes) -> Bytes;
+    fn concat(&self, other: &Bytes) -> Bytes;
 
     fn drop(&mut self);
 
@@ -228,7 +231,7 @@ impl<B: ByteStr + 'static> ByteStrPriv for B {
         Bytes::of(self.clone())
     }
 
-    fn concat(&self, other: Bytes) -> Bytes {
+    fn concat(&self, other: &Bytes) -> Bytes {
         self.concat(other)
     }
 

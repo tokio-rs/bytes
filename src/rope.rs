@@ -1,5 +1,5 @@
 use {Bytes, ByteBuf, Source, BufError};
-use traits::*;
+use traits::{Buf, ByteStr, MutBuf, MutBufExt, ToBytes};
 use std::{cmp, mem, ops};
 use std::sync::Arc;
 
@@ -98,9 +98,9 @@ impl ByteStr for Rope {
         RopeBuf::new(self.clone())
     }
 
-    fn concat<B: ByteStr+'static>(&self, other: B) -> Bytes {
+    fn concat<B: ByteStr+'static>(&self, other: &B) -> Bytes {
         let left = Bytes::of(self.clone());
-        let right = Bytes::of(other);
+        let right = Bytes::of(other.clone());
         Bytes::of(concat(left, right))
     }
 
@@ -146,7 +146,9 @@ impl ByteStr for Rope {
 
         Bytes::of(Rope::new(left_slice, right_slice))
     }
+}
 
+impl ToBytes for Rope {
     fn to_bytes(self) -> Bytes {
         Bytes::of(self)
     }

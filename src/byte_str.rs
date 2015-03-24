@@ -1,5 +1,5 @@
-use {alloc, Bytes, ByteBuf, ROByteBuf};
-use traits::{Buf, MutBuf, MutBufExt, ByteStr};
+use {alloc, Bytes, ByteBuf, ROByteBuf, Rope};
+use traits::{Buf, MutBuf, MutBufExt, ByteStr, ToBytes};
 use std::{cmp, ops};
 
 /*
@@ -53,8 +53,8 @@ impl ByteStr for SeqByteStr {
         }
     }
 
-    fn concat<B: ByteStr>(&self, _other: B) -> Bytes {
-        unimplemented!();
+    fn concat<B: ByteStr+'static>(&self, other: &B) -> Bytes {
+        Rope::of(self.clone()).concat(other)
     }
 
     fn len(&self) -> usize {
@@ -75,7 +75,9 @@ impl ByteStr for SeqByteStr {
 
         Bytes::of(bytes)
     }
+}
 
+impl ToBytes for SeqByteStr {
     fn to_bytes(self) -> Bytes {
         Bytes::of(self)
     }
@@ -159,8 +161,8 @@ impl ByteStr for SmallByteStr {
         SmallByteStrBuf { small: self.clone() }
     }
 
-    fn concat<B: ByteStr>(&self, _other: B) -> Bytes {
-        unimplemented!();
+    fn concat<B: ByteStr+'static>(&self, other: &B) -> Bytes {
+        Rope::of(self.clone()).concat(other)
     }
 
     fn len(&self) -> usize {
@@ -174,7 +176,9 @@ impl ByteStr for SmallByteStr {
     fn split_at(&self, _mid: usize) -> (Bytes, Bytes) {
         unimplemented!();
     }
+}
 
+impl ToBytes for SmallByteStr {
     fn to_bytes(self) -> Bytes {
         Bytes::of(self)
     }
