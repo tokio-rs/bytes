@@ -61,7 +61,7 @@ pub trait Buf {
     /// let mut dst = [0; 5];
     ///
     /// buf.read_slice(&mut dst);
-    /// assert_eq!(b"hello", dst);
+    /// assert_eq!(b"hello", &dst);
     /// assert_eq!(6, buf.remaining());
     /// ```
     fn read_slice(&mut self, dst: &mut [u8]) -> usize {
@@ -144,7 +144,7 @@ pub trait MutBuf : Sized {
     ///     assert_eq!(1, buf.remaining());
     /// }
     ///
-    /// assert_eq!(b"hello\0", dst);
+    /// assert_eq!(b"hello\0", &dst);
     /// ```
     fn write_slice(&mut self, src: &[u8]) -> usize {
         let mut off = 0;
