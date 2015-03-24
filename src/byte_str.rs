@@ -152,6 +152,10 @@ impl SmallByteStr {
 
         Some(ret)
     }
+
+    pub fn as_slice(&self) -> &[u8] {
+        &self.bytes[..self.len as usize]
+    }
 }
 
 impl ByteStr for SmallByteStr {
@@ -169,12 +173,8 @@ impl ByteStr for SmallByteStr {
         self.len as usize
     }
 
-    fn slice(&self, _begin: usize, _end: usize) -> Bytes {
-        unimplemented!();
-    }
-
-    fn split_at(&self, _mid: usize) -> (Bytes, Bytes) {
-        unimplemented!();
+    fn slice(&self, begin: usize, end: usize) -> Bytes {
+        Bytes::from_slice(&self.as_slice()[begin..end])
     }
 }
 
