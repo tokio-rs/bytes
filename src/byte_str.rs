@@ -86,12 +86,12 @@ impl ToBytes for SeqByteStr {
 impl ops::Index<usize> for SeqByteStr {
     type Output = u8;
 
-    fn index(&self, index: &usize) -> &u8 {
-        assert!(*index < self.len());
+    fn index(&self, index: usize) -> &u8 {
+        assert!(index < self.len());
 
         unsafe {
             &*self.mem.ptr()
-                .offset(*index as isize + self.pos as isize)
+                .offset(index as isize + self.pos as isize)
         }
     }
 }
@@ -187,9 +187,9 @@ impl ToBytes for SmallByteStr {
 impl ops::Index<usize> for SmallByteStr {
     type Output = u8;
 
-    fn index(&self, index: &usize) -> &u8 {
-        assert!(*index < self.len());
-        &self.bytes[*index]
+    fn index(&self, index: usize) -> &u8 {
+        assert!(index < self.len());
+        &self.bytes[index]
     }
 }
 
