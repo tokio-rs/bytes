@@ -444,19 +444,24 @@ impl<'a> Source for &'a Bytes {
     }
 }
 
-impl<'a> Source for &'a mut (io::Read+'a) {
+impl<'a, R: io::Read+'a> Source for &'a mut R {
     type Error = io::Error;
 
-    fn fill<B: MutBuf>(self, _buf: &mut B) -> Result<usize, io::Error> {
-        unimplemented!();
-    }
-}
+    fn fill<B: MutBuf>(self, buf: &mut B) -> Result<usize, io::Error> {
+        let mut cnt = 0;
 
-impl<'a> Source for &'a mut (Iterator<Item=u8>+'a) {
-    type Error = BufError;
+        while buf.has_remaining() {
+            let i = try!(self.read(buf.mut_bytes()));
 
-    fn fill<B: MutBuf>(self, _buf: &mut B) -> Result<usize, BufError> {
-        unimplemented!();
+            if i == 0 {
+                break;
+            }
+
+            buf.advance(i);
+            cnt += i;
+        }
+
+        Ok(cnt)
     }
 }
 

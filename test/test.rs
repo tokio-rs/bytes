@@ -5,6 +5,8 @@ use rand::random;
 extern crate bytes;
 extern crate rand;
 
+mod test_buf;
+mod test_buf_fill;
 mod test_byte_buf;
 mod test_bytes;
 mod test_rope;
