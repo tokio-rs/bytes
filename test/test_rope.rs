@@ -36,7 +36,7 @@ pub fn test_rope_round_trip() {
     let mut dst = vec![];
     rope.buf().read(&mut dst).unwrap();
 
-    assert_eq!(b"zomg", dst.as_slice());
+    assert_eq!(b"zomg", dst);
 }
 
 #[test]
@@ -47,19 +47,19 @@ pub fn test_rope_slice() {
     assert_eq!(TEST_BYTES_1.len(), bytes.len());
 
     bytes.buf().read(&mut dst).unwrap();
-    assert_eq!(dst.as_slice(), TEST_BYTES_1);
+    assert_eq!(dst, TEST_BYTES_1);
 
     let left = bytes.slice_to(250);
     assert_eq!(250, left.len());
 
     left.buf().read(&mut dst).unwrap();
-    assert_eq!(dst.as_slice(), &TEST_BYTES_1[..250]);
+    assert_eq!(dst, &TEST_BYTES_1[..250]);
 
     let right = bytes.slice_from(250);
     assert_eq!(TEST_BYTES_1.len() - 250, right.len());
 
     right.buf().read(&mut dst).unwrap();
-    assert_eq!(dst.as_slice(), &TEST_BYTES_1[250..]);
+    assert_eq!(dst, &TEST_BYTES_1[250..]);
 }
 
 #[test]
@@ -74,7 +74,7 @@ pub fn test_rope_concat_two_byte_str() {
     assert_eq!(both.len(), TEST_BYTES_1.len() + TEST_BYTES_2.len());
 
     both.buf().read(&mut dst).unwrap();
-    assert_eq!(dst.as_slice(), TEST_BYTES_1.to_vec() + TEST_BYTES_2);
+    assert_eq!(dst, TEST_BYTES_1.to_vec() + TEST_BYTES_2);
 }
 
 #[test]
@@ -84,7 +84,7 @@ pub fn test_slice_parity() {
     let start = 512 * 1024 - 3333;
     let end = 512 * 1024 + 7777;
 
-    let _ = Rope::from_slice(bytes.as_slice()).slice(start, end);
+    let _ = Rope::from_slice(&bytes).slice(start, end);
 
     // stuff
 }

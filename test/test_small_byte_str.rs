@@ -7,7 +7,7 @@ pub fn test_slice_round_trip() {
     let mut dst = vec![];
     let src = gen_bytes(3);
 
-    let s = SmallByteStr::from_slice(src.as_slice()).unwrap();
+    let s = SmallByteStr::from_slice(&src).unwrap();
     assert_eq!(3, s.len());
 
     s.buf().read(&mut dst).unwrap();
@@ -18,7 +18,7 @@ pub fn test_slice_round_trip() {
 pub fn test_index() {
     let src = gen_bytes(3);
 
-    let s = SmallByteStr::from_slice(src.as_slice()).unwrap();
+    let s = SmallByteStr::from_slice(&src).unwrap();
 
     for i in 0..3 {
         assert_eq!(src[i], s[i]);
@@ -28,6 +28,6 @@ pub fn test_index() {
 #[test]
 #[should_panic]
 pub fn test_index_out_of_range() {
-    let s = SmallByteStr::from_slice(gen_bytes(3).as_slice()).unwrap();
+    let s = SmallByteStr::from_slice(&gen_bytes(3)).unwrap();
     let _ = s[2001];
 }

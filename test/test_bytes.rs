@@ -5,7 +5,7 @@ pub fn test_debug_short_str_valid_ascii() {
     let b = Bytes::from_slice(b"abcdefghij234");
     let d = format!("{:?}", b);
 
-    assert_eq!(d.as_slice(), "Bytes[len=13; abcdefghij234]");
+    assert_eq!(d, "Bytes[len=13; abcdefghij234]");
 }
 
 #[test]
@@ -25,10 +25,10 @@ pub fn test_debug_long_str_valid_ascii() {
 
     let d = format!("{:?}", b);
 
-    assert_eq!(d.as_slice(), "Bytes[len=556; Lorem ipsum dolor sit amet, \
-                              consectetur adipiscing elit. Duis volutpat \
-                              eros in gravida malesuada. Phasellus \
-                              lobortis maximus cur ... ]");
+    assert_eq!(d, "Bytes[len=556; Lorem ipsum dolor sit amet, \
+                   consectetur adipiscing elit. Duis volutpat \
+                   eros in gravida malesuada. Phasellus \
+                   lobortis maximus cur ... ]");
 }
 
 #[test]
@@ -38,5 +38,5 @@ pub fn test_short_string_invalid_ascii() {
 
     println!("{:?}", b);
 
-    assert_eq!(d.as_slice(), "Bytes[len=11; foo\\x00bar\\xFFbaz]");
+    assert_eq!(d, "Bytes[len=11; foo\\x00bar\\xFFbaz]");
 }

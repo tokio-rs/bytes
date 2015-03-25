@@ -163,7 +163,7 @@ impl ToBytes for Bytes {
 impl ops::Index<usize> for Bytes {
     type Output = u8;
 
-    fn index(&self, index: &usize) -> &u8 {
+    fn index(&self, index: usize) -> &u8 {
         self.obj().index(index)
     }
 }
@@ -212,7 +212,7 @@ trait ByteStrPriv {
 
     fn get_type_id(&self) -> TypeId;
 
-    fn index(&self, index: &usize) -> &u8;
+    fn index(&self, index: usize) -> &u8;
 
     fn len(&self) -> usize;
 
@@ -245,7 +245,7 @@ impl<B: ByteStr + 'static> ByteStrPriv for B {
         Any::get_type_id(self)
     }
 
-    fn index(&self, index: &usize) -> &u8 {
+    fn index(&self, index: usize) -> &u8 {
         ops::Index::index(self, index)
     }
 

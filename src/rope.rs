@@ -157,15 +157,15 @@ impl ToBytes for Rope {
 impl ops::Index<usize> for Rope {
     type Output = u8;
 
-    fn index(&self, index: &usize) -> &u8 {
-        assert!(*index < self.len());
+    fn index(&self, index: usize) -> &u8 {
+        assert!(index < self.len());
 
         let left_len = self.inner.left.len();
 
-        if *index < left_len {
+        if index < left_len {
             self.inner.left.index(index)
         } else {
-            self.inner.right.index(&(*index - left_len))
+            self.inner.right.index(index - left_len)
         }
     }
 }
@@ -556,7 +556,7 @@ impl Balance {
     }
 
     fn peek(&self) -> Option<&Bytes> {
-        self.stack.as_slice().last()
+        self.stack.last()
     }
 }
 

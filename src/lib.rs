@@ -1,7 +1,7 @@
 #![crate_name = "bytes"]
 #![unstable]
 
-#![feature(alloc, core, unsafe_no_drop_flag)]
+#![feature(alloc, convert, core, unsafe_no_drop_flag)]
 
 pub use byte_buf::{ByteBuf, ROByteBuf, MutByteBuf};
 pub use byte_str::{SeqByteStr, SmallByteStr, SmallByteStrBuf};
@@ -314,7 +314,7 @@ impl<'a> ToBytes for &'a [u8] {
 
 impl<'a> ToBytes for &'a Vec<u8> {
     fn to_bytes(self) -> Bytes {
-        self.as_slice().to_bytes()
+        (&self[..]).to_bytes()
     }
 }
 
@@ -407,7 +407,7 @@ impl<'a> Source for &'a Vec<u8> {
     type Error = BufError;
 
     fn fill<B: MutBuf>(self, buf: &mut B) -> Result<usize, BufError> {
-        Ok(buf.write_slice(self.as_slice()))
+        Ok(buf.write_slice(self.as_ref()))
     }
 }
 
