@@ -60,6 +60,9 @@ impl RingBuf {
     }
 
     fn advance_reader(&mut self, mut cnt: usize) {
+        if self.cap == 0 {
+            return;
+        }
         cnt = cmp::min(cnt, self.read_remaining());
 
         self.pos += cnt;
@@ -162,6 +165,9 @@ impl MutBuf for RingBuf {
     }
 
     fn mut_bytes(&mut self) -> &mut [u8] {
+        if self.cap == 0 {
+            return self.as_mut_slice();
+        }
         let mut from;
         let mut to;
 
