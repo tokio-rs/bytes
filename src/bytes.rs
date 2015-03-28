@@ -2,13 +2,13 @@ use {ByteBuf, SmallByteStr};
 use traits::{Buf, ByteStr, ToBytes};
 use std::{fmt, mem, ops, ptr};
 use std::any::{Any, TypeId};
+use std::marker::Reflect;
 use std::raw::TraitObject;
 use core::nonzero::NonZero;
 
 const INLINE: usize = 1;
 
 /// A specialized `ByteStr` box.
-#[unsafe_no_drop_flag]
 pub struct Bytes {
     vtable: NonZero<usize>,
     data: *mut (),
@@ -21,7 +21,7 @@ impl Bytes {
             .unwrap_or_else(|| ByteBuf::from_slice(bytes).to_bytes())
     }
 
-    pub fn of<B: ByteStr + 'static>(bytes: B) -> Bytes {
+    pub fn of<B: ByteStr>(bytes: B) -> Bytes {
         unsafe {
             if inline::<B>() {
                 let mut vtable;
@@ -61,7 +61,7 @@ impl Bytes {
 
     /// If the underlying `ByteStr` is of type `B`, returns a reference to it
     /// otherwise None.
-    pub fn downcast_ref<'a, B: ByteStr + 'static>(&'a self) -> Option<&'a B> {
+    pub fn downcast_ref<'a, B: ByteStr>(&'a self) -> Option<&'a B> {
         if TypeId::of::<B>() == self.obj().get_type_id() {
             unsafe {
                 if inline::<B>() {
@@ -77,7 +77,7 @@ impl Bytes {
 
     /// If the underlying `ByteStr` is of type `B`, returns the unwraped value,
     /// otherwise, returns the original `Bytes` as `Err`.
-    pub fn try_unwrap<B: ByteStr + 'static>(self) -> Result<B, Bytes> {
+    pub fn try_unwrap<B: ByteStr + Reflect>(self) -> Result<B, Bytes> {
         if TypeId::of::<B>() == self.obj().get_type_id() {
             unsafe {
                 // Underlying ByteStr value is of the correct type. Unwrap it
@@ -137,7 +137,7 @@ impl ByteStr for Bytes {
         self.obj().buf()
     }
 
-    fn concat<B: ByteStr+'static>(&self, other: &B) -> Bytes {
+    fn concat<B: ByteStr>(&self, other: &B) -> Bytes {
         self.obj().concat(&Bytes::of(other.clone()))
     }
 
@@ -182,13 +182,10 @@ impl Clone for Bytes {
 
 impl Drop for Bytes {
     fn drop(&mut self) {
-        if *self.vtable == 0 {
-            return;
-        }
-
         unsafe {
             if self.is_inline() {
-                self.obj_mut().drop();
+                let obj = self.obj_mut();
+                obj.drop();
             } else {
                 let _: Box<ByteStrPriv> =
                     mem::transmute(self.obj());
@@ -221,7 +218,7 @@ trait ByteStrPriv {
     fn split_at(&self, mid: usize) -> (Bytes, Bytes);
 }
 
-impl<B: ByteStr + 'static> ByteStrPriv for B {
+impl<B: ByteStr> ByteStrPriv for B {
 
     fn buf(&self) -> Box<Buf+'static> {
         Box::new(self.buf())
@@ -264,7 +261,8 @@ impl<B: ByteStr + 'static> ByteStrPriv for B {
 
 #[test]
 pub fn test_size_of() {
-    let expect = mem::size_of::<usize>() * 2;
+    // TODO: One day, there shouldn't be a drop flag
+    let expect = mem::size_of::<usize>() * 3;
 
     assert_eq!(expect, mem::size_of::<Bytes>());
     assert_eq!(expect, mem::size_of::<Option<Bytes>>());

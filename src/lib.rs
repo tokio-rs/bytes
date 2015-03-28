@@ -1,7 +1,7 @@
 #![crate_name = "bytes"]
 #![unstable]
 
-#![feature(alloc, convert, core, unsafe_no_drop_flag)]
+#![feature(alloc, convert, core)]
 
 pub use byte_buf::{ByteBuf, ROByteBuf, MutByteBuf};
 pub use byte_str::{SeqByteStr, SmallByteStr, SmallByteStrBuf};
@@ -11,6 +11,7 @@ pub use rope::{Rope, RopeBuf};
 pub use slice::{SliceBuf, MutSliceBuf};
 
 use std::{cmp, fmt, io, ops, ptr, u32};
+use std::marker::Reflect;
 
 extern crate core;
 
@@ -198,7 +199,7 @@ pub trait MutBufExt {
 /// An immutable sequence of bytes. Operations will not mutate the original
 /// value. Since only immutable access is permitted, operations do not require
 /// copying (though, sometimes copying will happen as an optimization).
-pub trait ByteStr : Clone + Sized + Send + Sync + ToBytes + ops::Index<usize, Output=u8> {
+pub trait ByteStr : Clone + Sized + Send + Sync + Reflect + ToBytes + ops::Index<usize, Output=u8> + 'static {
 
     // Until HKT lands, the buf must be bound by 'static
     type Buf: Buf+'static;
@@ -382,7 +383,7 @@ impl<'a> Sink for &'a mut Vec<u8> {
 
         unsafe {
             {
-                let dst = self.as_mut_slice();
+                let dst = &mut self[..];
                 let cnt = buf.read_slice(slice::from_raw_parts_mut(dst.as_mut_ptr(), rem));
 
                 debug_assert!(cnt == rem);
