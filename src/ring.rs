@@ -1,6 +1,7 @@
 use super::{Buf, MutBuf};
 use std::{cmp, fmt, mem, ptr, slice};
 use std::rt::heap;
+use std::io;
 
 /// Buf backed by a continous chunk of memory. Maintains a read cursor and a
 /// write cursor. When reads and writes reach the end of the allocated buffer,
@@ -181,6 +182,30 @@ impl MutBuf for RingBuf {
         }
 
         &mut self.as_mut_slice()[from..to]
+    }
+}
+
+impl io::Read for RingBuf {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        if !MutBuf::has_remaining(self) {
+            return Ok(0);
+        }
+
+        Ok(self.read_slice(buf))
+    }
+}
+
+impl io::Write for RingBuf {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        if !Buf::has_remaining(self) {
+            return Ok(0);
+        }
+
+        Ok(self.write_slice(buf))
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
     }
 }
 
