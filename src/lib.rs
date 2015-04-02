@@ -77,7 +77,7 @@ pub trait Buf {
                 cnt = cmp::min(src.len(), len - off);
 
                 ptr::copy_nonoverlapping(
-                    dst[off..].as_mut_ptr(), src.as_ptr(), cnt);
+                    src.as_ptr(), dst[off..].as_mut_ptr(), cnt);
 
                 off += src.len();
             }
@@ -159,7 +159,9 @@ pub trait MutBuf : Sized {
                 cnt = cmp::min(dst.len(), len - off);
 
                 ptr::copy_nonoverlapping(
-                    dst.as_mut_ptr(), src[off..].as_ptr(), cnt);
+                    src[off..].as_ptr(),
+                    dst.as_mut_ptr(),
+                    cnt);
 
                 off += cnt;
             }
@@ -429,8 +431,8 @@ impl<'a> Source for &'a Bytes {
 
                 unsafe {
                     ptr::copy_nonoverlapping(
-                        d.as_mut_ptr(),
                         s.as_ptr(),
+                        d.as_mut_ptr(),
                         l);
                 }
             }

@@ -148,7 +148,7 @@ impl SmallByteStr {
         };
 
         // Copy the memory
-        bytes::copy_memory(&mut ret.bytes, bytes);
+        bytes::copy_memory(bytes, &mut ret.bytes);
 
         Some(ret)
     }

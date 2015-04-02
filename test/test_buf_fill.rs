@@ -30,7 +30,9 @@ impl io::Read for Chunked {
         let src = self.chunks[0];
         let len = cmp::min(src.len(), dst.len());
 
-        bytes::copy_memory(&mut dst[..len], &src[..len]);
+        bytes::copy_memory(
+            &src[..len],
+            &mut dst[..len]);
 
         if len < src.len() {
             self.chunks[0] = &src[len..];
