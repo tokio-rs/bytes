@@ -254,40 +254,49 @@ pub trait ByteStr : Clone + Sized + Send + Sync + Reflect + ToBytes + ops::Index
     }
 }
 
-impl<B1: ByteStr, B2: ByteStr> cmp::PartialEq<B2> for B1 {
-    fn eq(&self, other: &B2) -> bool {
-        if self.len() != other.len() {
-            return false;
-        }
-
-        let mut buf1 = self.buf();
-        let mut buf2 = self.buf();
-
-        while buf1.has_remaining() {
-            let len;
-
-            {
-                let b1 = buf1.bytes();
-                let b2 = buf2.bytes();
-
-                len = cmp::min(b1.len(), b2.len());
-
-                if b1[..len] != b2[..len] {
+macro_rules! impl_parteq {
+    ($ty:ty) => {
+        impl<B: ByteStr> cmp::PartialEq<B> for $ty {
+            fn eq(&self, other: &B) -> bool {
+                if self.len() != other.len() {
                     return false;
                 }
+
+                let mut buf1 = self.buf();
+                let mut buf2 = self.buf();
+
+                while buf1.has_remaining() {
+                    let len;
+
+                    {
+                        let b1 = buf1.bytes();
+                        let b2 = buf2.bytes();
+
+                        len = cmp::min(b1.len(), b2.len());
+
+                        if b1[..len] != b2[..len] {
+                            return false;
+                        }
+                    }
+
+                    buf1.advance(len);
+                    buf2.advance(len);
+                }
+
+                true
             }
 
-            buf1.advance(len);
-            buf2.advance(len);
+            fn ne(&self, other: &B) -> bool {
+                return !self.eq(other)
+            }
         }
-
-        true
-    }
-
-    fn ne(&self, other: &B2) -> bool {
-        return !self.eq(other)
     }
 }
+
+impl_parteq!(SeqByteStr);
+impl_parteq!(SmallByteStr);
+impl_parteq!(Bytes);
+impl_parteq!(Rope);
 
 macro_rules! impl_eq {
     ($ty:ty) => {
@@ -549,7 +558,7 @@ impl_write!(MutByteBuf);
  *
  */
 
-#[derive(Copy, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub enum BufError {
     Underflow,
     Overflow,

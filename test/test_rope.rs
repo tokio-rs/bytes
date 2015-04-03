@@ -36,7 +36,7 @@ pub fn test_rope_round_trip() {
     let mut dst = vec![];
     rope.buf().read(&mut dst).unwrap();
 
-    assert_eq!(b"zomg", dst);
+    assert_eq!(b"zomg", &dst[..]);
 }
 
 #[test]
