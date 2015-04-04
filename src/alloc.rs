@@ -1,5 +1,5 @@
 use std::{mem, ptr};
-use std::rt::heap;
+use std::ops::DerefMut;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::usize;
 
@@ -52,13 +52,9 @@ impl MemRef {
     }
 
     pub fn bytes(&self) -> &[u8] {
-        use std::raw::Slice;
-
+        use std::slice;
         unsafe {
-            mem::transmute(Slice {
-                data: self.ptr(),
-                len: self.mem().len,
-            })
+            slice::from_raw_parts(self.ptr(), self.mem().len)
         }
     }
 
@@ -139,33 +135,30 @@ impl Heap {
             return MemRef::none();
         }
 
-        let alloc_len = len + mem::size_of::<Mem>();
+        let alloc_len = len +
+            mem::size_of::<Mem>() +
+            mem::size_of::<Vec<u8>>();
 
         unsafe {
-            // Attempt to allocate the memory
-            let ptr: *mut Mem = mem::transmute(
-                heap::allocate(alloc_len, mem::min_align_of::<u8>()));
+            let mut vec: Vec<u8> = Vec::with_capacity(alloc_len);
+            vec.set_len(alloc_len);
 
-            // If failed, return None
-            if ptr.is_null() {
-                return MemRef::none();
-            }
+            let ptr = vec.deref_mut().as_mut_ptr();
 
-            // Write the mem header
-            ptr::write(ptr, Mem::new(len, mem::transmute(self as &Allocator)));
+            ptr::write(ptr as *mut Vec<u8>, vec);
+
+            let ptr = ptr.offset(mem::size_of::<Vec<u8>>() as isize);
+            ptr::write(ptr as *mut Mem, Mem::new(len, mem::transmute(self as &Allocator)));
 
             // Return the info
-            MemRef::new(ptr)
+            MemRef::new(ptr as *mut Mem)
         }
     }
 
     pub fn deallocate(&self, mem: *mut Mem) {
         unsafe {
-            let m: &Mem = mem::transmute(mem);
-
-            heap::deallocate(
-                mem as *mut u8, m.len + mem::size_of::<Mem>(),
-                mem::min_align_of::<u8>())
+            let ptr = mem as *mut u8;
+            let _ = ptr::read(ptr.offset(-(mem::size_of::<Vec<u8>>() as isize)) as *const Vec<u8>);
         }
     }
 }

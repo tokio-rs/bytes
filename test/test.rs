@@ -1,5 +1,3 @@
-#![feature(core)]
-
 use rand::random;
 
 extern crate bytes;

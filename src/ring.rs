@@ -1,16 +1,14 @@
-use super::{Buf, MutBuf};
-use std::{cmp, fmt, mem, ptr, slice};
-use std::rt::heap;
-use std::io;
+use {alloc, Buf, MutBuf};
+use std::{cmp, fmt, io, ptr};
 
 /// Buf backed by a continous chunk of memory. Maintains a read cursor and a
 /// write cursor. When reads and writes reach the end of the allocated buffer,
 /// wraps around to the start.
 pub struct RingBuf {
-    ptr: *mut u8,  // Pointer to the memory
-    cap: usize,     // Capacity of the buffer
-    pos: usize,     // Offset of read cursor
-    len: usize      // Number of bytes to read
+    ptr: alloc::MemRef,  // Pointer to the memory
+    cap: usize,          // Capacity of the buffer
+    pos: usize,          // Offset of read cursor
+    len: usize           // Number of bytes to read
 }
 
 // TODO: There are most likely many optimizations that can be made
@@ -19,7 +17,7 @@ impl RingBuf {
         // Handle the 0 length buffer case
         if capacity == 0 {
             return RingBuf {
-                ptr: ptr::null_mut(),
+                ptr: alloc::MemRef::none(),
                 cap: 0,
                 pos: 0,
                 len: 0
@@ -29,11 +27,10 @@ impl RingBuf {
         // Round to the next power of 2 for better alignment
         capacity = capacity.next_power_of_two();
 
-        // Allocate the memory
-        let ptr = unsafe { heap::allocate(capacity, mem::min_align_of::<u8>()) };
+        let mem = alloc::HEAP.allocate(capacity as usize);
 
         RingBuf {
-            ptr: ptr as *mut u8,
+            ptr: mem,
             cap: capacity,
             pos: 0,
             len: 0
@@ -75,18 +72,6 @@ impl RingBuf {
         cnt = cmp::min(cnt, self.write_remaining());
         self.len += cnt;
     }
-
-    fn as_slice(&self) -> &[u8] {
-        unsafe {
-            slice::from_raw_parts(self.ptr as *const u8, self.cap)
-        }
-    }
-
-    fn as_mut_slice(&mut self) -> &mut [u8] {
-        unsafe {
-            slice::from_raw_parts_mut(self.ptr, self.cap)
-        }
-    }
 }
 
 impl Clone for RingBuf {
@@ -102,12 +87,12 @@ impl Clone for RingBuf {
             let to = self.pos + self.len;
 
             if to > self.cap {
-                ptr::copy(self.ptr as *const u8, ret.ptr, to % self.cap);
+                ptr::copy(self.ptr.ptr() as *const u8, ret.ptr.ptr(), to % self.cap);
             }
 
             ptr::copy(
-                self.ptr.offset(self.pos as isize) as *const u8,
-                ret.ptr.offset(self.pos as isize),
+                self.ptr.ptr().offset(self.pos as isize) as *const u8,
+                ret.ptr.ptr().offset(self.pos as isize),
                 cmp::min(self.len, self.cap - self.pos));
         }
 
@@ -124,16 +109,6 @@ impl fmt::Debug for RingBuf {
     }
 }
 
-impl Drop for RingBuf {
-    fn drop(&mut self) {
-        if self.cap > 0 {
-            unsafe {
-                heap::deallocate(self.ptr, self.cap, mem::min_align_of::<u8>())
-            }
-        }
-    }
-}
-
 impl Buf for RingBuf {
 
     fn remaining(&self) -> usize {
@@ -147,7 +122,7 @@ impl Buf for RingBuf {
             to = self.cap
         }
 
-        &self.as_slice()[self.pos .. to]
+        &self.ptr.bytes()[self.pos .. to]
     }
 
     fn advance(&mut self, cnt: usize) {
@@ -167,7 +142,7 @@ impl MutBuf for RingBuf {
 
     fn mut_bytes(&mut self) -> &mut [u8] {
         if self.cap == 0 {
-            return self.as_mut_slice();
+            return self.ptr.bytes_mut();
         }
         let mut from;
         let mut to;
@@ -181,7 +156,7 @@ impl MutBuf for RingBuf {
             to = self.cap;
         }
 
-        &mut self.as_mut_slice()[from..to]
+        &mut self.ptr.bytes_mut()[from..to]
     }
 }
 

@@ -2,15 +2,12 @@ use {ByteBuf, SmallByteStr};
 use traits::{Buf, ByteStr, ToBytes};
 use std::{fmt, mem, ops, ptr};
 use std::any::{Any, TypeId};
-use std::marker::Reflect;
-use std::raw::TraitObject;
-use core::nonzero::NonZero;
 
 const INLINE: usize = 1;
 
 /// A specialized `ByteStr` box.
 pub struct Bytes {
-    vtable: NonZero<usize>,
+    vtable: usize,
     data: *mut (),
 }
 
@@ -40,7 +37,7 @@ impl Bytes {
                 mem::forget(bytes);
 
                 Bytes {
-                    vtable: NonZero::new(vtable as usize | INLINE),
+                    vtable: vtable as usize | INLINE,
                     data: data,
                 }
             } else {
@@ -48,7 +45,7 @@ impl Bytes {
                 let obj: TraitObject = mem::transmute(obj);
 
                 Bytes {
-                    vtable: NonZero::new(obj.vtable as usize),
+                    vtable: obj.vtable as usize,
                     data: obj.data,
                 }
             }
@@ -77,7 +74,7 @@ impl Bytes {
 
     /// If the underlying `ByteStr` is of type `B`, returns the unwraped value,
     /// otherwise, returns the original `Bytes` as `Err`.
-    pub fn try_unwrap<B: ByteStr + Reflect>(self) -> Result<B, Bytes> {
+    pub fn try_unwrap<B: ByteStr>(self) -> Result<B, Bytes> {
         if TypeId::of::<B>() == self.obj().get_type_id() {
             unsafe {
                 // Underlying ByteStr value is of the correct type. Unwrap it
@@ -103,12 +100,12 @@ impl Bytes {
             let obj = if self.is_inline() {
                 TraitObject {
                     data: mem::transmute(&self.data),
-                    vtable: mem::transmute(*self.vtable - 1),
+                    vtable: mem::transmute(self.vtable - 1),
                 }
             } else {
                 TraitObject {
                     data: self.data,
-                    vtable: mem::transmute(*self.vtable),
+                    vtable: mem::transmute(self.vtable),
                 }
             };
 
@@ -121,12 +118,12 @@ impl Bytes {
     }
 
     fn is_inline(&self) -> bool {
-        (*self.vtable & INLINE) == INLINE
+        (self.vtable & INLINE) == INLINE
     }
 }
 
 fn inline<B: ByteStr>() -> bool {
-    mem::size_of::<B>() <= mem::size_of::<usize>()
+    mem::size_of::<B>() <= 2 * mem::size_of::<usize>()
 }
 
 impl ByteStr for Bytes {
@@ -239,7 +236,7 @@ impl<B: ByteStr> ByteStrPriv for B {
     }
 
     fn get_type_id(&self) -> TypeId {
-        Any::get_type_id(self)
+        TypeId::of::<B>()
     }
 
     fn index(&self, index: usize) -> &u8 {
@@ -259,11 +256,19 @@ impl<B: ByteStr> ByteStrPriv for B {
     }
 }
 
+// TODO: Figure out how to not depend on the memory layout of trait objects
+// Blocked: rust-lang/rust#24050
+struct TraitObject {
+    data: *mut (),
+    vtable: *mut (),
+}
+
 #[test]
 pub fn test_size_of() {
     // TODO: One day, there shouldn't be a drop flag
-    let expect = mem::size_of::<usize>() * 3;
+    let ptr_size = mem::size_of::<usize>();
+    let expect = ptr_size * 3;
 
     assert_eq!(expect, mem::size_of::<Bytes>());
-    assert_eq!(expect, mem::size_of::<Option<Bytes>>());
+    assert_eq!(expect + ptr_size, mem::size_of::<Option<Bytes>>());
 }

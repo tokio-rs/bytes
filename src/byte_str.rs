@@ -135,8 +135,7 @@ impl SmallByteStr {
     }
 
     pub fn from_slice(bytes: &[u8]) -> Option<SmallByteStr> {
-        use std::mem;
-        use std::slice::bytes;
+        use std::{mem, ptr};
 
         if bytes.len() > MAX_LEN {
             return None;
@@ -148,7 +147,12 @@ impl SmallByteStr {
         };
 
         // Copy the memory
-        bytes::copy_memory(bytes, &mut ret.bytes);
+        unsafe {
+            ptr::copy_nonoverlapping(
+                bytes.as_ptr(),
+                ret.bytes.as_mut_ptr(),
+                bytes.len());
+        }
 
         Some(ret)
     }

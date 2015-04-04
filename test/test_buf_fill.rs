@@ -20,8 +20,7 @@ struct Chunked {
 
 impl io::Read for Chunked {
     fn read(&mut self, dst: &mut [u8]) -> io::Result<usize> {
-        use std::cmp;
-        use std::slice::bytes;
+        use std::{cmp, ptr};
 
         if self.chunks.is_empty() {
             return Ok(0);
@@ -30,9 +29,12 @@ impl io::Read for Chunked {
         let src = self.chunks[0];
         let len = cmp::min(src.len(), dst.len());
 
-        bytes::copy_memory(
-            &src[..len],
-            &mut dst[..len]);
+        unsafe {
+            ptr::copy_nonoverlapping(
+                src[..len].as_ptr(),
+                dst[..len].as_mut_ptr(),
+                len);
+        }
 
         if len < src.len() {
             self.chunks[0] = &src[len..];
