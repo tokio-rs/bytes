@@ -258,6 +258,7 @@ impl<B: ByteStr> ByteStrPriv for B {
 
 // TODO: Figure out how to not depend on the memory layout of trait objects
 // Blocked: rust-lang/rust#24050
+#[repr(C)]
 struct TraitObject {
     data: *mut (),
     vtable: *mut (),
