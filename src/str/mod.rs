@@ -1,10 +1,12 @@
-mod byte_str;
 mod bytes;
 mod rope;
+mod seq;
+mod small;
 
-pub use self::byte_str::{SeqByteStr, SmallByteStr, SmallByteStrBuf};
 pub use self::bytes::Bytes;
 pub use self::rope::{Rope, RopeBuf};
+pub use self::seq::SeqByteStr;
+pub use self::small::{SmallByteStr, SmallByteStrBuf};
 
 use {Buf};
 use std::{cmp, fmt, ops};
