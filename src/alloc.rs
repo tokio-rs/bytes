@@ -125,7 +125,6 @@ impl Mem {
 
 pub static HEAP: Heap = Heap;
 
-#[allow(missing_copy_implementations)]
 pub struct Heap;
 
 impl Heap {
