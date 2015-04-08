@@ -162,7 +162,7 @@ impl MutBuf for RingBuf {
 
 impl io::Read for RingBuf {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        if !MutBuf::has_remaining(self) {
+        if !Buf::has_remaining(self) {
             return Ok(0);
         }
 
@@ -172,7 +172,7 @@ impl io::Read for RingBuf {
 
 impl io::Write for RingBuf {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        if !Buf::has_remaining(self) {
+        if !MutBuf::has_remaining(self) {
             return Ok(0);
         }
 
