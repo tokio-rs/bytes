@@ -4,13 +4,7 @@ use std::ops::DerefMut;
 
 const MAX_ALLOC_SIZE: usize = usize::MAX;
 
-pub fn allocate(len: usize) -> MemRef {
-    HEAP.allocate(len)
-}
-
 pub struct Heap;
-
-pub static HEAP: Heap = Heap;
 
 impl Heap {
     pub fn allocate(&self, len: usize) -> MemRef {

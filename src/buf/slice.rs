@@ -1,6 +1,8 @@
 use std::cmp;
 use {Buf, MutBuf};
 
+// TODO: Rename -> Cursor. Use as buf for various byte strings
+
 pub struct SliceBuf<'a> {
     bytes: &'a [u8],
     pos: usize

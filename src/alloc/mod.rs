@@ -1,5 +1,13 @@
+mod heap;
+
+pub use self::heap::{Heap};
+
 use std::{mem, ptr};
 use std::sync::atomic::{AtomicUsize, Ordering};
+
+pub fn heap(len: usize) -> MemRef {
+    Heap.allocate(len)
+}
 
 /// Allocates memory to be used by Bufs or Bytes. Allows allocating memory
 /// using alternate stratgies than the default Rust heap allocator. Also does
