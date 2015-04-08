@@ -1,4 +1,4 @@
-use {alloc, Bytes, SeqByteStr, MAX_CAPACITY};
+use {alloc, heap, Bytes, SeqByteStr, MAX_CAPACITY};
 use traits::{Buf, MutBuf, MutBufExt, ByteStr};
 use std::{cmp, ptr};
 
@@ -59,7 +59,7 @@ impl ByteBuf {
         capacity = capacity.next_power_of_two();
 
         // Allocate the memory
-        let mem = alloc::HEAP.allocate(capacity as usize);
+        let mem = heap::allocate(capacity as usize);
 
         // If the allocation failed, return a blank buf
         if mem.is_none() {

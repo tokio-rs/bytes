@@ -1,4 +1,4 @@
-use {alloc, Buf, MutBuf};
+use {alloc, heap, Buf, MutBuf};
 use std::{cmp, fmt, io, ptr};
 
 /// Buf backed by a continous chunk of memory. Maintains a read cursor and a
@@ -27,7 +27,7 @@ impl RingBuf {
         // Round to the next power of 2 for better alignment
         capacity = capacity.next_power_of_two();
 
-        let mem = alloc::HEAP.allocate(capacity as usize);
+        let mem = heap::allocate(capacity as usize);
 
         RingBuf {
             ptr: mem,

@@ -15,6 +15,7 @@ mod alloc;
 mod byte_buf;
 mod byte_str;
 mod bytes;
+mod heap;
 mod ring;
 mod rope;
 mod slice;
