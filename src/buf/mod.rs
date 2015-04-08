@@ -31,10 +31,7 @@ pub trait Buf {
 
     /// Read bytes from the `Buf` into the given slice and advance the cursor by
     /// the number of bytes read.
-    ///
-    /// If there are fewer bytes remaining than is needed to satisfy the
-    /// request (aka `dst.len()` > self.remaining()`), then
-    /// `Err(BufError::Overflow)` is returned.
+    /// Returns the number of bytes read.
     ///
     /// ```
     /// use bytes::{SliceBuf, Buf};
@@ -92,27 +89,24 @@ pub trait BufExt {
 /// A trait for values that provide sequential write access to bytes.
 pub trait MutBuf : Sized {
 
-    /// Returns the number of bytes that can be accessed from the Buf
+    /// Returns the number of bytes that can be written to the MutBuf
     fn remaining(&self) -> usize;
 
-    /// Advance the internal cursor of the Buf
+    /// Advance the internal cursor of the MutBuf
     fn advance(&mut self, cnt: usize);
 
-    /// Returns true if there are any more bytes to consume
+    /// Returns true iff there is any more space for bytes to be written
     fn has_remaining(&self) -> bool {
         self.remaining() > 0
     }
 
-    /// Returns a mutable slice starting at the current Buf position and of
-    /// length between 0 and `Buf::remaining()`.
+    /// Returns a mutable slice starting at the current MutBuf position and of
+    /// length between 0 and `MutBuf::remaining()`.
     fn mut_bytes<'a>(&'a mut self) -> &'a mut [u8];
 
-    /// Read bytes from this Buf into the given slice and advance the cursor by
-    /// the number of bytes read.
-    ///
-    /// If there are fewer bytes remaining than is needed to satisfy the
-    /// request (aka `dst.len()` > self.remaining()`), then
-    /// `Err(BufError::Overflow)` is returned.
+    /// Write bytes from the given slice into the `MutBuf` and advance the
+    /// cursor by the number of bytes written.
+    /// Returns the number of bytes written.
     ///
     /// ```
     /// use bytes::{MutSliceBuf, Buf, MutBuf};
