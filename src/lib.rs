@@ -3,8 +3,8 @@
 #![deny(warnings)]
 
 pub mod alloc;
-mod buf;
-mod str;
+pub mod buf;
+pub mod str;
 
 pub use buf::{
     Buf,
