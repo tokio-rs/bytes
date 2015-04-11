@@ -30,6 +30,10 @@ pub fn test_byte_buf_read_write() {
     let mut buf = buf.flip();
     let mut dst = [0; 5];
 
+    buf.mark();
+    assert_eq!(5, buf.read(&mut dst[..]).unwrap());
+    assert_eq!(b"hello", &dst);
+    buf.reset();
     assert_eq!(5, buf.read(&mut dst[..]).unwrap());
     assert_eq!(b"hello", &dst);
 

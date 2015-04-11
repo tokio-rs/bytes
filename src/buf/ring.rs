@@ -8,7 +8,8 @@ pub struct RingBuf {
     ptr: alloc::MemRef,  // Pointer to the memory
     cap: usize,          // Capacity of the buffer
     pos: usize,          // Offset of read cursor
-    len: usize           // Number of bytes to read
+    len: usize,          // Number of bytes to read
+    mark: Option<usize>, // Marked read position
 }
 
 // TODO: There are most likely many optimizations that can be made
@@ -20,7 +21,8 @@ impl RingBuf {
                 ptr: alloc::MemRef::none(),
                 cap: 0,
                 pos: 0,
-                len: 0
+                len: 0,
+                mark: None,
             }
         }
 
@@ -33,7 +35,8 @@ impl RingBuf {
             ptr: mem,
             cap: capacity,
             pos: 0,
-            len: 0
+            len: 0,
+            mark: None,
         }
     }
 
@@ -47,6 +50,29 @@ impl RingBuf {
 
     pub fn capacity(&self) -> usize {
         self.cap
+    }
+
+    /// Marks the current read location.
+    ///
+    /// Together with `reset`, this can be used to read from a section of the
+    /// buffer multiple times. The mark will be cleared if it is overwritten
+    /// during a write.
+    pub fn mark(&mut self) {
+        self.mark = Some(self.pos);
+    }
+
+    /// Resets the read position to the previously marked position.
+    ///
+    /// Together with `mark`, this can be used to read from a section of the
+    /// buffer multiple times.
+    ///
+    /// # Panics
+    ///
+    /// This method will panic if no mark has been set,
+    pub fn reset(&mut self){
+        let mark = self.mark.take().expect("no mark set");
+        self.len = (self.len + self.pos + self.cap - mark) % self.cap;
+        self.pos = mark;
     }
 
     fn read_remaining(&self) -> usize {
@@ -71,6 +97,11 @@ impl RingBuf {
     fn advance_writer(&mut self, mut cnt: usize) {
         cnt = cmp::min(cnt, self.write_remaining());
         self.len += cnt;
+        if let Some(mark) = self.mark {
+            if (self.pos + self.len) % self.cap > mark {
+                self.mark = None;
+            }
+        }
     }
 }
 

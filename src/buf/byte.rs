@@ -13,7 +13,8 @@ pub struct ByteBuf {
     mem: alloc::MemRef,
     cap: u32,
     pos: u32,
-    lim: u32
+    lim: u32,
+    mark: Option<u32>,
 }
 
 impl ByteBuf {
@@ -35,6 +36,7 @@ impl ByteBuf {
             cap: 0,
             pos: 0,
             lim: 0,
+            mark: None,
         }
     }
 
@@ -46,6 +48,7 @@ impl ByteBuf {
             cap: cap,
             pos: pos,
             lim: lim,
+            mark: None,
         }
     }
 
@@ -70,7 +73,8 @@ impl ByteBuf {
             mem: mem,
             cap: capacity,
             pos: 0,
-            lim: capacity
+            lim: capacity,
+            mark: None,
         }
     }
 
@@ -110,6 +114,27 @@ impl ByteBuf {
     #[inline]
     pub fn to_bytes(self) -> Bytes {
         Bytes::of(self.to_seq_byte_str())
+    }
+
+    /// Marks the current read location.
+    ///
+    /// Together with `reset`, this can be used to read from a section of the
+    /// buffer multiple times. The marked location will be cleared when the
+    /// buffer is flipped.
+    pub fn mark(&mut self) {
+        self.mark = Some(self.pos);
+    }
+
+    /// Resets the read position to the previously marked position.
+    ///
+    /// Together with `mark`, this can be used to read from a section of the
+    /// buffer multiple times.
+    ///
+    /// # Panics
+    ///
+    /// This method will panic if no mark has been set.
+    pub fn reset(&mut self) {
+        self.pos = self.mark.take().expect("no mark set");
     }
 
     #[inline]
@@ -176,6 +201,26 @@ impl ROByteBuf {
 
     pub fn to_bytes(self) -> Bytes {
         self.buf.to_bytes()
+    }
+
+    /// Marks the current read location.
+    ///
+    /// Together with `reset`, this can be used to read from a section of the
+    /// buffer multiple times.
+    pub fn mark(&mut self) {
+        self.buf.mark = Some(self.buf.pos);
+    }
+
+    /// Resets the read position to the previously marked position.
+    ///
+    /// Together with `mark`, this can be used to read from a section of the
+    /// buffer multiple times.
+    ///
+    /// # Panics
+    ///
+    /// This method will panic if no mark has been set.
+    pub fn reset(&mut self) {
+        self.buf.pos = self.buf.mark.take().expect("no mark set");
     }
 }
 
