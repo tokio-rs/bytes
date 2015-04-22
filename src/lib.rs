@@ -1,5 +1,4 @@
 #![crate_name = "bytes"]
-#![unstable]
 #![deny(warnings)]
 
 pub mod alloc;
