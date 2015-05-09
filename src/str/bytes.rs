@@ -97,24 +97,28 @@ impl Bytes {
 
     fn obj(&self) -> &ByteStrPriv {
         unsafe {
-            let obj = if self.is_inline() {
-                TraitObject {
-                    data: mem::transmute(&self.data),
-                    vtable: mem::transmute(self.vtable - 1),
-                }
-            } else {
-                TraitObject {
-                    data: self.data,
-                    vtable: mem::transmute(self.vtable),
-                }
-            };
-
-            mem::transmute(obj)
+            mem::transmute(self.to_trait_object())
         }
     }
 
     fn obj_mut(&mut self) -> &mut ByteStrPriv {
-        unsafe { mem::transmute(self.obj()) }
+        unsafe {
+            mem::transmute(self.to_trait_object())
+        }
+    }
+
+    unsafe fn to_trait_object(&self) -> TraitObject {
+        if self.is_inline() {
+            TraitObject {
+                data: mem::transmute(&self.data),
+                vtable: mem::transmute(self.vtable - 1),
+            }
+        } else {
+            TraitObject {
+                data: self.data,
+                vtable: mem::transmute(self.vtable),
+            }
+        }
     }
 
     fn is_inline(&self) -> bool {

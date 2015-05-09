@@ -64,7 +64,10 @@ impl MemRef {
 
     #[inline]
     pub fn bytes_mut(&mut self) -> &mut [u8] {
-        unsafe { mem::transmute(self.bytes()) }
+        use std::slice;
+        unsafe {
+            slice::from_raw_parts_mut(self.ptr(), self.mem().len)
+        }
     }
 
     #[inline]
