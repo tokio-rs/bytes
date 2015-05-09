@@ -74,7 +74,10 @@ pub fn test_rope_concat_two_byte_str() {
     assert_eq!(both.len(), TEST_BYTES_1.len() + TEST_BYTES_2.len());
 
     both.buf().read(&mut dst).unwrap();
-    assert_eq!(dst, TEST_BYTES_1.to_vec() + TEST_BYTES_2);
+    let mut expected = Vec::new();
+    expected.extend(TEST_BYTES_1.iter().cloned());
+    expected.extend(TEST_BYTES_2.iter().cloned());
+    assert_eq!(dst, expected);
 }
 
 #[test]
