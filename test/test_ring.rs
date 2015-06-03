@@ -89,3 +89,34 @@ fn test_wrap_reset() {
     buf.write(&[1, 2, 3, 4]).unwrap();
     buf.reset();
 }
+
+#[test]
+// Test that writes across a mark/reset are preserved.
+fn test_mark_write() {
+    use std::io::{Read, Write};
+
+    let mut buf = RingBuf::new(8);
+    buf.write(&[1, 2, 3, 4, 5, 6, 7]).unwrap();
+    buf.mark();
+    buf.write(&[8]).unwrap();
+    buf.reset();
+
+    let mut buf2 = [0; 8];
+    buf.read(&mut buf2).unwrap();
+    assert_eq!(buf2, [1, 2, 3, 4, 5, 6, 7, 8]);
+}
+
+#[test]
+// Test that "RingBuf::reset" does not reset the length of a
+// full buffer to zero.
+fn test_reset_full() {
+    use bytes::traits::MutBuf;
+    use std::io::Write;
+
+    let mut buf = RingBuf::new(8);
+    buf.write(&[1, 2, 3, 4, 5, 6, 7, 8]).unwrap();
+    assert_eq!(MutBuf::remaining(&buf), 0);
+    buf.mark();
+    buf.reset();
+    assert_eq!(MutBuf::remaining(&buf), 0);
+}
