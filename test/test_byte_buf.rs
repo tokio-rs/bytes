@@ -47,4 +47,13 @@ pub fn test_byte_buf_read_write() {
     let mut dst = [0; 7];
     assert_eq!(7, buf.read(&mut dst[..]).unwrap());
     assert_eq!(b"goodbye", &dst);
+
+    let mut buf = buf.resume();
+    assert_eq!(13, buf.remaining());
+
+    buf.write(&b" have fun"[..]).unwrap();
+    assert_eq!(4, buf.remaining());
+
+    let buf = buf.flip();
+    assert_eq!(buf.bytes(), b"hello world goodbye have fun");
 }

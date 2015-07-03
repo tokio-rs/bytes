@@ -88,6 +88,14 @@ impl ByteBuf {
         buf
     }
 
+    /// Flips the buffer back to mutable, resetting the write position
+    /// to the byte after the previous write.
+    pub fn resume(mut self) -> MutByteBuf {
+        self.pos = self.lim;
+        self.lim = self.cap;
+        MutByteBuf { buf: self }
+    }
+
     pub fn read_slice(&mut self, dst: &mut [u8]) -> usize {
         let len = cmp::min(dst.len(), self.remaining());
         let cnt = len as u32;
