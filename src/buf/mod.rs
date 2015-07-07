@@ -48,7 +48,7 @@ pub trait Buf {
         let len = cmp::min(dst.len(), self.remaining());
 
         while off < len {
-            let mut cnt;
+            let cnt;
 
             unsafe {
                 let src = self.bytes();
@@ -127,7 +127,7 @@ pub trait MutBuf : Sized {
         let len = cmp::min(src.len(), self.remaining());
 
         while off < len {
-            let mut cnt;
+            let cnt;
 
             unsafe {
                 let dst = self.mut_bytes();

@@ -21,8 +21,8 @@ impl Bytes {
     pub fn of<B: ByteStr>(bytes: B) -> Bytes {
         unsafe {
             if inline::<B>() {
-                let mut vtable;
-                let mut data;
+                let vtable;
+                let data;
 
                 {
                     let obj: &ByteStrPriv = &bytes;
@@ -78,7 +78,7 @@ impl Bytes {
         if TypeId::of::<B>() == self.obj().get_type_id() {
             unsafe {
                 // Underlying ByteStr value is of the correct type. Unwrap it
-                let mut ret;
+                let ret;
 
                 if inline::<B>() {
                     // The value is inline, read directly from the pointer
@@ -206,7 +206,7 @@ impl<'a> Source for &'a Bytes {
         let mut res = 0;
 
         while src.has_remaining() && dst.has_remaining() {
-            let mut l;
+            let l;
 
             {
                 let s = src.bytes();
