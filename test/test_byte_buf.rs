@@ -18,6 +18,18 @@ pub fn test_initial_buf_empty() {
 }
 
 #[test]
+pub fn test_byte_buf_bytes() {
+    let mut buf = ByteBuf::mut_with_capacity(32);
+    buf.write(&b"hello "[..]).unwrap();
+    assert_eq!(&b"hello "[..], buf.bytes());
+
+    buf.write(&b"world"[..]).unwrap();
+    assert_eq!(&b"hello world"[..], buf.bytes());
+    let buf = buf.flip();
+    assert_eq!(&b"hello world"[..], buf.bytes());
+}
+
+#[test]
 pub fn test_byte_buf_read_write() {
     let mut buf = ByteBuf::mut_with_capacity(32);
 

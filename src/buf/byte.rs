@@ -303,6 +303,10 @@ impl MutByteBuf {
             len as usize
         }
     }
+
+    pub fn bytes<'a>(&'a self) -> &'a [u8] {
+        &self.buf.mem.bytes()[..self.buf.pos()]
+    }
 }
 
 impl MutBuf for MutByteBuf {
