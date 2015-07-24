@@ -9,6 +9,9 @@ use std::{cmp, ptr};
  */
 
 /// A `Buf` backed by a contiguous region of memory.
+///
+/// This `Buf` is better suited for cases where there is a clear delineation
+/// between reading and writing.
 pub struct ByteBuf {
     mem: alloc::MemRef,
     cap: u32,

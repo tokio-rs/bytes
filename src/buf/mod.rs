@@ -9,7 +9,7 @@ pub use self::ring::RingBuf;
 pub use self::slice::{SliceBuf, MutSliceBuf};
 
 use {BufError, RopeBuf};
-use std::{cmp, fmt, io, ptr};
+use std::{cmp, fmt, io, ptr, usize};
 
 /// A trait for values that provide sequential read access to bytes.
 pub trait Buf {
@@ -309,6 +309,77 @@ impl Buf for Box<Buf+'static> {
 impl fmt::Debug for Box<Buf+'static> {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         write!(fmt, "Box<Buf> {{ remaining: {} }}", self.remaining())
+    }
+}
+
+impl Buf for io::Cursor<Vec<u8>> {
+    fn remaining(&self) -> usize {
+        self.get_ref().len() - self.position() as usize
+    }
+
+    fn bytes(&self) -> &[u8] {
+        let pos = self.position() as usize;
+        &(&self.get_ref())[pos..]
+    }
+
+    fn advance(&mut self, cnt: usize) {
+        let pos = self.position() as usize;
+        let pos = cmp::min(self.get_ref().len(), pos + cnt);
+        self.set_position(pos as u64);
+    }
+}
+
+impl MutBuf for Vec<u8> {
+    fn remaining(&self) -> usize {
+        usize::MAX - self.len()
+    }
+
+    fn advance(&mut self, cnt: usize) {
+        let len = self.len() + cnt;
+
+        if len > self.capacity() {
+            // Reserve additional
+            // TODO: Should this case panic?
+            let cap = self.capacity();
+            self.reserve(cap - len);
+        }
+
+        unsafe {
+            self.set_len(len);
+        }
+    }
+
+    fn mut_bytes(&mut self) -> &mut [u8] {
+        use std::slice;
+
+        if self.capacity() == self.len() {
+            self.reserve(64); // Grow the vec
+        }
+
+        let cap = self.capacity();
+        let len = self.len();
+
+        unsafe {
+            let ptr = self.as_mut_ptr();
+            &mut slice::from_raw_parts_mut(ptr, cap)[len..]
+        }
+    }
+}
+
+impl<'a> Buf for io::Cursor<&'a [u8]> {
+    fn remaining(&self) -> usize {
+        self.get_ref().len() - self.position() as usize
+    }
+
+    fn bytes(&self) -> &[u8] {
+        let pos = self.position() as usize;
+        &(&self.get_ref())[pos..]
+    }
+
+    fn advance(&mut self, cnt: usize) {
+        let pos = self.position() as usize;
+        let pos = cmp::min(self.get_ref().len(), pos + cnt);
+        self.set_position(pos as u64);
     }
 }
 

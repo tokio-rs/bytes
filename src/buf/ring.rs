@@ -9,6 +9,8 @@ enum Mark {
 /// Buf backed by a continous chunk of memory. Maintains a read cursor and a
 /// write cursor. When reads and writes reach the end of the allocated buffer,
 /// wraps around to the start.
+///
+/// This type is suited for use cases where reads and writes are intermixed.
 pub struct RingBuf {
     ptr: alloc::MemRef,  // Pointer to the memory
     cap: usize,          // Capacity of the buffer
@@ -19,6 +21,7 @@ pub struct RingBuf {
 
 // TODO: There are most likely many optimizations that can be made
 impl RingBuf {
+    /// Allocates a new `RingBuf` with the specified capacity.
     pub fn new(mut capacity: usize) -> RingBuf {
         // Handle the 0 length buffer case
         if capacity == 0 {
@@ -45,14 +48,17 @@ impl RingBuf {
         }
     }
 
+    /// Returns `true` if the buf cannot accept any further writes.
     pub fn is_full(&self) -> bool {
         self.cap == self.len
     }
 
+    /// Returns `true` if the buf cannot accept any further reads.
     pub fn is_empty(&self) -> bool {
         self.len == 0
     }
 
+    /// Returns the number of bytes that the buf can hold.
     pub fn capacity(&self) -> usize {
         self.cap
     }
@@ -85,10 +91,12 @@ impl RingBuf {
         }
     }
 
+    /// Returns the number of bytes remaining to read.
     fn read_remaining(&self) -> usize {
         self.len
     }
 
+    /// Returns the remaining write capacity until which the buf becomes full.
     fn write_remaining(&self) -> usize {
         self.cap - self.len
     }
