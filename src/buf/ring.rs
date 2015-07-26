@@ -196,7 +196,7 @@ impl MutBuf for RingBuf {
         self.advance_writer(cnt)
     }
 
-    fn mut_bytes(&mut self) -> &mut [u8] {
+    unsafe fn mut_bytes(&mut self) -> &mut [u8] {
         if self.cap == 0 {
             return self.ptr.bytes_mut();
         }

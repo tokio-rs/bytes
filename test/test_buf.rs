@@ -30,7 +30,10 @@ pub fn test_vec_as_mut_buf() {
     let mut buf = vec![];
 
     assert_eq!(buf.remaining(), usize::MAX);
-    assert_eq!(buf.mut_bytes().len(), 64);
+
+    unsafe {
+        assert_eq!(buf.mut_bytes().len(), 64);
+    }
 
     buf.write(&b"zomg"[..]).unwrap();
 

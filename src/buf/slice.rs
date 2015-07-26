@@ -53,7 +53,7 @@ impl<'a> MutBuf for MutSliceBuf<'a> {
         self.pos += cnt;
     }
 
-    fn mut_bytes<'b>(&'b mut self) -> &'b mut [u8] {
+    unsafe fn mut_bytes<'b>(&'b mut self) -> &'b mut [u8] {
         &mut self.bytes[self.pos..]
     }
 }

@@ -102,7 +102,9 @@ pub trait MutBuf : Sized {
 
     /// Returns a mutable slice starting at the current MutBuf position and of
     /// length between 0 and `MutBuf::remaining()`.
-    fn mut_bytes<'a>(&'a mut self) -> &'a mut [u8];
+    ///
+    /// The returned byte slice may represent uninitialized memory.
+    unsafe fn mut_bytes<'a>(&'a mut self) -> &'a mut [u8];
 
     /// Write bytes from the given slice into the `MutBuf` and advance the
     /// cursor by the number of bytes written.
@@ -268,7 +270,7 @@ impl<'a, R: io::Read+'a> Source for &'a mut R {
         let mut cnt = 0;
 
         while buf.has_remaining() {
-            let i = try!(self.read(buf.mut_bytes()));
+            let i = try!(self.read(unsafe { buf.mut_bytes() }));
 
             if i == 0 {
                 break;
@@ -349,7 +351,7 @@ impl MutBuf for Vec<u8> {
         }
     }
 
-    fn mut_bytes(&mut self) -> &mut [u8] {
+    unsafe fn mut_bytes(&mut self) -> &mut [u8] {
         use std::slice;
 
         if self.capacity() == self.len() {
@@ -359,10 +361,8 @@ impl MutBuf for Vec<u8> {
         let cap = self.capacity();
         let len = self.len();
 
-        unsafe {
-            let ptr = self.as_mut_ptr();
-            &mut slice::from_raw_parts_mut(ptr, cap)[len..]
-        }
+        let ptr = self.as_mut_ptr();
+        &mut slice::from_raw_parts_mut(ptr, cap)[len..]
     }
 }
 

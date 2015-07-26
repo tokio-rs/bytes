@@ -208,17 +208,15 @@ impl<'a> Source for &'a Bytes {
         while src.has_remaining() && dst.has_remaining() {
             let l;
 
-            {
+            unsafe {
                 let s = src.bytes();
                 let d = dst.mut_bytes();
                 l = cmp::min(s.len(), d.len());
 
-                unsafe {
-                    ptr::copy_nonoverlapping(
-                        s.as_ptr(),
-                        d.as_mut_ptr(),
-                        l);
-                }
+                ptr::copy_nonoverlapping(
+                    s.as_ptr(),
+                    d.as_mut_ptr(),
+                    l);
             }
 
             src.advance(l);

@@ -321,7 +321,7 @@ impl MutBuf for MutByteBuf {
         self.buf.advance(cnt)
     }
 
-    fn mut_bytes<'a>(&'a mut self) -> &'a mut [u8] {
+    unsafe fn mut_bytes<'a>(&'a mut self) -> &'a mut [u8] {
         let pos = self.buf.pos();
         let lim = self.buf.lim();
         &mut self.buf.mem.bytes_mut()[pos..lim]
