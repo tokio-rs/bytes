@@ -17,7 +17,8 @@ pub use buf::{
     SliceBuf,
     MutSliceBuf,
     Source,
-    Sink
+    Sink,
+    Take,
 };
 pub use str::{
     ByteStr,

@@ -3,10 +3,12 @@ mod ring;
 mod sink;
 mod slice;
 mod source;
+mod take;
 
 pub use self::byte::{ByteBuf, MutByteBuf, ROByteBuf};
 pub use self::ring::RingBuf;
 pub use self::slice::{SliceBuf, MutSliceBuf};
+pub use self::take::Take;
 
 use {BufError, RopeBuf};
 use std::{cmp, fmt, io, ptr, usize};
