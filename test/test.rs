@@ -5,6 +5,7 @@ extern crate rand;
 
 mod test_buf;
 mod test_buf_fill;
+mod test_buf_take;
 mod test_byte_buf;
 mod test_bytes;
 mod test_ring;
