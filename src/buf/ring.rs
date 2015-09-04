@@ -91,6 +91,13 @@ impl RingBuf {
         }
     }
 
+    /// Resets all internal state to the initial state.
+    pub fn clear(&mut self) {
+        self.pos = 0;
+        self.len = 0;
+        self.mark = Mark::NoMark;
+    }
+
     /// Returns the number of bytes remaining to read.
     fn read_remaining(&self) -> usize {
         self.len
