@@ -120,3 +120,19 @@ fn test_reset_full() {
     buf.reset();
     assert_eq!(MutBuf::remaining(&buf), 0);
 }
+
+
+#[test]
+// Test that "RingBuf::clear" does the full reset
+fn test_clear() {
+    use bytes::traits::{Buf, MutBuf};
+    use std::io::Write;
+
+    let mut buf = RingBuf::new(8);
+    buf.write(&[0; 8]).unwrap();
+    assert_eq!(MutBuf::remaining(&buf), 0);
+    assert_eq!(Buf::remaining(&buf), 8);
+    buf.clear();
+    assert_eq!(MutBuf::remaining(&buf), 8);
+    assert_eq!(Buf::remaining(&buf), 0);
+}
