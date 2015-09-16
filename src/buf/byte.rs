@@ -1,6 +1,6 @@
 use {alloc, Bytes, SeqByteStr, MAX_CAPACITY};
 use traits::{Buf, MutBuf, MutBufExt, ByteStr};
-use std::{cmp, ptr};
+use std::{cmp, fmt, ptr};
 
 /*
  *
@@ -188,6 +188,12 @@ impl Buf for ByteBuf {
     }
 }
 
+impl fmt::Debug for ByteBuf {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        self.bytes().fmt(fmt)
+    }
+}
+
 /*
  *
  * ===== ROByteBuf =====
@@ -251,6 +257,12 @@ impl Buf for ROByteBuf {
 
     fn read_slice(&mut self, dst: &mut [u8]) -> usize {
         self.buf.read_slice(dst)
+    }
+}
+
+impl fmt::Debug for ROByteBuf {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        self.bytes().fmt(fmt)
     }
 }
 
@@ -325,5 +337,11 @@ impl MutBuf for MutByteBuf {
         let pos = self.buf.pos();
         let lim = self.buf.lim();
         &mut self.buf.mem.bytes_mut()[pos..lim]
+    }
+}
+
+impl fmt::Debug for MutByteBuf {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        self.bytes().fmt(fmt)
     }
 }
