@@ -27,12 +27,12 @@ pub fn test_fresh_cursor_vec() {
 
 #[test]
 pub fn test_vec_as_mut_buf() {
-    let mut buf = vec![];
+    let mut buf = Vec::with_capacity(64);
 
     assert_eq!(buf.remaining(), usize::MAX);
 
     unsafe {
-        assert_eq!(buf.mut_bytes().len(), 64);
+        assert!(buf.mut_bytes().len() >= 64);
     }
 
     buf.write(&b"zomg"[..]).unwrap();
@@ -47,5 +47,4 @@ pub fn test_vec_as_mut_buf() {
     }
 
     assert_eq!(buf.len(), 68);
-    assert_eq!(buf.capacity(), 128);
 }
