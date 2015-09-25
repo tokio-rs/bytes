@@ -33,6 +33,13 @@ impl ByteBuf {
         MutByteBuf { buf: ByteBuf::new(capacity as u32) }
     }
 
+    pub fn mut_with_lim(lim: usize) -> MutByteBuf {
+        assert!(lim <= MAX_CAPACITY);
+        let mut buf = ByteBuf::new(lim as u32);
+        buf.lim = lim as u32;
+        MutByteBuf { buf: buf }
+    }
+
     pub fn none() -> ByteBuf {
         ByteBuf {
             mem: alloc::MemRef::none(),
@@ -154,7 +161,7 @@ impl ByteBuf {
     }
 
     #[inline]
-    fn lim(&self) -> usize {
+    pub fn lim(&self) -> usize {
         self.lim as usize
     }
 
