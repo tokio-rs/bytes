@@ -14,6 +14,7 @@ enum Mark {
 pub struct RingBuf {
     ptr: alloc::MemRef,  // Pointer to the memory
     cap: usize,          // Capacity of the buffer
+    cap_dec: usize,      // Capacity of the buffer - 1
     pos: usize,          // Offset of read cursor
     len: usize,          // Number of bytes to read
     mark: Mark,          // Marked read position
@@ -28,6 +29,7 @@ impl RingBuf {
             return RingBuf {
                 ptr: alloc::MemRef::none(),
                 cap: 0,
+                cap_dec: 0,
                 pos: 0,
                 len: 0,
                 mark: Mark::NoMark,
@@ -42,6 +44,7 @@ impl RingBuf {
         RingBuf {
             ptr: mem,
             cap: capacity,
+            cap_dec: capacity - 1,
             pos: 0,
             len: 0,
             mark: Mark::NoMark,
@@ -80,7 +83,7 @@ impl RingBuf {
     /// # Panics
     ///
     /// This method will panic if no mark has been set,
-    pub fn reset(&mut self){
+    pub fn reset(&mut self) {
         match self.mark {
             Mark::NoMark => panic!("no mark set"),
             Mark::At {pos, len} => {
@@ -89,6 +92,13 @@ impl RingBuf {
                 self.mark = Mark::NoMark;
             }
         }
+    }
+
+    /// Resets all internal state to the initial state.
+    pub fn clear(&mut self) {
+        self.pos = 0;
+        self.len = 0;
+        self.mark = Mark::NoMark;
     }
 
     /// Returns the number of bytes remaining to read.
@@ -108,7 +118,7 @@ impl RingBuf {
         cnt = cmp::min(cnt, self.read_remaining());
 
         self.pos += cnt;
-        self.pos %= self.cap;
+        self.pos &= self.cap_dec;
         self.len -= cnt;
     }
 
@@ -143,7 +153,7 @@ impl Clone for RingBuf {
             let to = self.pos + self.len;
 
             if to > self.cap {
-                ptr::copy(self.ptr.ptr() as *const u8, ret.ptr.ptr(), to % self.cap);
+                ptr::copy(self.ptr.ptr() as *const u8, ret.ptr.ptr(), to & self.cap_dec);
             }
 
             ptr::copy(
@@ -204,11 +214,11 @@ impl MutBuf for RingBuf {
         let mut to;
 
         from = self.pos + self.len;
-        from %= self.cap;
+        from &= self.cap_dec;
 
         to = from + <Self as MutBuf>::remaining(&self);
 
-        if to >= self.cap {
+        if to > self.cap {
             to = self.cap;
         }
 
