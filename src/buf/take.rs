@@ -1,5 +1,5 @@
 use buf::{Buf, MutBuf};
-use std::{cmp, io};
+use std::{cmp, io, ops};
 
 #[derive(Debug)]
 pub struct Take<T> {
@@ -75,5 +75,13 @@ impl<T: MutBuf> MutBuf for Take<T> {
         let cnt = cmp::min(cnt, self.limit);
         self.limit -= cnt;
         self.inner.advance(cnt);
+    }
+}
+
+impl <T> ops::Deref for Take<T> {
+    type Target = T;
+
+    fn deref(&self) -> &T {
+        &self.inner
     }
 }
