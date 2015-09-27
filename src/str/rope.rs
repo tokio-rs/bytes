@@ -1,4 +1,4 @@
-use {Bytes, ByteBuf, Source, BufError};
+use {Bytes, MutByteBuf, Source, BufError};
 use traits::{Buf, ByteStr, MutBuf, MutBufExt, ToBytes};
 use std::{cmp, mem, ops};
 use std::sync::Arc;
@@ -264,7 +264,7 @@ fn concat(left: Bytes, right: Bytes) -> Rope {
 }
 
 fn concat_bytes(left: &Bytes, right: &Bytes, len: usize) -> Rope {
-    let mut buf = ByteBuf::mut_with_capacity(len);
+    let mut buf = MutByteBuf::with_capacity(len);
 
     buf.write(left).ok().expect("unexpected error");
     buf.write(right).ok().expect("unexpected error");
