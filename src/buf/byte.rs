@@ -329,7 +329,7 @@ impl MutBuf for MutByteBuf {
         self.buf.remaining()
     }
 
-    fn advance(&mut self, cnt: usize) {
+    unsafe fn advance(&mut self, cnt: usize) {
         self.buf.advance(cnt)
     }
 

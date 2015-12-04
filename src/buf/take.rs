@@ -71,7 +71,7 @@ impl<T: MutBuf> MutBuf for Take<T> {
         &mut self.inner.mut_bytes()[..self.limit]
     }
 
-    fn advance(&mut self, cnt: usize) {
+    unsafe fn advance(&mut self, cnt: usize) {
         let cnt = cmp::min(cnt, self.limit);
         self.limit -= cnt;
         self.inner.advance(cnt);

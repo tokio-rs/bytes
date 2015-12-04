@@ -48,7 +48,7 @@ impl<'a> MutBuf for MutSliceBuf<'a> {
         self.bytes.len() - self.pos
     }
 
-    fn advance(&mut self, mut cnt: usize) {
+    unsafe fn advance(&mut self, mut cnt: usize) {
         cnt = cmp::min(cnt, self.remaining());
         self.pos += cnt;
     }

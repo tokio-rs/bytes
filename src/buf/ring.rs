@@ -199,7 +199,7 @@ impl MutBuf for RingBuf {
         self.write_remaining()
     }
 
-    fn advance(&mut self, cnt: usize) {
+    unsafe fn advance(&mut self, cnt: usize) {
         self.advance_writer(cnt)
     }
 

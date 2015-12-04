@@ -95,7 +95,7 @@ pub trait MutBuf : Sized {
     fn remaining(&self) -> usize;
 
     /// Advance the internal cursor of the MutBuf
-    fn advance(&mut self, cnt: usize);
+    unsafe fn advance(&mut self, cnt: usize);
 
     /// Returns true iff there is any more space for bytes to be written
     fn has_remaining(&self) -> bool {
@@ -143,9 +143,10 @@ pub trait MutBuf : Sized {
                     cnt);
 
                 off += cnt;
+
             }
 
-            self.advance(cnt);
+            unsafe { self.advance(cnt); }
         }
 
         len
@@ -278,7 +279,7 @@ impl<'a, R: io::Read+'a> Source for &'a mut R {
                 break;
             }
 
-            buf.advance(i);
+            unsafe { buf.advance(i); }
             cnt += i;
         }
 
@@ -338,7 +339,7 @@ impl MutBuf for Vec<u8> {
         usize::MAX - self.len()
     }
 
-    fn advance(&mut self, cnt: usize) {
+    unsafe fn advance(&mut self, cnt: usize) {
         let len = self.len() + cnt;
 
         if len > self.capacity() {
@@ -348,9 +349,7 @@ impl MutBuf for Vec<u8> {
             self.reserve(cap - len);
         }
 
-        unsafe {
-            self.set_len(len);
-        }
+        self.set_len(len);
     }
 
     unsafe fn mut_bytes(&mut self) -> &mut [u8] {

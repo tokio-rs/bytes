@@ -220,7 +220,7 @@ impl<'a> Source for &'a Bytes {
             }
 
             src.advance(l);
-            dst.advance(l);
+            unsafe { dst.advance(l); }
 
             res += l;
         }
