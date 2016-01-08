@@ -1,4 +1,4 @@
-use {alloc, ByteBuf, MutBufExt, ByteStr, ROByteBuf, Rope, Bytes, ToBytes};
+use {alloc, MutByteBuf, MutBufExt, ByteStr, ROByteBuf, Rope, Bytes, ToBytes};
 use std::ops;
 
 pub struct SeqByteStr {
@@ -12,7 +12,7 @@ impl SeqByteStr {
     ///
     /// The contents of the byte slice will be copied.
     pub fn from_slice(bytes: &[u8]) -> SeqByteStr {
-        let mut buf = ByteBuf::mut_with_capacity(bytes.len());
+        let mut buf = MutByteBuf::with_capacity(bytes.len());
 
         if let Err(e) = buf.write(bytes) {
             panic!("failed to copy bytes from slice; err={:?}", e);

@@ -1,9 +1,9 @@
-use bytes::ByteBuf;
+use bytes::MutByteBuf;
 use bytes::traits::*;
 
 #[test]
 pub fn test_initial_buf_empty() {
-    let buf = ByteBuf::mut_with_capacity(100);
+    let buf = MutByteBuf::with_capacity(100);
 
     assert!(buf.capacity() == 128);
     assert!(buf.remaining() == 128);
@@ -19,7 +19,7 @@ pub fn test_initial_buf_empty() {
 
 #[test]
 pub fn test_byte_buf_bytes() {
-    let mut buf = ByteBuf::mut_with_capacity(32);
+    let mut buf = MutByteBuf::with_capacity(32);
     buf.write(&b"hello "[..]).unwrap();
     assert_eq!(&b"hello "[..], buf.bytes());
 
@@ -31,7 +31,7 @@ pub fn test_byte_buf_bytes() {
 
 #[test]
 pub fn test_byte_buf_read_write() {
-    let mut buf = ByteBuf::mut_with_capacity(32);
+    let mut buf = MutByteBuf::with_capacity(32);
 
     buf.write(&b"hello world"[..]).unwrap();
     assert_eq!(21, buf.remaining());

@@ -23,14 +23,9 @@ pub struct ByteBuf {
 impl ByteBuf {
     /// Create a new `ByteBuf` by copying the contents of the given slice.
     pub fn from_slice(bytes: &[u8]) -> ByteBuf {
-        let mut buf = ByteBuf::mut_with_capacity(bytes.len());
+        let mut buf = MutByteBuf::with_capacity(bytes.len());
         buf.write(bytes).ok().expect("unexpected failure");
         buf.flip()
-    }
-
-    pub fn mut_with_capacity(capacity: usize) -> MutByteBuf {
-        assert!(capacity <= MAX_CAPACITY);
-        MutByteBuf { buf: ByteBuf::new(capacity as u32) }
     }
 
     pub fn none() -> ByteBuf {
@@ -277,6 +272,11 @@ pub struct MutByteBuf {
 }
 
 impl MutByteBuf {
+    pub fn with_capacity(capacity: usize) -> MutByteBuf {
+        assert!(capacity <= MAX_CAPACITY);
+        MutByteBuf { buf: ByteBuf::new(capacity as u32) }
+    }
+
     pub fn capacity(&self) -> usize {
         self.buf.capacity() as usize
     }
