@@ -10,7 +10,7 @@ pub fn test_slice_round_trip() {
     let s = SmallByteStr::from_slice(&src).unwrap();
     assert_eq!(3, s.len());
 
-    s.buf().read(&mut dst).unwrap();
+    s.buf().copy_to(&mut dst).unwrap();
     assert_eq!(dst, src);
 }
 

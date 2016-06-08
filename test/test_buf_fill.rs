@@ -2,12 +2,12 @@ use bytes::*;
 use std::io;
 
 #[test]
-pub fn test_filling_buf_from_reader() {
+pub fn test_readijng_buf_from_reader() {
     let mut reader = chunks(vec![b"foo", b"bar", b"baz"]);
     let mut buf = ByteBuf::mut_with_capacity(1024);
 
-    assert_eq!(9, buf.write(&mut reader).unwrap());
-    assert_eq!(b"foobarbaz".to_bytes(), buf.flip().to_bytes());
+    assert_eq!(3, reader.read_buf(&mut buf).unwrap());
+    assert_eq!(b"foo".to_bytes(), buf.flip().to_bytes());
 }
 
 fn chunks(chunks: Vec<&'static [u8]>) -> Chunked {

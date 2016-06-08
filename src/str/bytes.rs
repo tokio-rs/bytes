@@ -1,7 +1,7 @@
-use {ByteBuf, MutBuf, SmallByteStr, Source, BufError};
+use {ByteBuf, SmallByteStr};
 use traits::{Buf, ByteStr, ToBytes};
-use std::{cmp, fmt, mem, ops, ptr};
-use std::any::{Any, TypeId};
+use std::{fmt, mem, ops, ptr};
+use std::any::{TypeId};
 
 const INLINE: usize = 1;
 
@@ -197,37 +197,6 @@ impl Drop for Bytes {
 
 unsafe impl Send for Bytes { }
 unsafe impl Sync for Bytes { }
-
-impl<'a> Source for &'a Bytes {
-    type Error = BufError;
-
-    fn fill<B: MutBuf>(self, dst: &mut B) -> Result<usize, BufError> {
-        let mut src = ByteStr::buf(self);
-        let mut res = 0;
-
-        while src.has_remaining() && dst.has_remaining() {
-            let l;
-
-            unsafe {
-                let s = src.bytes();
-                let d = dst.mut_bytes();
-                l = cmp::min(s.len(), d.len());
-
-                ptr::copy_nonoverlapping(
-                    s.as_ptr(),
-                    d.as_mut_ptr(),
-                    l);
-            }
-
-            src.advance(l);
-            unsafe { dst.advance(l); }
-
-            res += l;
-        }
-
-        Ok(res)
-    }
-}
 
 trait ByteStrPriv {
 

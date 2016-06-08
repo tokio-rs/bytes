@@ -34,7 +34,7 @@ pub fn test_rope_round_trip() {
     assert_eq!(4, rope.len());
 
     let mut dst = vec![];
-    rope.buf().read(&mut dst).unwrap();
+    rope.buf().copy_to(&mut dst).unwrap();
 
     assert_eq!(b"zomg", &dst[..]);
 }
@@ -46,19 +46,19 @@ pub fn test_rope_slice() {
     let bytes = Rope::from_slice(TEST_BYTES_1);
     assert_eq!(TEST_BYTES_1.len(), bytes.len());
 
-    bytes.buf().read(&mut dst).unwrap();
+    bytes.buf().copy_to(&mut dst).unwrap();
     assert_eq!(dst, TEST_BYTES_1);
 
     let left = bytes.slice_to(250);
     assert_eq!(250, left.len());
 
-    left.buf().read(&mut dst).unwrap();
+    left.buf().copy_to(&mut dst).unwrap();
     assert_eq!(dst, &TEST_BYTES_1[..250]);
 
     let right = bytes.slice_from(250);
     assert_eq!(TEST_BYTES_1.len() - 250, right.len());
 
-    right.buf().read(&mut dst).unwrap();
+    right.buf().copy_to(&mut dst).unwrap();
     assert_eq!(dst, &TEST_BYTES_1[250..]);
 }
 
@@ -73,7 +73,7 @@ pub fn test_rope_concat_two_byte_str() {
 
     assert_eq!(both.len(), TEST_BYTES_1.len() + TEST_BYTES_2.len());
 
-    both.buf().read(&mut dst).unwrap();
+    both.buf().copy_to(&mut dst).unwrap();
     let mut expected = Vec::new();
     expected.extend(TEST_BYTES_1.iter().cloned());
     expected.extend(TEST_BYTES_2.iter().cloned());

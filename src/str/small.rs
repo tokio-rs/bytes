@@ -1,5 +1,5 @@
 use {Bytes, Rope};
-use traits::{Buf, MutBuf, ByteStr, ToBytes};
+use traits::{Buf, ByteStr, ToBytes};
 use std::{cmp, ops};
 
 /*

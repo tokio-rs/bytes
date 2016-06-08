@@ -10,7 +10,7 @@ pub use self::ring::RingBuf;
 pub use self::slice::{SliceBuf, MutSliceBuf};
 pub use self::take::Take;
 
-use {BufError, RopeBuf};
+use {BufError, ByteStr, RopeBuf};
 use std::{cmp, fmt, io, ptr, usize};
 
 /// A trait for values that provide sequential read access to bytes.
@@ -29,6 +29,11 @@ pub trait Buf {
     /// Returns true if there are any more bytes to consume
     fn has_remaining(&self) -> bool {
         self.remaining() > 0
+    }
+
+    fn copy_to<S: Sink>(&mut self, dst: S) -> Result<usize, BufError>
+            where Self: Sized {
+        dst.copy_from(self)
     }
 
     /// Read bytes from the `Buf` into the given slice and advance the cursor by
@@ -80,14 +85,6 @@ pub trait Buf {
     }
 }
 
-/// An extension trait providing extra functions applicable to all `Buf` values.
-pub trait BufExt {
-
-    /// Read bytes from this Buf into the given sink and advance the cursor by
-    /// the number of bytes read.
-    fn read<S: Sink>(&mut self, dst: S) -> Result<usize, S::Error>;
-}
-
 /// A trait for values that provide sequential write access to bytes.
 pub trait MutBuf : Sized {
 
@@ -107,6 +104,11 @@ pub trait MutBuf : Sized {
     ///
     /// The returned byte slice may represent uninitialized memory.
     unsafe fn mut_bytes<'a>(&'a mut self) -> &'a mut [u8];
+
+    fn copy_from<S: Source>(&mut self, src: S) -> Result<usize, BufError>
+            where Self: Sized {
+        src.copy_to(self)
+    }
 
     /// Write bytes from the given slice into the `MutBuf` and advance the
     /// cursor by the number of bytes written.
@@ -151,43 +153,6 @@ pub trait MutBuf : Sized {
 
         len
     }
-
-    /// Write a single byte to the `MuBuf`
-    fn write_byte(&mut self, byte: u8) -> bool {
-        let src = [byte];
-
-        if self.write_slice(&src) == 0 {
-            return false;
-        }
-
-        true
-    }
-}
-
-/// An extension trait providing extra functions applicable to all `MutBuf` values.
-pub trait MutBufExt {
-
-    /// Write bytes from the given source into the current `MutBuf` and advance
-    /// the cursor by the number of bytes written.
-    fn write<S: Source>(&mut self, src: S) -> Result<usize, S::Error>;
-}
-
-/*
- *
- * ===== *Ext impls =====
- *
- */
-
-impl<B: Buf> BufExt for B {
-    fn read<S: Sink>(&mut self, dst: S) -> Result<usize, S::Error> {
-        dst.sink(self)
-    }
-}
-
-impl<B: MutBuf> MutBufExt for B {
-    fn write<S: Source>(&mut self, src: S) -> Result<usize, S::Error> {
-        src.fill(self)
-    }
 }
 
 /*
@@ -196,32 +161,66 @@ impl<B: MutBuf> MutBufExt for B {
  *
  */
 
-/// A value that reads bytes from a Buf into itself
-pub trait Sink {
-    type Error;
-
-    fn sink<B: Buf>(self, buf: &mut B) -> Result<usize, Self::Error>;
-}
 
 /// A value that writes bytes from itself into a `MutBuf`.
 pub trait Source {
-    type Error;
+    fn copy_to<B: MutBuf>(self, buf: &mut B) -> Result<usize, BufError>;
+}
 
-    fn fill<B: MutBuf>(self, buf: &mut B) -> Result<usize, Self::Error>;
+impl<'a> Source for &'a [u8] {
+    fn copy_to<B: MutBuf>(self, buf: &mut B) -> Result<usize, BufError> {
+        Ok(buf.write_slice(self))
+    }
+}
+
+impl Source for u8 {
+    fn copy_to<B: MutBuf>(self, buf: &mut B) -> Result<usize, BufError> {
+        let src = [self];
+        Ok(buf.write_slice(&src))
+    }
+}
+
+impl<'a, T: ByteStr> Source for &'a T {
+    fn copy_to<B: MutBuf>(self, buf: &mut B) -> Result<usize, BufError> {
+        let mut src = ByteStr::buf(self);
+        let mut res = 0;
+
+        while src.has_remaining() && buf.has_remaining() {
+            let l;
+
+            unsafe {
+                let s = src.bytes();
+                let d = buf.mut_bytes();
+                l = cmp::min(s.len(), d.len());
+
+                ptr::copy_nonoverlapping(
+                    s.as_ptr(),
+                    d.as_mut_ptr(),
+                    l);
+            }
+
+            src.advance(l);
+            unsafe { buf.advance(l); }
+
+            res += l;
+        }
+
+        Ok(res)
+    }
+}
+
+pub trait Sink {
+    fn copy_from<B: Buf>(self, buf: &mut B) -> Result<usize, BufError>;
 }
 
 impl<'a> Sink for &'a mut [u8] {
-    type Error = BufError;
-
-    fn sink<B: Buf>(self, buf: &mut B) -> Result<usize, BufError> {
+    fn copy_from<B: Buf>(self, buf: &mut B) -> Result<usize, BufError> {
         Ok(buf.read_slice(self))
     }
 }
 
 impl<'a> Sink for &'a mut Vec<u8> {
-    type Error = BufError;
-
-    fn sink<B: Buf>(self, buf: &mut B) -> Result<usize, BufError> {
+    fn copy_from<B: Buf>(self, buf: &mut B) -> Result<usize, BufError> {
         use std::slice;
 
         self.clear();
@@ -249,41 +248,44 @@ impl<'a> Sink for &'a mut Vec<u8> {
     }
 }
 
-impl<'a> Source for &'a [u8] {
-    type Error = BufError;
+/*
+ *
+ * ===== Read / Write =====
+ *
+ */
 
-    fn fill<B: MutBuf>(self, buf: &mut B) -> Result<usize, BufError> {
-        Ok(buf.write_slice(self))
-    }
+pub trait ReadExt {
+    fn read_buf<B: MutBuf>(&mut self, buf: &mut B) -> io::Result<usize>;
 }
 
-impl<'a> Source for &'a Vec<u8> {
-    type Error = BufError;
-
-    fn fill<B: MutBuf>(self, buf: &mut B) -> Result<usize, BufError> {
-        Ok(buf.write_slice(self.as_ref()))
-    }
-}
-
-
-impl<'a, R: io::Read+'a> Source for &'a mut R {
-    type Error = io::Error;
-
-    fn fill<B: MutBuf>(self, buf: &mut B) -> Result<usize, io::Error> {
-        let mut cnt = 0;
-
-        while buf.has_remaining() {
-            let i = try!(self.read(unsafe { buf.mut_bytes() }));
-
-            if i == 0 {
-                break;
-            }
-
-            unsafe { buf.advance(i); }
-            cnt += i;
+impl<T: io::Read> ReadExt for T {
+    fn read_buf<B: MutBuf>(&mut self, buf: &mut B) -> io::Result<usize> {
+        if !buf.has_remaining() {
+            return Ok(0);
         }
 
-        Ok(cnt)
+        unsafe {
+            let i = try!(self.read(buf.mut_bytes()));
+
+            buf.advance(i);
+            Ok(i)
+        }
+    }
+}
+
+pub trait WriteExt {
+    fn write_buf<B: Buf>(&mut self, buf: &mut B) -> io::Result<usize>;
+}
+
+impl<T: io::Write> WriteExt for T {
+    fn write_buf<B: Buf>(&mut self, buf: &mut B) -> io::Result<usize> {
+        if !buf.has_remaining() {
+            return Ok(0);
+        }
+
+        let i = try!(self.write(buf.bytes()));
+        buf.advance(i);
+        Ok(i)
     }
 }
 

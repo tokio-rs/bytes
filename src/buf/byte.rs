@@ -1,5 +1,4 @@
-use {alloc, Bytes, SeqByteStr, MAX_CAPACITY};
-use traits::{Buf, MutBuf, MutBufExt, ByteStr};
+use {alloc, Buf, Bytes, MutBuf, SeqByteStr, MAX_CAPACITY};
 use std::{cmp, fmt, ptr};
 
 /*
@@ -24,7 +23,7 @@ impl ByteBuf {
     /// Create a new `ByteBuf` by copying the contents of the given slice.
     pub fn from_slice(bytes: &[u8]) -> ByteBuf {
         let mut buf = ByteBuf::mut_with_capacity(bytes.len());
-        buf.write(bytes).ok().expect("unexpected failure");
+        buf.write_slice(bytes);
         buf.flip()
     }
 

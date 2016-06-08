@@ -7,18 +7,16 @@ pub mod str;
 
 pub use buf::{
     Buf,
-    BufExt,
     MutBuf,
-    MutBufExt,
     ByteBuf,
     MutByteBuf,
     RingBuf,
     ROByteBuf,
     SliceBuf,
     MutSliceBuf,
-    Source,
-    Sink,
     Take,
+    ReadExt,
+    WriteExt,
 };
 pub use str::{
     ByteStr,
@@ -35,7 +33,7 @@ use std::u32;
 
 pub mod traits {
     //! All traits are re-exported here to allow glob imports.
-    pub use {Buf, BufExt, MutBuf, MutBufExt, ByteStr, ToBytes};
+    pub use {Buf, MutBuf, ByteStr, ToBytes};
 }
 
 const MAX_CAPACITY: usize = u32::MAX as usize;

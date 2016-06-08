@@ -1,5 +1,5 @@
 use {alloc, Buf, MutBuf};
-use std::{cmp, fmt, io, ptr};
+use std::{cmp, fmt, ptr};
 
 enum Mark {
     NoMark,
@@ -220,30 +220,6 @@ impl MutBuf for RingBuf {
         }
 
         &mut self.ptr.bytes_mut()[from..to]
-    }
-}
-
-impl io::Read for RingBuf {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        if !Buf::has_remaining(self) {
-            return Ok(0);
-        }
-
-        Ok(self.read_slice(buf))
-    }
-}
-
-impl io::Write for RingBuf {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        if !MutBuf::has_remaining(self) {
-            return Ok(0);
-        }
-
-        Ok(self.write_slice(buf))
-    }
-
-    fn flush(&mut self) -> io::Result<()> {
-        Ok(())
     }
 }
 

@@ -1,4 +1,4 @@
-use bytes::{Buf, MutBuf, MutBufExt};
+use bytes::{Buf, MutBuf};
 use std::usize;
 use std::io::{Cursor};
 
@@ -35,7 +35,7 @@ pub fn test_vec_as_mut_buf() {
         assert!(buf.mut_bytes().len() >= 64);
     }
 
-    buf.write(&b"zomg"[..]).unwrap();
+    buf.copy_from(&b"zomg"[..]).unwrap();
 
     assert_eq!(&buf, b"zomg");
 
@@ -43,7 +43,7 @@ pub fn test_vec_as_mut_buf() {
     assert_eq!(buf.capacity(), 64);
 
     for _ in 0..16 {
-        buf.write(&b"zomg"[..]).unwrap();
+        buf.copy_from(&b"zomg"[..]).unwrap();
     }
 
     assert_eq!(buf.len(), 68);
