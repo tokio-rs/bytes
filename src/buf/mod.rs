@@ -295,7 +295,7 @@ impl<T: io::Write> WriteExt for T {
  *
  */
 
-impl Buf for Box<Buf+'static> {
+impl Buf for Box<Buf+Send+'static> {
     fn remaining(&self) -> usize {
         (**self).remaining()
     }
@@ -313,7 +313,7 @@ impl Buf for Box<Buf+'static> {
     }
 }
 
-impl fmt::Debug for Box<Buf+'static> {
+impl fmt::Debug for Box<Buf+Send+'static> {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         write!(fmt, "Box<Buf> {{ remaining: {} }}", self.remaining())
     }
@@ -409,7 +409,7 @@ macro_rules! impl_read {
 impl_read!(ByteBuf);
 impl_read!(ROByteBuf);
 impl_read!(RopeBuf);
-impl_read!(Box<Buf+'static>);
+impl_read!(Box<Buf+Send+'static>);
 
 macro_rules! impl_write {
     ($ty:ty) => {

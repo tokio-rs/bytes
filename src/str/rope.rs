@@ -294,7 +294,7 @@ pub struct RopeBuf {
     // escape (which it shouldn't) it is safe. Doing this properly would
     // require HKT.
     pieces: PieceIter<'static>,
-    leaf_buf: Option<Box<Buf+'static>>,
+    leaf_buf: Option<Box<Buf+Send+'static>>,
 }
 
 impl RopeBuf {

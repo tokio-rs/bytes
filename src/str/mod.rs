@@ -18,7 +18,7 @@ use std::any::Any;
 pub trait ByteStr : Clone + Sized + Send + Sync + Any + ToBytes + ops::Index<usize, Output=u8> + 'static {
 
     // Until HKT lands, the buf must be bound by 'static
-    type Buf: Buf+'static;
+    type Buf: Buf+Send+'static;
 
     /// Returns a read-only `Buf` for accessing the byte contents of the
     /// `ByteStr`.

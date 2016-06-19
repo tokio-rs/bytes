@@ -132,9 +132,9 @@ fn inline<B: ByteStr>() -> bool {
 
 impl ByteStr for Bytes {
 
-    type Buf = Box<Buf+'static>;
+    type Buf = Box<Buf+Send+'static>;
 
-    fn buf(&self) -> Box<Buf+'static> {
+    fn buf(&self) -> Box<Buf+Send+'static> {
         self.obj().buf()
     }
 
@@ -200,7 +200,7 @@ unsafe impl Sync for Bytes { }
 
 trait ByteStrPriv {
 
-    fn buf(&self) -> Box<Buf+'static>;
+    fn buf(&self) -> Box<Buf+Send+'static>;
 
     fn clone(&self) -> Bytes;
 
@@ -221,7 +221,7 @@ trait ByteStrPriv {
 
 impl<B: ByteStr> ByteStrPriv for B {
 
-    fn buf(&self) -> Box<Buf+'static> {
+    fn buf(&self) -> Box<Buf+Send+'static> {
         Box::new(self.buf())
     }
 
