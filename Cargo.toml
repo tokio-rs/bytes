@@ -1,7 +1,7 @@
 [package]
 
 name          = "bytes"
-version       = "0.3.0"
+version       = "0.4.0-dev"
 license       = "MIT"
 authors       = ["Carl Lerche <me@carllerche.com>"]
 description   = "Types and traits for working with bytes"
