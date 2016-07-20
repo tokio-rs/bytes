@@ -1,5 +1,5 @@
 use {alloc, Buf, Bytes, MutBuf, SeqByteStr, MAX_CAPACITY};
-use std::{cmp, fmt, ptr};
+use std::{cmp, fmt};
 
 /*
  *
@@ -101,13 +101,9 @@ impl ByteBuf {
     pub fn read_slice(&mut self, dst: &mut [u8]) -> usize {
         let len = cmp::min(dst.len(), self.remaining());
         let cnt = len as u32;
+        let pos = self.pos as usize;
 
-        unsafe {
-            ptr::copy_nonoverlapping(
-                self.mem.ptr().offset(self.pos as isize),
-                dst.as_mut_ptr(),
-                len);
-        }
+        dst[0..len].copy_from_slice(&self.mem.bytes()[pos..pos+len]);
 
         self.pos += cnt;
         len
@@ -295,27 +291,15 @@ impl MutByteBuf {
 
     #[inline]
     pub fn write_slice(&mut self, src: &[u8]) -> usize {
-        let cnt = src.len() as u32;
-        let rem = self.buf.remaining_u32();
+        let cnt = cmp::min(src.len(), self.buf.remaining());
+        let pos = self.buf.pos as usize;
 
-        if rem < cnt {
-            self.write_ptr(src.as_ptr(), rem)
-        } else {
-            self.write_ptr(src.as_ptr(), cnt)
-        }
-    }
+        self.buf.mem.bytes_mut()[pos..pos+cnt]
+            .copy_from_slice(&src[0..cnt]);
 
-    #[inline]
-    fn write_ptr(&mut self, src: *const u8, len: u32) -> usize {
-        unsafe {
-            ptr::copy_nonoverlapping(
-                src,
-                self.buf.mem.ptr().offset(self.buf.pos as isize),
-                len as usize);
+        self.buf.pos += cnt as u32;
 
-            self.buf.pos += len;
-            len as usize
-        }
+        cnt
     }
 
     pub fn bytes<'a>(&'a self) -> &'a [u8] {

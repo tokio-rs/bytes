@@ -1,5 +1,5 @@
 use {alloc, Buf, MutBuf};
-use std::{cmp, fmt, ptr};
+use std::{cmp, fmt};
 
 enum Mark {
     NoMark,
@@ -135,35 +135,6 @@ impl RingBuf {
             }
         }
     }
-}
-
-impl Clone for RingBuf {
-    fn clone(&self) -> RingBuf {
-        use std::cmp;
-
-        let mut ret = RingBuf::new(self.cap);
-
-        ret.pos = self.pos;
-        ret.len = self.len;
-
-        unsafe {
-            let to = self.pos + self.len;
-
-            if to > self.cap {
-                ptr::copy(self.ptr.ptr() as *const u8, ret.ptr.ptr(), to % self.cap);
-            }
-
-            ptr::copy(
-                self.ptr.ptr().offset(self.pos as isize) as *const u8,
-                ret.ptr.ptr().offset(self.pos as isize),
-                cmp::min(self.len, self.cap - self.pos));
-        }
-
-        ret
-    }
-
-    // TODO: an improved version of clone_from is possible that potentially
-    // re-uses the buffer
 }
 
 impl fmt::Debug for RingBuf {

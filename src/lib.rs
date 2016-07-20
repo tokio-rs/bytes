@@ -1,6 +1,8 @@
 #![crate_name = "bytes"]
 #![deny(warnings)]
 
+extern crate stable_heap;
+
 pub mod alloc;
 pub mod buf;
 pub mod str;

@@ -81,11 +81,7 @@ impl ops::Index<usize> for SeqByteStr {
 
     fn index(&self, index: usize) -> &u8 {
         assert!(index < self.len());
-
-        unsafe {
-            &*self.mem.ptr()
-                .offset(index as isize + self.pos as isize)
-        }
+        self.mem.bytes().index(index + self.pos as usize)
     }
 }
 
