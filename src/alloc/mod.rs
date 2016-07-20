@@ -1,4 +1,5 @@
 mod heap;
+mod pool;
 
 pub use self::heap::Heap;
 pub use self::pool::Pool;

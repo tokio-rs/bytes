@@ -2,12 +2,14 @@ use rand::random;
 
 extern crate bytes;
 extern crate rand;
+extern crate byteorder;
 
 mod test_buf;
 mod test_buf_fill;
 mod test_buf_take;
 mod test_byte_buf;
 mod test_bytes;
+mod test_pool;
 mod test_ring;
 mod test_rope;
 mod test_seq_byte_str;
