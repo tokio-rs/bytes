@@ -305,6 +305,11 @@ impl MutByteBuf {
     pub fn bytes<'a>(&'a self) -> &'a [u8] {
         &self.buf.mem.bytes()[..self.buf.pos()]
     }
+
+    pub fn mut_bytes<'a>(&'a mut self) -> &'a mut [u8] {
+        let len = self.buf.pos();
+        &mut self.buf.mem.bytes_mut()[..len]
+    }
 }
 
 impl MutBuf for MutByteBuf {
