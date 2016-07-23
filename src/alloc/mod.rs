@@ -49,20 +49,15 @@ impl MemRef {
     }
 
     #[inline]
-    pub fn bytes(&self) -> &[u8] {
+    pub unsafe fn bytes(&self) -> &[u8] {
         use std::slice;
-
-        unsafe {
-            slice::from_raw_parts(self.bytes_ptr(), self.len())
-        }
+        slice::from_raw_parts(self.bytes_ptr(), self.len())
     }
 
     #[inline]
-    pub fn bytes_mut(&mut self) -> &mut [u8] {
+    pub unsafe fn bytes_mut(&mut self) -> &mut [u8] {
         use std::slice;
-        unsafe {
-            slice::from_raw_parts_mut(self.bytes_ptr(), self.len())
-        }
+        slice::from_raw_parts_mut(self.bytes_ptr(), self.len())
     }
 
     #[inline]

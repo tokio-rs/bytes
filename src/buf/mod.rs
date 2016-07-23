@@ -1,3 +1,4 @@
+mod append;
 mod byte;
 mod ring;
 mod sink;
@@ -5,6 +6,7 @@ mod slice;
 mod source;
 mod take;
 
+pub use self::append::AppendBuf;
 pub use self::byte::{ByteBuf, MutByteBuf, ROByteBuf};
 pub use self::ring::RingBuf;
 pub use self::slice::{SliceBuf, MutSliceBuf};

@@ -103,7 +103,9 @@ impl ByteBuf {
         let cnt = len as u32;
         let pos = self.pos as usize;
 
-        dst[0..len].copy_from_slice(&self.mem.bytes()[pos..pos+len]);
+        unsafe {
+            dst[0..len].copy_from_slice(&self.mem.bytes()[pos..pos+len]);
+        }
 
         self.pos += cnt;
         len
@@ -168,7 +170,7 @@ impl Buf for ByteBuf {
 
     #[inline]
     fn bytes<'a>(&'a self) -> &'a [u8] {
-        &self.mem.bytes()[self.pos()..self.lim()]
+        unsafe { &self.mem.bytes()[self.pos()..self.lim()] }
     }
 
     #[inline]
@@ -294,8 +296,10 @@ impl MutByteBuf {
         let cnt = cmp::min(src.len(), self.buf.remaining());
         let pos = self.buf.pos as usize;
 
-        self.buf.mem.bytes_mut()[pos..pos+cnt]
-            .copy_from_slice(&src[0..cnt]);
+        unsafe {
+            self.buf.mem.bytes_mut()[pos..pos+cnt]
+                .copy_from_slice(&src[0..cnt]);
+        }
 
         self.buf.pos += cnt as u32;
 
@@ -303,7 +307,7 @@ impl MutByteBuf {
     }
 
     pub fn bytes<'a>(&'a self) -> &'a [u8] {
-        &self.buf.mem.bytes()[..self.buf.pos()]
+        unsafe { &self.buf.mem.bytes()[..self.buf.pos()] }
     }
 }
 

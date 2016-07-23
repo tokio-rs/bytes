@@ -156,7 +156,7 @@ impl Buf for RingBuf {
             to = self.cap
         }
 
-        &self.ptr.bytes()[self.pos .. to]
+        unsafe { &self.ptr.bytes()[self.pos .. to] }
     }
 
     fn advance(&mut self, cnt: usize) {

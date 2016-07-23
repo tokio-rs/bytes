@@ -4,6 +4,7 @@ extern crate bytes;
 extern crate rand;
 extern crate byteorder;
 
+mod test_append;
 mod test_buf;
 mod test_buf_fill;
 mod test_buf_take;
