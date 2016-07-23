@@ -1,5 +1,5 @@
 use super::{Mem, MemRef};
-use buf::{ByteBuf, MutByteBuf};
+use buf::{AppendBuf, ByteBuf, MutByteBuf};
 use stable_heap as heap;
 use std::{mem, ptr, isize, usize};
 use std::cell::{Cell, UnsafeCell};
@@ -90,6 +90,11 @@ impl Pool {
             let buf = unsafe { ByteBuf::from_mem_ref(mem, len, 0, len) };
             buf.flip()
         })
+    }
+
+    pub fn new_append_buf(&self) -> Option<AppendBuf> {
+        let len = self.inner.buf_len as u32;
+        self.checkout().map(|mem| unsafe { AppendBuf::from_mem_ref(mem, len, 0) })
     }
 
     fn checkout(&self) -> Option<MemRef> {
