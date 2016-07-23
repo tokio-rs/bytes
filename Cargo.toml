@@ -19,7 +19,7 @@ exclude       = [
 ]
 
 [dependencies]
-stable-heap = "0.1.0"
+stable-heap = { git = "https://github.com/carllerche/stable-heap", rev = "3c5cd1ca47" }
 
 [dev-dependencies]
 rand = "0.3.5"
