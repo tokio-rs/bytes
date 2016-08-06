@@ -14,8 +14,6 @@ pub use buf::{
     MutByteBuf,
     RingBuf,
     ROByteBuf,
-    SliceBuf,
-    MutSliceBuf,
     Take,
     ReadExt,
     WriteExt,

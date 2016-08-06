@@ -2,14 +2,12 @@ mod append;
 mod byte;
 mod ring;
 mod sink;
-mod slice;
 mod source;
 mod take;
 
 pub use self::append::AppendBuf;
 pub use self::byte::{ByteBuf, MutByteBuf, ROByteBuf};
 pub use self::ring::RingBuf;
-pub use self::slice::{SliceBuf, MutSliceBuf};
 pub use self::take::Take;
 
 use {ByteStr, RopeBuf};
@@ -43,9 +41,10 @@ pub trait Buf {
     /// Returns the number of bytes read.
     ///
     /// ```
-    /// use bytes::{SliceBuf, Buf};
+    /// use std::io::Cursor;
+    /// use bytes::Buf;
     ///
-    /// let mut buf = SliceBuf::wrap(b"hello world");
+    /// let mut buf = Cursor::new(b"hello world");
     /// let mut dst = [0; 5];
     ///
     /// buf.read_slice(&mut dst);
@@ -117,12 +116,13 @@ pub trait MutBuf : Sized {
     /// Returns the number of bytes written.
     ///
     /// ```
-    /// use bytes::{MutSliceBuf, Buf, MutBuf};
+    /// use bytes::MutBuf;
+    /// use std::io::Cursor;
     ///
     /// let mut dst = [0; 6];
     ///
     /// {
-    ///     let mut buf = MutSliceBuf::wrap(&mut dst);
+    ///     let mut buf = Cursor::new(&mut dst);
     ///     buf.write_slice(b"hello");
     ///
     ///     assert_eq!(1, buf.remaining());
