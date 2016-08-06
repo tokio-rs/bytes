@@ -1,9 +1,10 @@
-use bytes::{Buf, MutBuf};
 use std::usize;
 use std::io::{Cursor};
 
 #[test]
 pub fn test_fresh_cursor_vec() {
+    use bytes::Buf;
+
     let mut buf = Cursor::new(b"hello".to_vec());
 
     assert_eq!(buf.remaining(), 5);
@@ -27,6 +28,8 @@ pub fn test_fresh_cursor_vec() {
 
 #[test]
 pub fn test_vec_as_mut_buf() {
+    use bytes::MutBuf;
+
     let mut buf = Vec::with_capacity(64);
 
     assert_eq!(buf.remaining(), usize::MAX);

@@ -321,20 +321,43 @@ impl fmt::Debug for Box<Buf+Send+'static> {
     }
 }
 
-impl Buf for io::Cursor<Vec<u8>> {
+impl<T: AsRef<[u8]>> Buf for io::Cursor<T> {
     fn remaining(&self) -> usize {
-        self.get_ref().len() - self.position() as usize
+        self.get_ref().as_ref().len() - self.position() as usize
     }
 
     fn bytes(&self) -> &[u8] {
         let pos = self.position() as usize;
-        &(&self.get_ref())[pos..]
+        &(self.get_ref().as_ref())[pos..]
     }
 
     fn advance(&mut self, cnt: usize) {
         let pos = self.position() as usize;
-        let pos = cmp::min(self.get_ref().len(), pos + cnt);
+        let pos = cmp::min(self.get_ref().as_ref().len(), pos + cnt);
         self.set_position(pos as u64);
+    }
+}
+
+impl<T: AsMut<[u8]> + AsRef<[u8]>> MutBuf for io::Cursor<T> {
+
+    fn remaining(&self) -> usize {
+        self.get_ref().as_ref().len() - self.position() as usize
+    }
+
+    /// Advance the internal cursor of the MutBuf
+    unsafe fn advance(&mut self, cnt: usize) {
+        let pos = self.position() as usize;
+        let pos = cmp::min(self.get_mut().as_mut().len(), pos + cnt);
+        self.set_position(pos as u64);
+    }
+
+    /// Returns a mutable slice starting at the current MutBuf position and of
+    /// length between 0 and `MutBuf::remaining()`.
+    ///
+    /// The returned byte slice may represent uninitialized memory.
+    unsafe fn mut_bytes<'a>(&'a mut self) -> &'a mut [u8] {
+        let pos = self.position() as usize;
+        &mut (self.get_mut().as_mut())[pos..]
     }
 }
 
@@ -368,23 +391,6 @@ impl MutBuf for Vec<u8> {
 
         let ptr = self.as_mut_ptr();
         &mut slice::from_raw_parts_mut(ptr, cap)[len..]
-    }
-}
-
-impl<'a> Buf for io::Cursor<&'a [u8]> {
-    fn remaining(&self) -> usize {
-        self.get_ref().len() - self.position() as usize
-    }
-
-    fn bytes(&self) -> &[u8] {
-        let pos = self.position() as usize;
-        &(&self.get_ref())[pos..]
-    }
-
-    fn advance(&mut self, cnt: usize) {
-        let pos = self.position() as usize;
-        let pos = cmp::min(self.get_ref().len(), pos + cnt);
-        self.set_position(pos as u64);
     }
 }
 
