@@ -13,11 +13,7 @@ impl SeqByteStr {
     /// The contents of the byte slice will be copied.
     pub fn from_slice(bytes: &[u8]) -> SeqByteStr {
         let mut buf = ByteBuf::mut_with_capacity(bytes.len());
-
-        if let Err(e) = buf.copy_from(bytes) {
-            panic!("failed to copy bytes from slice; err={:?}", e);
-        }
-
+        buf.copy_from(bytes);
         buf.flip().to_seq_byte_str()
     }
 

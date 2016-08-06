@@ -34,16 +34,3 @@ pub use str::{
 use std::u32;
 
 const MAX_CAPACITY: usize = u32::MAX as usize;
-
-
-/*
- *
- * ===== BufError  =====
- *
- */
-
-#[derive(Copy, Clone, Debug)]
-pub enum BufError {
-    Underflow,
-    Overflow,
-}

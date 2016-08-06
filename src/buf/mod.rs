@@ -12,7 +12,7 @@ pub use self::ring::RingBuf;
 pub use self::slice::{SliceBuf, MutSliceBuf};
 pub use self::take::Take;
 
-use {BufError, ByteStr, RopeBuf};
+use {ByteStr, RopeBuf};
 use std::{cmp, fmt, io, ptr, usize};
 
 /// A trait for values that provide sequential read access to bytes.
@@ -33,7 +33,7 @@ pub trait Buf {
         self.remaining() > 0
     }
 
-    fn copy_to<S: Sink>(&mut self, dst: S) -> Result<usize, BufError>
+    fn copy_to<S: Sink>(&mut self, dst: S) -> usize
             where Self: Sized {
         dst.copy_from(self)
     }
@@ -107,7 +107,7 @@ pub trait MutBuf : Sized {
     /// The returned byte slice may represent uninitialized memory.
     unsafe fn mut_bytes<'a>(&'a mut self) -> &'a mut [u8];
 
-    fn copy_from<S: Source>(&mut self, src: S) -> Result<usize, BufError>
+    fn copy_from<S: Source>(&mut self, src: S) -> usize
             where Self: Sized {
         src.copy_to(self)
     }
@@ -166,24 +166,24 @@ pub trait MutBuf : Sized {
 
 /// A value that writes bytes from itself into a `MutBuf`.
 pub trait Source {
-    fn copy_to<B: MutBuf>(self, buf: &mut B) -> Result<usize, BufError>;
+    fn copy_to<B: MutBuf>(self, buf: &mut B) -> usize;
 }
 
 impl<'a> Source for &'a [u8] {
-    fn copy_to<B: MutBuf>(self, buf: &mut B) -> Result<usize, BufError> {
-        Ok(buf.write_slice(self))
+    fn copy_to<B: MutBuf>(self, buf: &mut B) -> usize {
+        buf.write_slice(self)
     }
 }
 
 impl Source for u8 {
-    fn copy_to<B: MutBuf>(self, buf: &mut B) -> Result<usize, BufError> {
+    fn copy_to<B: MutBuf>(self, buf: &mut B) -> usize {
         let src = [self];
-        Ok(buf.write_slice(&src))
+        buf.write_slice(&src)
     }
 }
 
 impl<'a, T: ByteStr> Source for &'a T {
-    fn copy_to<B: MutBuf>(self, buf: &mut B) -> Result<usize, BufError> {
+    fn copy_to<B: MutBuf>(self, buf: &mut B) -> usize {
         let mut src = ByteStr::buf(self);
         let mut res = 0;
 
@@ -207,22 +207,22 @@ impl<'a, T: ByteStr> Source for &'a T {
             res += l;
         }
 
-        Ok(res)
+        res
     }
 }
 
 pub trait Sink {
-    fn copy_from<B: Buf>(self, buf: &mut B) -> Result<usize, BufError>;
+    fn copy_from<B: Buf>(self, buf: &mut B) -> usize;
 }
 
 impl<'a> Sink for &'a mut [u8] {
-    fn copy_from<B: Buf>(self, buf: &mut B) -> Result<usize, BufError> {
-        Ok(buf.read_slice(self))
+    fn copy_from<B: Buf>(self, buf: &mut B) -> usize {
+        buf.read_slice(self)
     }
 }
 
 impl<'a> Sink for &'a mut Vec<u8> {
-    fn copy_from<B: Buf>(self, buf: &mut B) -> Result<usize, BufError> {
+    fn copy_from<B: Buf>(self, buf: &mut B) -> usize {
         use std::slice;
 
         self.clear();
@@ -246,7 +246,7 @@ impl<'a> Sink for &'a mut Vec<u8> {
             self.set_len(rem);
         }
 
-        Ok(rem)
+        rem
     }
 }
 

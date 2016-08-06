@@ -26,7 +26,7 @@ fn test_pool_with_one_capacity() {
 
     let mut dst = vec![];
 
-    buf.copy_to(&mut dst).unwrap();
+    buf.copy_to(&mut dst);
 
     assert_eq!(&dst[..], b"Hello World");
 

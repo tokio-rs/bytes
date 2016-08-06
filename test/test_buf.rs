@@ -35,7 +35,7 @@ pub fn test_vec_as_mut_buf() {
         assert!(buf.mut_bytes().len() >= 64);
     }
 
-    buf.copy_from(&b"zomg"[..]).unwrap();
+    buf.copy_from(&b"zomg"[..]);
 
     assert_eq!(&buf, b"zomg");
 
@@ -43,7 +43,7 @@ pub fn test_vec_as_mut_buf() {
     assert_eq!(buf.capacity(), 64);
 
     for _ in 0..16 {
-        buf.copy_from(&b"zomg"[..]).unwrap();
+        buf.copy_from(&b"zomg"[..]);
     }
 
     assert_eq!(buf.len(), 68);

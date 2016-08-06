@@ -259,8 +259,8 @@ fn concat(left: Bytes, right: Bytes) -> Rope {
 fn concat_bytes(left: &Bytes, right: &Bytes, len: usize) -> Rope {
     let mut buf = ByteBuf::mut_with_capacity(len);
 
-    buf.copy_from(left).ok().expect("unexpected error");
-    buf.copy_from(right).ok().expect("unexpected error");
+    buf.copy_from(left);
+    buf.copy_from(right);
 
     return Rope::of(buf.flip().to_bytes());
 }

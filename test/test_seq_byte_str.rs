@@ -9,7 +9,7 @@ pub fn test_slice_round_trip() {
     let s = SeqByteStr::from_slice(&src);
     assert_eq!(2000, s.len());
 
-    s.buf().copy_to(&mut dst).unwrap();
+    s.buf().copy_to(&mut dst);
     assert_eq!(dst, src);
 }
 

@@ -17,7 +17,7 @@ pub fn test_initial_buf_empty() {
         assert_eq!(buf.bytes(), b"hello world");
 
         let view1 = buf.slice(0, 11);
-        view1.buf().copy_to(&mut dst).unwrap();
+        view1.buf().copy_to(&mut dst);
 
         assert_eq!(dst, b"hello world");
         assert_eq!(view1, buf.slice(0, 11));
@@ -47,7 +47,7 @@ pub fn test_append_buf_from_pool() {
         assert_eq!(buf.bytes(), b"hello world");
 
         let view1 = buf.slice(0, 11);
-        view1.buf().copy_to(&mut dst).unwrap();
+        view1.buf().copy_to(&mut dst);
 
         assert_eq!(dst, b"hello world");
         assert_eq!(view1, buf.slice(0, 11));
