@@ -1,5 +1,6 @@
 use {Bytes, ByteBuf};
-use traits::{Buf, ByteStr, MutBuf, ToBytes};
+use buf::{Buf, MutBuf};
+use str::{ByteStr, ToBytes};
 use std::{cmp, mem, ops};
 use std::sync::Arc;
 

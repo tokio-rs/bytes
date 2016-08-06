@@ -1,5 +1,4 @@
-use bytes::SmallByteStr;
-use bytes::traits::*;
+use bytes::{ByteStr, Buf, SmallByteStr};
 use super::gen_bytes;
 
 #[test]

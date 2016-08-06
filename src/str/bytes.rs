@@ -1,5 +1,6 @@
 use {ByteBuf, SmallByteStr};
-use traits::{Buf, ByteStr, ToBytes};
+use buf::{Buf};
+use str::{ByteStr, ToBytes};
 use std::{fmt, mem, ops, ptr};
 use std::any::{TypeId};
 

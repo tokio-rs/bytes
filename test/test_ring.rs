@@ -2,8 +2,6 @@ use bytes::{RingBuf, Buf, MutBuf};
 
 #[test]
 pub fn test_initial_buf_empty() {
-    use bytes::traits::{Buf, MutBuf};
-
     let mut buf = RingBuf::new(16);
     assert_eq!(MutBuf::remaining(&buf), 16);
     assert_eq!(Buf::remaining(&buf), 0);
@@ -102,8 +100,6 @@ fn test_mark_write() {
 // Test that "RingBuf::reset" does not reset the length of a
 // full buffer to zero.
 fn test_reset_full() {
-    use bytes::traits::MutBuf;
-
     let mut buf = RingBuf::new(8);
     buf.copy_from(&[1, 2, 3, 4, 5, 6, 7, 8][..]).unwrap();
     assert_eq!(MutBuf::remaining(&buf), 0);
@@ -116,8 +112,6 @@ fn test_reset_full() {
 #[test]
 // Test that "RingBuf::clear" does the full reset
 fn test_clear() {
-    use bytes::traits::{Buf, MutBuf};
-
     let mut buf = RingBuf::new(8);
     buf.copy_from(&[0; 8][..]).unwrap();
     assert_eq!(MutBuf::remaining(&buf), 0);

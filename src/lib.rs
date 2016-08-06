@@ -33,11 +33,6 @@ pub use str::{
 
 use std::u32;
 
-pub mod traits {
-    //! All traits are re-exported here to allow glob imports.
-    pub use {Buf, MutBuf, ByteStr, ToBytes};
-}
-
 const MAX_CAPACITY: usize = u32::MAX as usize;
 
 

@@ -1,5 +1,4 @@
-use bytes::Rope;
-use bytes::traits::*;
+use bytes::{Buf, Rope, ByteStr, ToBytes};
 use super::gen_bytes;
 
 const TEST_BYTES_1: &'static [u8] =

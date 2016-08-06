@@ -1,5 +1,6 @@
 use {Bytes, Rope};
-use traits::{Buf, ByteStr, ToBytes};
+use buf::Buf;
+use str::{ByteStr, ToBytes};
 use std::{cmp, ops};
 
 /*

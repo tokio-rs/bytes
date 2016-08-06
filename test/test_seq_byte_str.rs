@@ -1,5 +1,4 @@
-use bytes::SeqByteStr;
-use bytes::traits::*;
+use bytes::{ByteStr, Buf, SeqByteStr};
 use super::gen_bytes;
 
 #[test]
