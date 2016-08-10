@@ -1,5 +1,5 @@
 use buf::{Buf, MutBuf};
-use std::{cmp, io};
+use std::{cmp};
 
 #[derive(Debug)]
 pub struct Take<T> {
@@ -49,16 +49,6 @@ impl<T: Buf> Buf for Take<T> {
         let cnt = cmp::min(cnt, self.limit);
         self.limit -= cnt;
         self.inner.advance(cnt);
-    }
-}
-
-impl<T: Buf> io::Read for Take<T> {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        if !self.has_remaining() {
-            return Ok(0);
-        }
-
-        Ok(self.read_slice(buf))
     }
 }
 

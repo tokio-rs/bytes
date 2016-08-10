@@ -7,7 +7,7 @@ pub fn test_readijng_buf_from_reader() {
     let mut buf = ByteBuf::mut_with_capacity(1024);
 
     assert_eq!(3, reader.read_buf(&mut buf).unwrap());
-    assert_eq!(b"foo".to_bytes(), buf.flip().to_bytes());
+    assert_eq!(Bytes::from(&b"foo"), Bytes::from(buf.flip()));
 }
 
 fn chunks(chunks: Vec<&'static [u8]>) -> Chunked {

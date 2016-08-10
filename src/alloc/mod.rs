@@ -1,15 +1,11 @@
 mod heap;
 mod pool;
 
-pub use self::heap::Heap;
 pub use self::pool::Pool;
 
 use std::{mem, ptr};
 
-pub fn heap(len: usize) -> MemRef {
-    Heap.allocate(len)
-}
-
+/// Ref-counted segment of memory
 pub trait Mem: Send + Sync {
     /// Increment the ref count
     fn ref_inc(&self);
@@ -25,6 +21,11 @@ pub struct MemRef {
     // - usize (len)
     // - u8... bytes
     ptr: *mut u8,
+}
+
+/// Allocate a segment of memory and return a `MemRef`.
+pub fn heap(len: usize) -> MemRef {
+    heap::allocate(len)
 }
 
 impl MemRef {
@@ -55,9 +56,24 @@ impl MemRef {
     }
 
     #[inline]
-    pub unsafe fn bytes_mut(&mut self) -> &mut [u8] {
+    pub unsafe fn bytes_slice(&self, start: usize, end: usize) -> &[u8] {
+        use std::slice;
+        let ptr = self.bytes_ptr().offset(start as isize);
+        slice::from_raw_parts(ptr, end - start)
+    }
+
+    #[inline]
+    pub unsafe fn mut_bytes(&mut self) -> &mut [u8] {
         use std::slice;
         slice::from_raw_parts_mut(self.bytes_ptr(), self.len())
+    }
+
+    /// Unsafe, unchecked access to the bytes
+    #[inline]
+    pub unsafe fn mut_bytes_slice(&mut self, start: usize, end: usize) -> &mut [u8] {
+        use std::slice;
+        let ptr = self.bytes_ptr().offset(start as isize);
+        slice::from_raw_parts_mut(ptr, end - start)
     }
 
     #[inline]

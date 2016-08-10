@@ -1,4 +1,4 @@
-use {alloc, Buf, Bytes, MutBuf, SeqByteStr, MAX_CAPACITY};
+use {alloc, Buf, MutBuf, Bytes, MAX_CAPACITY};
 use std::{cmp, fmt};
 
 /*
@@ -98,30 +98,17 @@ impl ByteBuf {
         MutByteBuf { buf: self }
     }
 
-    pub fn read_slice(&mut self, dst: &mut [u8]) -> usize {
-        let len = cmp::min(dst.len(), self.remaining());
+    pub fn read_slice(&mut self, dst: &mut [u8]) {
+        assert!(self.remaining() >= dst.len());
+        let len = dst.len();
         let cnt = len as u32;
         let pos = self.pos as usize;
 
         unsafe {
-            dst[0..len].copy_from_slice(&self.mem.bytes()[pos..pos+len]);
+            dst.copy_from_slice(&self.mem.bytes()[pos..pos+len]);
         }
 
         self.pos += cnt;
-        len
-    }
-
-    pub fn to_seq_byte_str(self) -> SeqByteStr {
-        unsafe {
-            let ByteBuf { mem, pos, lim, .. } = self;
-            SeqByteStr::from_mem_ref(
-                mem, pos, lim - pos)
-        }
-    }
-
-    #[inline]
-    pub fn to_bytes(self) -> Bytes {
-        Bytes::of(self.to_seq_byte_str())
     }
 
     /// Marks the current read location.
@@ -180,84 +167,21 @@ impl Buf for ByteBuf {
     }
 
     #[inline]
-    fn read_slice(&mut self, dst: &mut [u8]) -> usize {
+    fn read_slice(&mut self, dst: &mut [u8]) {
         ByteBuf::read_slice(self, dst)
     }
 }
 
-impl fmt::Debug for ByteBuf {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        self.bytes().fmt(fmt)
-    }
-}
-
-/*
- *
- * ===== ROByteBuf =====
- *
- */
-
-/// Same as `ByteBuf` but cannot be flipped to a `MutByteBuf`.
-pub struct ROByteBuf {
-    buf: ByteBuf,
-}
-
-impl ROByteBuf {
-    pub unsafe fn from_mem_ref(mem: alloc::MemRef, cap: u32, pos: u32, lim: u32) -> ROByteBuf {
-        ROByteBuf {
-            buf: ByteBuf::from_mem_ref(mem, cap, pos, lim)
+impl From<ByteBuf> for Bytes {
+    fn from(src: ByteBuf) -> Bytes {
+        unsafe {
+            let ByteBuf { mem, pos, lim, .. } = src;
+            Bytes::from_mem_ref(mem, pos, lim - pos)
         }
     }
-
-    pub fn to_seq_byte_str(self) -> SeqByteStr {
-        self.buf.to_seq_byte_str()
-    }
-
-    pub fn to_bytes(self) -> Bytes {
-        self.buf.to_bytes()
-    }
-
-    /// Marks the current read location.
-    ///
-    /// Together with `reset`, this can be used to read from a section of the
-    /// buffer multiple times.
-    pub fn mark(&mut self) {
-        self.buf.mark = Some(self.buf.pos);
-    }
-
-    /// Resets the read position to the previously marked position.
-    ///
-    /// Together with `mark`, this can be used to read from a section of the
-    /// buffer multiple times.
-    ///
-    /// # Panics
-    ///
-    /// This method will panic if no mark has been set.
-    pub fn reset(&mut self) {
-        self.buf.pos = self.buf.mark.take().expect("no mark set");
-    }
 }
 
-impl Buf for ROByteBuf {
-
-    fn remaining(&self) -> usize {
-        self.buf.remaining()
-    }
-
-    fn bytes<'a>(&'a self) -> &'a [u8] {
-        self.buf.bytes()
-    }
-
-    fn advance(&mut self, cnt: usize) {
-        self.buf.advance(cnt)
-    }
-
-    fn read_slice(&mut self, dst: &mut [u8]) -> usize {
-        self.buf.read_slice(dst)
-    }
-}
-
-impl fmt::Debug for ROByteBuf {
+impl fmt::Debug for ByteBuf {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         self.bytes().fmt(fmt)
     }
@@ -297,7 +221,7 @@ impl MutByteBuf {
         let pos = self.buf.pos as usize;
 
         unsafe {
-            self.buf.mem.bytes_mut()[pos..pos+cnt]
+            self.buf.mem.mut_bytes()[pos..pos+cnt]
                 .copy_from_slice(&src[0..cnt]);
         }
 
@@ -323,7 +247,7 @@ impl MutBuf for MutByteBuf {
     unsafe fn mut_bytes<'a>(&'a mut self) -> &'a mut [u8] {
         let pos = self.buf.pos();
         let lim = self.buf.lim();
-        &mut self.buf.mem.bytes_mut()[pos..lim]
+        &mut self.buf.mem.mut_bytes()[pos..lim]
     }
 }
 

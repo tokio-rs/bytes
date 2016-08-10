@@ -1,6 +1,5 @@
-use bytes::{ByteStr, Buf, MutBuf};
+use bytes::{Buf, MutBuf, AppendBuf};
 use bytes::alloc::Pool;
-use bytes::buf::AppendBuf;
 
 #[test]
 pub fn test_initial_buf_empty() {

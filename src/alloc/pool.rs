@@ -1,5 +1,5 @@
+use {AppendBuf, ByteBuf, MutByteBuf};
 use super::{Mem, MemRef};
-use buf::{AppendBuf, ByteBuf, MutByteBuf};
 use stable_heap as heap;
 use std::{mem, ptr, isize, usize};
 use std::cell::{Cell, UnsafeCell};
@@ -78,8 +78,15 @@ impl Pool {
     }
 
     /// Returns the number of buffers that the `Pool` holds.
+    #[inline]
     pub fn capacity(&self) -> usize {
         self.inner.cap
+    }
+
+    /// Returns the size of buffers allocated by the pool
+    #[inline]
+    pub fn buffer_len(&self) -> usize {
+        self.inner.buf_len
     }
 
     /// Returns a new `ByteBuf` backed by a buffer from the pool. If the pool

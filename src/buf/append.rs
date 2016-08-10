@@ -1,8 +1,7 @@
 use alloc;
 use buf::{MutBuf};
-use str::{ByteStr, Bytes, SeqByteStr, SmallByteStr};
+use bytes::Bytes;
 use std::cell::Cell;
-use std::cmp;
 
 /// A `Buf` backed by a contiguous region of memory.
 ///
@@ -33,12 +32,7 @@ impl AppendBuf {
             return AppendBuf::none();
         }
 
-        AppendBuf {
-            mem: mem,
-            rd: Cell::new(0),
-            wr: 0,
-            cap: capacity,
-        }
+        unsafe { AppendBuf::from_mem_ref(mem, capacity, 0) }
     }
 
     /// Returns an AppendBuf with no capacity
@@ -60,10 +54,20 @@ impl AppendBuf {
         }
     }
 
+    #[inline]
+    pub fn len(&self) -> usize {
+        (self.wr - self.rd.get()) as usize
+    }
+
+    #[inline]
+    pub fn capacity(&self) -> usize {
+        (self.cap - self.rd.get()) as usize
+    }
+
     pub fn bytes(&self) -> &[u8] {
         let rd = self.rd.get() as usize;
         let wr = self.wr as usize;
-        unsafe { &self.mem.bytes()[rd..wr] }
+        unsafe { &self.mem.bytes_slice(rd, wr) }
     }
 
     pub fn shift(&self, n: usize) -> Bytes {
@@ -72,29 +76,37 @@ impl AppendBuf {
         ret
     }
 
+    pub fn drop(&self, n: usize) {
+        assert!(n <= self.len());
+        self.rd.set(self.rd.get() + n as u32);
+    }
+
     pub fn slice(&self, begin: usize, end: usize) -> Bytes {
-        if end <= begin {
-            return Bytes::of(SmallByteStr::zero());
-        }
+        let rd = self.rd.get() as usize;
+        let wr = self.wr as usize;
 
-        if let Some(bytes) = SmallByteStr::from_slice(&self.bytes()[begin..end]) {
-            return Bytes::of(bytes);
-        }
+        assert!(begin <= end && end <= wr - rd, "invalid range");
 
-        let begin = cmp::min(self.wr, begin as u32 + self.rd.get());
-        let end = cmp::min(self.wr, end as u32 + self.rd.get());
+        let begin = (begin + rd) as u32;
+        let end = (end + rd) as u32;
 
-        let bytes = unsafe { SeqByteStr::from_mem_ref(self.mem.clone(), begin, end - begin) };
-
-        Bytes::of(bytes)
+        unsafe { Bytes::from_mem_ref(self.mem.clone(), begin, end - begin) }
     }
 }
 
 impl MutBuf for AppendBuf {
+    #[inline]
     fn remaining(&self) -> usize {
         (self.cap - self.wr) as usize
     }
 
+    #[inline]
+    fn has_remaining(&self) -> bool {
+        // Implemented as an equality for the perfz
+        self.cap != self.wr
+    }
+
+    #[inline]
     unsafe fn advance(&mut self, cnt: usize) {
         self.wr += cnt as u32;
 
@@ -103,9 +115,16 @@ impl MutBuf for AppendBuf {
         }
     }
 
+    #[inline]
     unsafe fn mut_bytes<'a>(&'a mut self) -> &'a mut [u8] {
         let wr = self.wr as usize;
         let cap = self.cap as usize;
-        &mut self.mem.bytes_mut()[wr..cap]
+        self.mem.mut_bytes_slice(wr, cap)
+    }
+}
+
+impl AsRef<[u8]> for AppendBuf {
+    fn as_ref(&self) -> &[u8] {
+        self.bytes()
     }
 }

@@ -1,4 +1,4 @@
-use bytes::{ByteStr, Buf, SmallByteStr};
+use bytes::{Buf, Bytes};
 use super::gen_bytes;
 
 #[test]
@@ -6,7 +6,7 @@ pub fn test_slice_round_trip() {
     let mut dst = vec![];
     let src = gen_bytes(3);
 
-    let s = SmallByteStr::from_slice(&src).unwrap();
+    let s = Bytes::from(&src);
     assert_eq!(3, s.len());
 
     s.buf().copy_to(&mut dst);
@@ -17,7 +17,7 @@ pub fn test_slice_round_trip() {
 pub fn test_index() {
     let src = gen_bytes(3);
 
-    let s = SmallByteStr::from_slice(&src).unwrap();
+    let s = Bytes::from(&src);
 
     for i in 0..3 {
         assert_eq!(src[i], s[i]);
@@ -27,6 +27,6 @@ pub fn test_index() {
 #[test]
 #[should_panic]
 pub fn test_index_out_of_range() {
-    let s = SmallByteStr::from_slice(&gen_bytes(3)).unwrap();
+    let s = Bytes::from(&gen_bytes(3));
     let _ = s[2001];
 }

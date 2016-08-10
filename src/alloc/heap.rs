@@ -6,44 +6,41 @@ use std::sync::atomic::{self, AtomicUsize, Ordering};
 const MAX_ALLOC_SIZE: usize = usize::MAX;
 const MAX_REFCOUNT: usize = (isize::MAX) as usize;
 
-pub struct Heap;
-
+/// Tracks a heap allocation and stores the atomic ref counter
 struct Allocation {
     refs: AtomicUsize,
 }
 
-impl Heap {
-    pub fn allocate(&self, len: usize) -> MemRef {
-        // Make sure that the allocation is within the permitted range
-        if len > MAX_ALLOC_SIZE {
-            return MemRef::none();
-        }
-
-        unsafe {
-            let mut ptr = heap::allocate(alloc_len(len), align());
-            let mut off = 0;
-
-            ptr::write(ptr as *mut Allocation, Allocation::new());
-
-            off += mem::size_of::<Allocation>();
-            ptr::write(ptr.offset(off as isize) as *mut &Mem, &*(ptr as *const Allocation));
-
-            off += mem::size_of::<&Mem>();
-            ptr::write(ptr.offset(off as isize) as *mut usize, len);
-
-            ptr = ptr.offset(mem::size_of::<Allocation>() as isize);
-
-            MemRef::new(ptr)
-        }
+pub fn allocate(len: usize) -> MemRef {
+    // Make sure that the allocation is within the permitted range
+    if len > MAX_ALLOC_SIZE {
+        return MemRef::none();
     }
 
-    fn deallocate(ptr: *mut u8) {
-        unsafe {
-            let off = mem::size_of::<Allocation>() + mem::size_of::<&Mem>();
-            let len = ptr::read(ptr.offset(off as isize) as *const usize);
+    unsafe {
+        let mut ptr = heap::allocate(alloc_len(len), align());
+        let mut off = 0;
 
-            heap::deallocate(ptr, alloc_len(len), align());
-        }
+        ptr::write(ptr as *mut Allocation, Allocation::new());
+
+        off += mem::size_of::<Allocation>();
+        ptr::write(ptr.offset(off as isize) as *mut &Mem, &*(ptr as *const Allocation));
+
+        off += mem::size_of::<&Mem>();
+        ptr::write(ptr.offset(off as isize) as *mut usize, len);
+
+        ptr = ptr.offset(mem::size_of::<Allocation>() as isize);
+
+        MemRef::new(ptr)
+    }
+}
+
+fn deallocate(ptr: *mut u8) {
+    unsafe {
+        let off = mem::size_of::<Allocation>() + mem::size_of::<&Mem>();
+        let len = ptr::read(ptr.offset(off as isize) as *const usize);
+
+        heap::deallocate(ptr, alloc_len(len), align());
     }
 }
 
@@ -90,7 +87,7 @@ impl Mem for Allocation {
         }
 
         atomic::fence(Ordering::Acquire);
-        Heap::deallocate(self as *const Allocation as *const u8 as *mut u8);
+        deallocate(self as *const Allocation as *const u8 as *mut u8);
     }
 }
 

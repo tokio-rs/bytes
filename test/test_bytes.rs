@@ -2,7 +2,7 @@ use bytes::*;
 
 #[test]
 pub fn test_debug_short_str_valid_ascii() {
-    let b = Bytes::from_slice(b"abcdefghij234");
+    let b = Bytes::from(b"abcdefghij234");
     let d = format!("{:?}", b);
 
     assert_eq!(d, "Bytes[len=13; abcdefghij234]");
@@ -21,7 +21,7 @@ pub fn test_debug_long_str_valid_ascii() {
              iaculis, eu tempus diam semper. Vivamus pulvinar metus ac erat \
              aliquet aliquam.";
 
-    let b = Bytes::from_slice(s.as_bytes());
+    let b = Bytes::from(s.as_bytes());
 
     let d = format!("{:?}", b);
 
@@ -33,7 +33,7 @@ pub fn test_debug_long_str_valid_ascii() {
 
 #[test]
 pub fn test_short_string_invalid_ascii() {
-    let b = Bytes::from_slice(b"foo\x00bar\xFFbaz");
+    let b = Bytes::from(b"foo\x00bar\xFFbaz");
     let d = format!("{:?}", b);
 
     println!("{:?}", b);

@@ -3,31 +3,21 @@
 
 extern crate stable_heap;
 
-pub mod alloc;
-pub mod buf;
-pub mod str;
+#[macro_use]
+extern crate log;
 
-pub use buf::{
-    Buf,
-    MutBuf,
-    ByteBuf,
-    MutByteBuf,
-    RingBuf,
-    ROByteBuf,
-    Take,
-    ReadExt,
-    WriteExt,
-};
-pub use str::{
-    ByteStr,
-    Bytes,
-    Rope,
-    RopeBuf,
-    SeqByteStr,
-    SmallByteStr,
-    SmallByteStrBuf,
-    ToBytes,
-};
+mod buf;
+mod bytes;
+
+pub mod alloc;
+
+pub use buf::{Buf, MutBuf, Source, Sink, ReadExt, WriteExt, Fmt};
+pub use buf::append::AppendBuf;
+pub use buf::block::{BlockBuf, NewBlock, BlockBufCursor};
+pub use buf::byte::{ByteBuf, MutByteBuf};
+pub use buf::ring::RingBuf;
+pub use buf::take::Take;
+pub use bytes::Bytes;
 
 use std::u32;
 

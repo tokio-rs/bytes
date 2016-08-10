@@ -1,16 +1,10 @@
-mod append;
-mod byte;
-mod ring;
-mod sink;
-mod source;
-mod take;
+pub mod append;
+pub mod block;
+pub mod byte;
+pub mod ring;
+pub mod take;
 
-pub use self::append::AppendBuf;
-pub use self::byte::{ByteBuf, MutByteBuf, ROByteBuf};
-pub use self::ring::RingBuf;
-pub use self::take::Take;
-
-use {ByteStr, RopeBuf};
+use {Bytes};
 use std::{cmp, fmt, io, ptr, usize};
 
 /// A trait for values that provide sequential read access to bytes.
@@ -21,7 +15,7 @@ pub trait Buf {
 
     /// Returns a slice starting at the current Buf position and of length
     /// between 0 and `Buf::remaining()`.
-    fn bytes<'a>(&'a self) -> &'a [u8];
+    fn bytes(&self) -> &[u8];
 
     /// Advance the internal cursor of the Buf
     fn advance(&mut self, cnt: usize);
@@ -33,7 +27,9 @@ pub trait Buf {
 
     fn copy_to<S: Sink>(&mut self, dst: S) -> usize
             where Self: Sized {
-        dst.copy_from(self)
+        let rem = self.remaining();
+        dst.copy_from(self);
+        rem - self.remaining()
     }
 
     /// Read bytes from the `Buf` into the given slice and advance the cursor by
@@ -51,16 +47,17 @@ pub trait Buf {
     /// assert_eq!(b"hello", &dst);
     /// assert_eq!(6, buf.remaining());
     /// ```
-    fn read_slice(&mut self, dst: &mut [u8]) -> usize {
+    fn read_slice(&mut self, dst: &mut [u8]) {
         let mut off = 0;
-        let len = cmp::min(dst.len(), self.remaining());
 
-        while off < len {
+        assert!(self.remaining() >= dst.len());
+
+        while off < dst.len() {
             let cnt;
 
             unsafe {
                 let src = self.bytes();
-                cnt = cmp::min(src.len(), len - off);
+                cnt = cmp::min(src.len(), dst.len() - off);
 
                 ptr::copy_nonoverlapping(
                     src.as_ptr(), dst[off..].as_mut_ptr(), cnt);
@@ -70,24 +67,30 @@ pub trait Buf {
 
             self.advance(cnt);
         }
-
-        len
     }
 
     /// Read a single byte from the `Buf`
     fn read_byte(&mut self) -> Option<u8> {
-        let mut dst = [0];
-
-        if self.read_slice(&mut dst) == 0 {
-            return None;
+        if self.has_remaining() {
+            let mut dst = [0];
+            self.read_slice(&mut dst);
+            Some(dst[0])
+        } else {
+            None
         }
+    }
 
-        Some(dst[0])
+    fn peek_byte(&self) -> Option<u8> {
+        if self.has_remaining() {
+            Some(self.bytes()[0])
+        } else {
+            None
+        }
     }
 }
 
 /// A trait for values that provide sequential write access to bytes.
-pub trait MutBuf : Sized {
+pub trait MutBuf {
 
     /// Returns the number of bytes that can be written to the MutBuf
     fn remaining(&self) -> usize;
@@ -108,7 +111,9 @@ pub trait MutBuf : Sized {
 
     fn copy_from<S: Source>(&mut self, src: S) -> usize
             where Self: Sized {
-        src.copy_to(self)
+        let rem = self.remaining();
+        src.copy_to(self);
+        rem - self.remaining()
     }
 
     /// Write bytes from the given slice into the `MutBuf` and advance the
@@ -130,16 +135,17 @@ pub trait MutBuf : Sized {
     ///
     /// assert_eq!(b"hello\0", &dst);
     /// ```
-    fn write_slice(&mut self, src: &[u8]) -> usize {
+    fn write_slice(&mut self, src: &[u8]) {
         let mut off = 0;
-        let len = cmp::min(src.len(), self.remaining());
 
-        while off < len {
+        assert!(self.remaining() >= src.len(), "buffer overflow");
+
+        while off < src.len() {
             let cnt;
 
             unsafe {
                 let dst = self.mut_bytes();
-                cnt = cmp::min(dst.len(), len - off);
+                cnt = cmp::min(dst.len(), src.len() - off);
 
                 ptr::copy_nonoverlapping(
                     src[off..].as_ptr(),
@@ -152,8 +158,10 @@ pub trait MutBuf : Sized {
 
             unsafe { self.advance(cnt); }
         }
+    }
 
-        len
+    fn write_str(&mut self, src: &str) {
+        self.write_slice(src.as_bytes());
     }
 }
 
@@ -166,32 +174,41 @@ pub trait MutBuf : Sized {
 
 /// A value that writes bytes from itself into a `MutBuf`.
 pub trait Source {
-    fn copy_to<B: MutBuf>(self, buf: &mut B) -> usize;
+    fn copy_to<B: MutBuf>(self, buf: &mut B);
 }
 
 impl<'a> Source for &'a [u8] {
-    fn copy_to<B: MutBuf>(self, buf: &mut B) -> usize {
-        buf.write_slice(self)
+    fn copy_to<B: MutBuf>(self, buf: &mut B) {
+        buf.write_slice(self);
     }
 }
 
 impl Source for u8 {
-    fn copy_to<B: MutBuf>(self, buf: &mut B) -> usize {
+    fn copy_to<B: MutBuf>(self, buf: &mut B) {
         let src = [self];
-        buf.write_slice(&src)
+        buf.write_slice(&src);
     }
 }
 
-impl<'a, T: ByteStr> Source for &'a T {
-    fn copy_to<B: MutBuf>(self, buf: &mut B) -> usize {
-        let mut src = ByteStr::buf(self);
-        let mut res = 0;
+impl Source for Bytes {
+    fn copy_to<B: MutBuf>(self, buf: &mut B) {
+        Source::copy_to(&self, buf);
+    }
+}
 
-        while src.has_remaining() && buf.has_remaining() {
+impl<'a> Source for &'a Bytes {
+    fn copy_to<B: MutBuf>(self, buf: &mut B) {
+        Source::copy_to(self.buf(), buf);
+    }
+}
+
+impl<T: Buf> Source for T {
+    fn copy_to<B: MutBuf>(mut self, buf: &mut B) {
+        while self.has_remaining() && buf.has_remaining() {
             let l;
 
             unsafe {
-                let s = src.bytes();
+                let s = self.bytes();
                 let d = buf.mut_bytes();
                 l = cmp::min(s.len(), d.len());
 
@@ -201,28 +218,24 @@ impl<'a, T: ByteStr> Source for &'a T {
                     l);
             }
 
-            src.advance(l);
+            self.advance(l);
             unsafe { buf.advance(l); }
-
-            res += l;
         }
-
-        res
     }
 }
 
 pub trait Sink {
-    fn copy_from<B: Buf>(self, buf: &mut B) -> usize;
+    fn copy_from<B: Buf>(self, buf: &mut B);
 }
 
 impl<'a> Sink for &'a mut [u8] {
-    fn copy_from<B: Buf>(self, buf: &mut B) -> usize {
-        buf.read_slice(self)
+    fn copy_from<B: Buf>(self, buf: &mut B) {
+        buf.read_slice(self);
     }
 }
 
 impl<'a> Sink for &'a mut Vec<u8> {
-    fn copy_from<B: Buf>(self, buf: &mut B) -> usize {
+    fn copy_from<B: Buf>(self, buf: &mut B) {
         use std::slice;
 
         self.clear();
@@ -238,15 +251,11 @@ impl<'a> Sink for &'a mut Vec<u8> {
         unsafe {
             {
                 let dst = &mut self[..];
-                let cnt = buf.read_slice(slice::from_raw_parts_mut(dst.as_mut_ptr(), rem));
-
-                debug_assert!(cnt == rem);
+                buf.read_slice(slice::from_raw_parts_mut(dst.as_mut_ptr(), rem));
             }
 
             self.set_len(rem);
         }
-
-        rem
     }
 }
 
@@ -296,30 +305,6 @@ impl<T: io::Write> WriteExt for T {
  * ===== Buf impls =====
  *
  */
-
-impl Buf for Box<Buf+Send+'static> {
-    fn remaining(&self) -> usize {
-        (**self).remaining()
-    }
-
-    fn bytes(&self) -> &[u8] {
-        (**self).bytes()
-    }
-
-    fn advance(&mut self, cnt: usize) {
-        (**self).advance(cnt);
-    }
-
-    fn read_slice(&mut self, dst: &mut [u8]) -> usize {
-        (**self).read_slice(dst)
-    }
-}
-
-impl fmt::Debug for Box<Buf+Send+'static> {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        write!(fmt, "Box<Buf> {{ remaining: {} }}", self.remaining())
-    }
-}
 
 impl<T: AsRef<[u8]>> Buf for io::Cursor<T> {
     fn remaining(&self) -> usize {
@@ -396,45 +381,19 @@ impl MutBuf for Vec<u8> {
 
 /*
  *
- * ===== Read impls =====
+ * ===== fmt impls =====
  *
  */
 
-macro_rules! impl_read {
-    ($ty:ty) => {
-        impl io::Read for $ty {
-            fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-                if !self.has_remaining() {
-                    return Ok(0);
-                }
+pub struct Fmt<'a, B: 'a>(pub &'a mut B);
 
-                Ok(self.read_slice(buf))
-            }
-        }
+impl<'a, B: MutBuf> fmt::Write for Fmt<'a, B> {
+    fn write_str(&mut self, s: &str) -> fmt::Result {
+        self.0.write_str(s);
+        Ok(())
+    }
+
+    fn write_fmt(&mut self, args: fmt::Arguments) -> fmt::Result {
+        fmt::write(self, args)
     }
 }
-
-impl_read!(ByteBuf);
-impl_read!(ROByteBuf);
-impl_read!(RopeBuf);
-impl_read!(Box<Buf+Send+'static>);
-
-macro_rules! impl_write {
-    ($ty:ty) => {
-        impl io::Write for $ty {
-            fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-                if !self.has_remaining() {
-                    return Ok(0);
-                }
-
-                Ok(self.write_slice(buf))
-            }
-
-            fn flush(&mut self) -> io::Result<()> {
-                Ok(())
-            }
-        }
-    }
-}
-
-impl_write!(MutByteBuf);

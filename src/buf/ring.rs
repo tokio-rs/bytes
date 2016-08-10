@@ -144,7 +144,6 @@ impl fmt::Debug for RingBuf {
 }
 
 impl Buf for RingBuf {
-
     fn remaining(&self) -> usize {
         self.read_remaining()
     }
@@ -176,7 +175,7 @@ impl MutBuf for RingBuf {
 
     unsafe fn mut_bytes(&mut self) -> &mut [u8] {
         if self.cap == 0 {
-            return self.ptr.bytes_mut();
+            return self.ptr.mut_bytes();
         }
         let mut from;
         let mut to;
@@ -190,7 +189,7 @@ impl MutBuf for RingBuf {
             to = self.cap;
         }
 
-        &mut self.ptr.bytes_mut()[from..to]
+        &mut self.ptr.mut_bytes()[from..to]
     }
 }
 
