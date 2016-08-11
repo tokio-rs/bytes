@@ -1,8 +1,6 @@
 #![crate_name = "bytes"]
 #![deny(warnings)]
 
-extern crate stable_heap;
-
 #[macro_use]
 extern crate log;
 

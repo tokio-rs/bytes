@@ -19,7 +19,6 @@ exclude       = [
 ]
 
 [dependencies]
-stable-heap = { git = "https://github.com/carllerche/stable-heap", rev = "3c5cd1ca47" }
 log = "0.3.6"
 
 [dev-dependencies]
