@@ -23,28 +23,19 @@ pub struct RingBuf {
 impl RingBuf {
     /// Allocates a new `RingBuf` with the specified capacity.
     pub fn new(mut capacity: usize) -> RingBuf {
-        // Handle the 0 length buffer case
-        if capacity == 0 {
-            return RingBuf {
-                ptr: alloc::MemRef::none(),
-                cap: 0,
+        // Round to the next power of 2 for better alignment
+        capacity = capacity.next_power_of_two();
+
+        unsafe {
+            let mem = alloc::heap(capacity as usize);
+
+            RingBuf {
+                ptr: mem,
+                cap: capacity,
                 pos: 0,
                 len: 0,
                 mark: Mark::NoMark,
             }
-        }
-
-        // Round to the next power of 2 for better alignment
-        capacity = capacity.next_power_of_two();
-
-        let mem = alloc::heap(capacity as usize);
-
-        RingBuf {
-            ptr: mem,
-            cap: capacity,
-            pos: 0,
-            len: 0,
-            mark: Mark::NoMark,
         }
     }
 

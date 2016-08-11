@@ -9,6 +9,7 @@ use self::small::Small;
 use self::rope::{Rope, RopeBuf};
 use std::{cmp, fmt, ops};
 use std::io::Cursor;
+use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct Bytes {
@@ -19,7 +20,7 @@ pub struct Bytes {
 enum Kind {
     Seq(Seq),
     Small(Small),
-    Rope(Rope),
+    Rope(Arc<Rope>),
 }
 
 pub struct BytesBuf<'a> {
@@ -41,8 +42,9 @@ impl Bytes {
     ///
     /// This function is unsafe as there are no guarantees that the given
     /// arguments are valid.
+    #[inline]
     pub unsafe fn from_mem_ref(mem: alloc::MemRef, pos: u32, len: u32) -> Bytes {
-        Small::from_slice(&mem.bytes()[pos as usize .. pos as usize + len as usize])
+        Small::from_slice(&mem.bytes_slice(pos as usize, pos as usize + len as usize))
             .map(|b| Bytes { kind: Kind::Small(b) })
             .unwrap_or_else(|| {
                 let seq = Seq::from_mem_ref(mem, pos, len);
@@ -110,7 +112,7 @@ impl Bytes {
         }
     }
 
-    fn into_rope(self) -> Result<Rope, Bytes> {
+    fn into_rope(self) -> Result<Arc<Rope>, Bytes> {
         match self.kind {
             Kind::Rope(r) => Ok(r),
             _ => Err(self),

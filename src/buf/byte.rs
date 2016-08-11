@@ -32,16 +32,6 @@ impl ByteBuf {
         MutByteBuf { buf: ByteBuf::new(capacity as u32) }
     }
 
-    pub fn none() -> ByteBuf {
-        ByteBuf {
-            mem: alloc::MemRef::none(),
-            cap: 0,
-            pos: 0,
-            lim: 0,
-            mark: None,
-        }
-    }
-
     pub unsafe fn from_mem_ref(mem: alloc::MemRef, cap: u32, pos: u32, lim: u32) -> ByteBuf {
         debug_assert!(pos <= lim && lim <= cap, "invalid arguments; cap={}; pos={}; lim={}", cap, pos, lim);
 
@@ -55,28 +45,20 @@ impl ByteBuf {
     }
 
     fn new(mut capacity: u32) -> ByteBuf {
-        // Handle 0 capacity case
-        if capacity == 0 {
-            return ByteBuf::none();
-        }
-
         // Round the capacity to the closest power of 2
         capacity = capacity.next_power_of_two();
 
-        // Allocate the memory
-        let mem = alloc::heap(capacity as usize);
+        unsafe {
+            // Allocate the memory
+            let mem = alloc::heap(capacity as usize);
 
-        // If the allocation failed, return a blank buf
-        if mem.is_none() {
-            return ByteBuf::none();
-        }
-
-        ByteBuf {
-            mem: mem,
-            cap: capacity,
-            pos: 0,
-            lim: capacity,
-            mark: None,
+            ByteBuf {
+                mem: mem,
+                cap: capacity,
+                pos: 0,
+                lim: capacity,
+                mark: None,
+            }
         }
     }
 

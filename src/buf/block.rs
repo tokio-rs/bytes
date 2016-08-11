@@ -1,7 +1,7 @@
 #![allow(warnings)]
 
 use {Buf, MutBuf, AppendBuf, Bytes};
-use alloc::{self, Pool};
+use alloc::{self, /* Pool */};
 use std::{cmp, ptr, slice};
 use std::io::Cursor;
 use std::rc::Rc;
@@ -19,9 +19,9 @@ pub struct BlockBuf {
     new_block: NewBlock,
 }
 
-pub enum NewBlock {
+enum NewBlock {
     Heap(usize),
-    Pool(Rc<Pool>),
+    // Pool(Rc<Pool>),
 }
 
 pub struct BlockBufCursor<'a> {
@@ -37,8 +37,10 @@ pub struct BlockBufCursor<'a> {
 //
 impl BlockBuf {
     /// Create BlockBuf
-    pub fn new(max_blocks: usize, new_block: NewBlock) -> BlockBuf {
+    pub fn new(max_blocks: usize, block_size: usize) -> BlockBuf {
         assert!(max_blocks > 1, "at least 2 blocks required");
+
+        let new_block = NewBlock::Heap(block_size);
 
         BlockBuf {
             len: 0,
@@ -51,7 +53,7 @@ impl BlockBuf {
     /// Returns the number of buffered bytes
     #[inline]
     pub fn len(&self) -> usize {
-        debug_assert!(self.len == self.blocks.iter().map(|b| b.len()).fold(0, |a, b| a+b));
+        debug_assert_eq!(self.len, self.blocks.iter().map(|b| b.len()).fold(0, |a, b| a+b));
         self.len
     }
 
@@ -83,9 +85,39 @@ impl BlockBuf {
     /// # Panics
     ///
     /// Panics if `n` is greater than the number of buffered bytes.
-    pub fn shift(&mut self, mut n: usize) -> Bytes {
+    #[inline]
+    pub fn shift(&mut self, n: usize) -> Bytes {
         trace!("BlockBuf::shift; n={}", n);
 
+        // Fast path
+        match self.blocks.len() {
+            0 => {
+                assert!(n == 0, "buffer overflow");
+                Bytes::empty()
+            }
+            1 => {
+                let (ret, pop) = {
+                    let block = self.blocks.front().expect("unexpected state");
+
+                    let ret = block.shift(n);
+                    self.len -= n;
+
+                    (ret, self.len == 0 && !MutBuf::has_remaining(block))
+                };
+
+                if pop {
+                    let _ = self.blocks.pop_front();
+                }
+
+                ret
+            }
+            _ => {
+                self.shift_multi(n)
+            }
+        }
+    }
+
+    fn shift_multi(&mut self, mut n: usize) -> Bytes {
         let mut ret: Option<Bytes> = None;
 
         while n > 0 {
@@ -96,11 +128,15 @@ impl BlockBuf {
             let (segment, pop) = {
                 let block = self.blocks.front().expect("unexpected state");
 
-                let segment_n = cmp::min(n, block.len());
+
+                let block_len = block.len();
+                let segment_n = cmp::min(n, block_len);
                 n -= segment_n;
                 self.len -= segment_n;
 
-                (block.shift(segment_n), !MutBuf::has_remaining(block))
+                let pop = block_len == segment_n && !MutBuf::has_remaining(block);
+
+                (block.shift(segment_n), pop)
             };
 
             if pop {
@@ -108,13 +144,15 @@ impl BlockBuf {
             }
 
             ret = Some(match ret.take() {
-                Some(curr) => curr.concat(&segment),
+                Some(curr) => {
+                    curr.concat(&segment)
+                }
                 None => segment,
             });
 
         }
 
-        ret.unwrap_or(Bytes::empty())
+        ret.unwrap_or_else(|| Bytes::empty())
     }
 
     /// Drop the first `n` buffered bytes
@@ -144,6 +182,10 @@ impl BlockBuf {
                 let _ = self.blocks.pop_front();
             }
         }
+    }
+
+    pub fn is_compact(&mut self) -> bool {
+        self.blocks.len() <= 1
     }
 
     /// Moves all buffered bytes into a single block.
@@ -208,6 +250,19 @@ impl BlockBuf {
     fn have_buffered_data(&self) -> bool {
         self.len() > 0
     }
+
+    #[inline]
+    fn needs_alloc(&self) -> bool {
+        if let Some(buf) = self.blocks.back() {
+            // `unallocated_blocks` is checked here because if further blocks
+            // cannot be allocated, an empty slice should be returned.
+            if MutBuf::has_remaining(buf) {
+                return false;
+            }
+        }
+
+        true
+    }
 }
 
 impl MutBuf for BlockBuf {
@@ -236,18 +291,9 @@ impl MutBuf for BlockBuf {
         }
     }
 
+    #[inline]
     unsafe fn mut_bytes(&mut self) -> &mut [u8] {
-        let mut need_alloc = true;
-
-        if let Some(buf) = self.blocks.back() {
-            // `unallocated_blocks` is checked here because if further blocks
-            // cannot be allocated, an empty slice should be returned.
-            if MutBuf::has_remaining(buf) {
-                need_alloc = false
-            }
-        }
-
-        if need_alloc {
+        if self.needs_alloc() {
             if self.blocks.len() != self.blocks.capacity() {
                 self.allocate_block()
             }
@@ -261,7 +307,7 @@ impl MutBuf for BlockBuf {
 
 impl Default for BlockBuf {
     fn default() -> BlockBuf {
-        BlockBuf::new(16, NewBlock::Heap(8_192))
+        BlockBuf::new(16, 8_192)
     }
 }
 
@@ -307,7 +353,7 @@ impl NewBlock {
     fn block_size(&self) -> usize {
         match *self {
             NewBlock::Heap(size) => size,
-            NewBlock::Pool(ref pool) => pool.buffer_len(),
+            // NewBlock::Pool(ref pool) => pool.buffer_len(),
         }
     }
 
@@ -315,7 +361,7 @@ impl NewBlock {
     fn new_block(&self) -> Option<AppendBuf> {
         match *self {
             NewBlock::Heap(size) => Some(AppendBuf::with_capacity(size as u32)),
-            NewBlock::Pool(ref pool) => pool.new_append_buf(),
+            // NewBlock::Pool(ref pool) => pool.new_append_buf(),
         }
     }
 }

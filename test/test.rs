@@ -18,7 +18,7 @@ mod test_seq;
 mod test_small;
 
 // == Pool
-mod test_pool;
+// mod test_pool;
 
 fn gen_bytes(n: usize) -> Vec<u8> {
     (0..n).map(|_| random()).collect()

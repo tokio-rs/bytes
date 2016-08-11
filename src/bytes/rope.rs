@@ -151,7 +151,7 @@ impl Rope {
                     // the same as the given left tree.
                     let new_right = concat_bytes(&left.right, &right, len);
 
-                    return Rope::new(left.left, new_right).into_bytes();
+                    return Rope::new(left.left.clone(), new_right).into_bytes();
                 }
 
                 if left.left.depth() > left.right.depth() && left.depth > right.depth() {
@@ -161,12 +161,12 @@ impl Rope {
                     // the the node on the RHS.  This is yet another optimization
                     // for building the string by repeatedly concatenating on the
                     // right.
-                    let new_right = Rope::new(left.right, right);
+                    let new_right = Rope::new(left.right.clone(), right);
 
-                    return Rope::new(left.left, new_right).into_bytes();
+                    return Rope::new(left.left.clone(), new_right).into_bytes();
                 }
 
-                left.into_bytes()
+                Bytes { kind: super::Kind::Rope(left) }
             }
             Err(left) => left,
         };
@@ -234,7 +234,7 @@ impl Rope {
 
     fn into_bytes(self) -> Bytes {
         use super::Kind;
-        Bytes { kind: Kind::Rope(self) }
+        Bytes { kind: Kind::Rope(Arc::new(self)) }
     }
 }
 
@@ -302,7 +302,7 @@ impl From<Bytes> for Node {
         match src.kind {
             Kind::Seq(b) => Node::Seq(b),
             Kind::Small(b) => Node::Small(b),
-            Kind::Rope(b) => Node::Rope(Arc::new(b)),
+            Kind::Rope(b) => Node::Rope(b),
         }
     }
 }
@@ -619,15 +619,15 @@ impl Partial {
     }
 
     fn unwrap_rope(self) -> Rope {
-        match self {
+        let arc = match self {
             Partial::Bytes(v) => v.into_rope().ok().expect("unexpected state calling `Partial::unwrap_rope()`"),
-            Partial::Node(Node::Rope(v)) => {
-                match Arc::try_unwrap(v) {
-                    Ok(v) => v,
-                    Err(v) => (*v).clone(),
-                }
-            }
+            Partial::Node(Node::Rope(v)) => v,
             _ => panic!("unexpected state calling `Partial::unwrap_rope()`"),
+        };
+
+        match Arc::try_unwrap(arc) {
+            Ok(v) => v,
+            Err(v) => (*v).clone(),
         }
     }
 }

@@ -16,32 +16,14 @@ pub struct AppendBuf {
 
 impl AppendBuf {
     pub fn with_capacity(mut capacity: u32) -> AppendBuf {
-        // Handle 0 capacity case
-        if capacity == 0 {
-            return AppendBuf::none();
-        }
-
         // Round the capacity to the closest power of 2
         capacity = capacity.next_power_of_two();
 
-        // Allocate the memory
-        let mem = alloc::heap(capacity as usize);
+        unsafe {
+            // Allocate the memory
+            let mem = alloc::heap(capacity as usize);
 
-        // If the allocation failed, return a blank buf
-        if mem.is_none() {
-            return AppendBuf::none();
-        }
-
-        unsafe { AppendBuf::from_mem_ref(mem, capacity, 0) }
-    }
-
-    /// Returns an AppendBuf with no capacity
-    pub fn none() -> AppendBuf {
-        AppendBuf {
-            mem: alloc::MemRef::none(),
-            rd: Cell::new(0),
-            wr: 0,
-            cap: 0,
+            AppendBuf::from_mem_ref(mem, capacity, 0)
         }
     }
 
@@ -73,6 +55,7 @@ impl AppendBuf {
     pub fn shift(&self, n: usize) -> Bytes {
         let ret = self.slice(0, n);
         self.rd.set(self.rd.get() + ret.len() as u32);
+        assert!(self.rd.get() <= self.wr, "buffer overflow");
         ret
     }
 
@@ -82,13 +65,15 @@ impl AppendBuf {
     }
 
     pub fn slice(&self, begin: usize, end: usize) -> Bytes {
-        let rd = self.rd.get() as usize;
-        let wr = self.wr as usize;
+        // TODO: Fix overflow potential
 
-        assert!(begin <= end && end <= wr - rd, "invalid range");
+        let rd = self.rd.get();
+        let wr = self.wr;
 
-        let begin = (begin + rd) as u32;
-        let end = (end + rd) as u32;
+        let begin = begin as u32 + rd;
+        let end = end as u32 + rd;
+
+        assert!(begin <= end && end <= wr, "invalid range");
 
         unsafe { Bytes::from_mem_ref(self.mem.clone(), begin, end - begin) }
     }
@@ -111,7 +96,7 @@ impl MutBuf for AppendBuf {
         self.wr += cnt as u32;
 
         if self.wr > self.cap {
-            self.wr = self.cap;
+            panic!("buffer overflow");
         }
     }
 

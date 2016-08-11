@@ -1,122 +1,58 @@
 mod heap;
-mod pool;
 
-pub use self::pool::Pool;
-
-use std::{mem, ptr};
-
-/// Ref-counted segment of memory
-pub trait Mem: Send + Sync {
-    /// Increment the ref count
-    fn ref_inc(&self);
-
-    /// Decrement the ref count
-    fn ref_dec(&self);
-}
+use std::sync::Arc;
 
 pub struct MemRef {
-    // Pointer to the memory
-    // Layout:
-    // - &Mem
-    // - usize (len)
-    // - u8... bytes
-    ptr: *mut u8,
+    mem: Arc<Vec<u8>>,
 }
 
 /// Allocate a segment of memory and return a `MemRef`.
-pub fn heap(len: usize) -> MemRef {
+pub unsafe fn heap(len: usize) -> MemRef {
     heap::allocate(len)
 }
 
 impl MemRef {
     #[inline]
-    pub unsafe fn new(ptr: *mut u8) -> MemRef {
-        MemRef { ptr: ptr }
-    }
-
-    #[inline]
-    pub fn none() -> MemRef {
-        MemRef { ptr: ptr::null_mut() }
-    }
-
-    #[inline]
-    pub fn is_none(&self) -> bool {
-        self.ptr.is_null()
+    pub unsafe fn new(mem: Arc<Vec<u8>>) -> MemRef {
+        MemRef { mem: mem }
     }
 
     #[inline]
     pub fn len(&self) -> usize {
-        unsafe { *self.len_ptr() }
+        self.mem.len()
     }
 
     #[inline]
     pub unsafe fn bytes(&self) -> &[u8] {
-        use std::slice;
-        slice::from_raw_parts(self.bytes_ptr(), self.len())
+        &*self.mem
     }
 
     #[inline]
     pub unsafe fn bytes_slice(&self, start: usize, end: usize) -> &[u8] {
         use std::slice;
-        let ptr = self.bytes_ptr().offset(start as isize);
+        let ptr = self.mem.as_ptr().offset(start as isize);
         slice::from_raw_parts(ptr, end - start)
     }
 
     #[inline]
     pub unsafe fn mut_bytes(&mut self) -> &mut [u8] {
         use std::slice;
-        slice::from_raw_parts_mut(self.bytes_ptr(), self.len())
+        let len = self.mem.len();
+        slice::from_raw_parts_mut(self.mem.as_ptr() as *mut u8, len)
     }
 
     /// Unsafe, unchecked access to the bytes
     #[inline]
     pub unsafe fn mut_bytes_slice(&mut self, start: usize, end: usize) -> &mut [u8] {
         use std::slice;
-        let ptr = self.bytes_ptr().offset(start as isize);
-        slice::from_raw_parts_mut(ptr, end - start)
-    }
-
-    #[inline]
-    fn mem(&self) -> &Mem {
-        unsafe {
-            *(self.ptr as *const &Mem)
-        }
-    }
-
-    #[inline]
-    unsafe fn len_ptr(&self) -> *mut usize {
-        let off = mem::size_of::<&Mem>();
-        self.ptr.offset(off as isize) as *mut usize
-    }
-
-    #[inline]
-    unsafe fn bytes_ptr(&self) -> *mut u8 {
-        let off = mem::size_of::<&Mem>() + mem::size_of::<usize>();
-        self.ptr.offset(off as isize)
+        let ptr = self.mem.as_ptr().offset(start as isize);
+        slice::from_raw_parts_mut(ptr as *mut u8, end - start)
     }
 }
 
 impl Clone for MemRef {
     #[inline]
     fn clone(&self) -> MemRef {
-        if self.is_none() {
-            return MemRef::none();
-        }
-
-        self.mem().ref_inc();
-        MemRef { ptr: self.ptr }
+        MemRef { mem: self.mem.clone() }
     }
 }
-
-impl Drop for MemRef {
-    fn drop(&mut self) {
-        if self.is_none() {
-            return;
-        }
-
-        self.mem().ref_dec();
-    }
-}
-
-unsafe impl Send for MemRef { }
-unsafe impl Sync for MemRef { }
