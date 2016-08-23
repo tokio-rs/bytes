@@ -1,4 +1,4 @@
-use {Bytes, ByteBuf};
+use {Bytes, MutByteBuf};
 use buf::{Buf, MutBuf, Source};
 use bytes::seq::Seq;
 use bytes::small::{Small};
@@ -351,7 +351,7 @@ impl ops::Index<usize> for Node {
 fn concat_bytes<S1, S2>(left: S1, right: S2, len: usize) -> Bytes
     where S1: Source, S2: Source,
 {
-    let mut buf = ByteBuf::mut_with_capacity(len);
+    let mut buf = MutByteBuf::with_capacity(len);
 
     buf.copy_from(left);
     buf.copy_from(right);

@@ -4,7 +4,7 @@ use std::io;
 #[test]
 pub fn test_readijng_buf_from_reader() {
     let mut reader = chunks(vec![b"foo", b"bar", b"baz"]);
-    let mut buf = ByteBuf::mut_with_capacity(1024);
+    let mut buf = MutByteBuf::with_capacity(1024);
 
     assert_eq!(3, reader.read_buf(&mut buf).unwrap());
     assert_eq!(Bytes::from(&b"foo"), Bytes::from(buf.flip()));

@@ -1,6 +1,6 @@
 //! Immutable set of bytes sequential in memory.
 
-use {alloc, ByteBuf, MutBuf};
+use {alloc, MutByteBuf, MutBuf};
 use bytes::{Bytes};
 use std::ops;
 use std::io::Cursor;
@@ -13,7 +13,7 @@ pub struct Seq {
 
 impl Seq {
     pub fn from_slice(bytes: &[u8]) -> Bytes {
-        let mut buf = ByteBuf::mut_with_capacity(bytes.len());
+        let mut buf = MutByteBuf::with_capacity(bytes.len());
 
         buf.copy_from(bytes);
         buf.flip().into()
