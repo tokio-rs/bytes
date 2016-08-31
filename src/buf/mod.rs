@@ -5,6 +5,7 @@ pub mod ring;
 pub mod take;
 
 use {Bytes};
+use byteorder::ByteOrder;
 use std::{cmp, fmt, io, ptr, usize};
 
 /// A trait for values that provide sequential read access to bytes.
@@ -69,23 +70,100 @@ pub trait Buf {
         }
     }
 
-    /// Read a single byte from the `Buf`
-    fn read_byte(&mut self) -> Option<u8> {
-        if self.has_remaining() {
-            let mut dst = [0];
-            self.read_slice(&mut dst);
-            Some(dst[0])
-        } else {
-            None
-        }
-    }
-
-    fn peek_byte(&self) -> Option<u8> {
+    /// Reads an unsigned 8 bit integer from the `Buf` without advancing the
+    /// buffer cursor
+    fn peek_u8(&self) -> Option<u8> {
         if self.has_remaining() {
             Some(self.bytes()[0])
         } else {
             None
         }
+    }
+
+    /// Reads an unsigned 8 bit integer from the `Buf`.
+    fn read_u8(&mut self) -> u8 {
+        let mut buf = [0; 1];
+        self.read_slice(&mut buf);
+        buf[0]
+    }
+
+    /// Reads a signed 8 bit integer from the `Buf`.
+    fn read_i8(&mut self) -> i8 {
+        let mut buf = [0; 1];
+        self.read_slice(&mut buf);
+        buf[0] as i8
+    }
+
+    /// Reads an unsigned 16 bit integer from the `Buf`
+    fn read_u16<T: ByteOrder>(&mut self) -> u16 {
+        let mut buf = [0; 2];
+        self.read_slice(&mut buf);
+        T::read_u16(&buf)
+    }
+
+    /// Reads a signed 16 bit integer from the `Buf`
+    fn read_i16<T: ByteOrder>(&mut self) -> i16 {
+        let mut buf = [0; 2];
+        self.read_slice(&mut buf);
+        T::read_i16(&buf)
+    }
+
+    /// Reads an unsigned 32 bit integer from the `Buf`
+    fn read_u32<T: ByteOrder>(&mut self) -> u32 {
+        let mut buf = [0; 4];
+        self.read_slice(&mut buf);
+        T::read_u32(&buf)
+    }
+
+    /// Reads a signed 32 bit integer from the `Buf`
+    fn read_i32<T: ByteOrder>(&mut self) -> i32 {
+        let mut buf = [0; 4];
+        self.read_slice(&mut buf);
+        T::read_i32(&buf)
+    }
+
+    /// Reads an unsigned 64 bit integer from the `Buf`
+    fn read_u64<T: ByteOrder>(&mut self) -> u64 {
+        let mut buf = [0; 8];
+        self.read_slice(&mut buf);
+        T::read_u64(&buf)
+    }
+
+    /// Reads a signed 64 bit integer from the `Buf`
+    fn read_i64<T: ByteOrder>(&mut self) -> i64 {
+        let mut buf = [0; 8];
+        self.read_slice(&mut buf);
+        T::read_i64(&buf)
+    }
+
+    /// Reads an unsigned n-bytes integer from the `Buf`
+    fn read_uint<T: ByteOrder>(&mut self, nbytes: usize) -> u64 {
+        let mut buf = [0; 8];
+        self.read_slice(&mut buf[..nbytes]);
+        T::read_uint(&buf[..nbytes], nbytes)
+    }
+
+    /// Reads a signed n-bytes integer from the `Buf`
+    fn read_int<T: ByteOrder>(&mut self, nbytes: usize) -> i64 {
+        let mut buf = [0; 8];
+        self.read_slice(&mut buf[..nbytes]);
+        T::read_int(&buf[..nbytes], nbytes)
+    }
+
+    /// Reads a IEEE754 single-precision (4 bytes) floating point number from
+    /// the `Buf`
+    fn read_f32<T: ByteOrder>(&mut self) -> f32 {
+        let mut buf = [0; 4];
+        self.read_slice(&mut buf);
+        T::read_f32(&buf)
+    }
+
+    /// Reads a IEEE754 double-precision (8 bytes) floating point number from
+    /// the `Buf`
+    fn read_f64<T: ByteOrder>(&mut self) -> f64 {
+        let mut buf = [0; 8];
+        self.read_slice(&mut buf);
+        T::read_f64(&buf)
     }
 }
 
@@ -162,6 +240,94 @@ pub trait MutBuf {
 
     fn write_str(&mut self, src: &str) {
         self.write_slice(src.as_bytes());
+    }
+
+    /// Writes an unsigned 8 bit integer to the MutBuf.
+    fn write_u8(&mut self, n: u8) {
+        self.write_slice(&[n])
+    }
+
+    /// Writes a signed 8 bit integer to the MutBuf.
+    fn write_i8(&mut self, n: i8) {
+        self.write_slice(&[n as u8])
+    }
+
+    /// Writes an unsigned 16 bit integer to the MutBuf.
+    fn write_u16<T: ByteOrder>(&mut self, n: u16) {
+        let mut buf = [0; 2];
+        T::write_u16(&mut buf, n);
+        self.write_slice(&buf)
+    }
+
+    /// Writes a signed 16 bit integer to the MutBuf.
+    fn write_i16<T: ByteOrder>(&mut self, n: i16) {
+        let mut buf = [0; 2];
+        T::write_i16(&mut buf, n);
+        self.write_slice(&buf)
+    }
+
+    /// Writes an unsigned 32 bit integer to the MutBuf.
+    fn write_u32<T: ByteOrder>(&mut self, n: u32) {
+        let mut buf = [0; 4];
+        T::write_u32(&mut buf, n);
+        self.write_slice(&buf)
+    }
+
+    /// Writes a signed 32 bit integer to the MutBuf.
+    fn write_i32<T: ByteOrder>(&mut self, n: i32) {
+        let mut buf = [0; 4];
+        T::write_i32(&mut buf, n);
+        self.write_slice(&buf)
+    }
+
+    /// Writes an unsigned 64 bit integer to the MutBuf.
+    fn write_u64<T: ByteOrder>(&mut self, n: u64) {
+        let mut buf = [0; 8];
+        T::write_u64(&mut buf, n);
+        self.write_slice(&buf)
+    }
+
+    /// Writes a signed 64 bit integer to the MutBuf.
+    fn write_i64<T: ByteOrder>(&mut self, n: i64) {
+        let mut buf = [0; 8];
+        T::write_i64(&mut buf, n);
+        self.write_slice(&buf)
+    }
+
+    /// Writes an unsigned n-bytes integer to the MutBuf.
+    ///
+    /// If the given integer is not representable in the given number of bytes,
+    /// this method panics. If `nbytes > 8`, this method panics.
+    fn write_uint<T: ByteOrder>(&mut self, n: u64, nbytes: usize) {
+        let mut buf = [0; 8];
+        T::write_uint(&mut buf, n, nbytes);
+        self.write_slice(&buf[0..nbytes])
+    }
+
+    /// Writes a signed n-bytes integer to the MutBuf.
+    ///
+    /// If the given integer is not representable in the given number of bytes,
+    /// this method panics. If `nbytes > 8`, this method panics.
+    fn write_int<T: ByteOrder>(&mut self, n: i64, nbytes: usize) {
+        let mut buf = [0; 8];
+        T::write_int(&mut buf, n, nbytes);
+        self.write_slice(&buf[0..nbytes])
+    }
+
+    /// Writes a IEEE754 single-precision (4 bytes) floating point number to
+    /// the MutBuf.
+    fn write_f32<T: ByteOrder>(&mut self, n: f32) {
+        let mut buf = [0; 4];
+        T::write_f32(&mut buf, n);
+        self.write_slice(&buf)
+    }
+
+    /// Writes a IEEE754 double-precision (8 bytes) floating point number to
+    /// the MutBuf.
+    fn write_f64<T: ByteOrder>(&mut self, n: f64) {
+        let mut buf = [0; 8];
+        T::write_f64(&mut buf, n);
+        self.write_slice(&buf)
     }
 }
 

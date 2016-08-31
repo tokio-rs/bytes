@@ -9,6 +9,7 @@ mod test_append;
 mod test_buf;
 mod test_buf_fill;
 mod test_byte_buf;
+mod test_mut_buf;
 mod test_ring;
 
 // == Bytes

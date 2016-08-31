@@ -213,7 +213,9 @@ impl fmt::Debug for Bytes {
 
         let mut rem = 128;
 
-        while let Some(byte) = buf.read_byte() {
+        while buf.has_remaining() {
+            let byte = buf.read_u8();
+
             if rem > 0 {
                 if is_ascii(byte) {
                     try!(write!(fmt, "{}", byte as char));

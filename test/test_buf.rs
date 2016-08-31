@@ -1,10 +1,9 @@
-use std::usize;
+use bytes::{Buf};
+use byteorder;
 use std::io::{Cursor};
 
 #[test]
 pub fn test_fresh_cursor_vec() {
-    use bytes::Buf;
-
     let mut buf = Cursor::new(b"hello".to_vec());
 
     assert_eq!(buf.remaining(), 5);
@@ -27,27 +26,21 @@ pub fn test_fresh_cursor_vec() {
 }
 
 #[test]
-pub fn test_vec_as_mut_buf() {
-    use bytes::MutBuf;
+pub fn test_read_u8() {
+    let mut buf = Cursor::new(b"\x21zomg");
+    assert_eq!(0x21, buf.read_u8());
+}
 
-    let mut buf = Vec::with_capacity(64);
+#[test]
+fn test_read_u16() {
+    let buf = b"\x21\x54zomg";
+    assert_eq!(0x2154, Cursor::new(buf).read_u16::<byteorder::BigEndian>());
+    assert_eq!(0x5421, Cursor::new(buf).read_u16::<byteorder::LittleEndian>());
+}
 
-    assert_eq!(buf.remaining(), usize::MAX);
-
-    unsafe {
-        assert!(buf.mut_bytes().len() >= 64);
-    }
-
-    buf.copy_from(&b"zomg"[..]);
-
-    assert_eq!(&buf, b"zomg");
-
-    assert_eq!(buf.remaining(), usize::MAX - 4);
-    assert_eq!(buf.capacity(), 64);
-
-    for _ in 0..16 {
-        buf.copy_from(&b"zomg"[..]);
-    }
-
-    assert_eq!(buf.len(), 68);
+#[test]
+#[should_panic]
+fn test_read_u16_buffer_underflow() {
+    let mut buf = Cursor::new(b"\x21");
+    buf.read_u16::<byteorder::BigEndian>();
 }
