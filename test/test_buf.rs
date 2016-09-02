@@ -1,6 +1,7 @@
 use bytes::{Buf};
 use byteorder;
 use std::io::{Cursor};
+use std::vec::{Vec};
 
 #[test]
 pub fn test_fresh_cursor_vec() {
@@ -43,4 +44,16 @@ fn test_read_u16() {
 fn test_read_u16_buffer_underflow() {
     let mut buf = Cursor::new(b"\x21");
     buf.read_u16::<byteorder::BigEndian>();
+}
+
+#[test]
+fn test_vec_sink_capacity() {
+    use bytes::Sink;
+
+    let mut sink: Vec<u8> = Vec::new();
+    sink.reserve(16);
+    assert!(sink.capacity() >= 16, "Capacity {} must be at least 16", sink.capacity());
+    let mut source = Cursor::new(b"0123456789abcdef0123456789abcdef");
+    sink.copy_from(&mut source);
+    assert!(sink.len() <= sink.capacity(), "Length {} must be less than or equal to capacity {}", sink.len(), sink.capacity());
 }

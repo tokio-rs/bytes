@@ -407,12 +407,13 @@ impl<'a> Sink for &'a mut Vec<u8> {
         self.clear();
 
         let rem = buf.remaining();
-        let cap = self.capacity();
 
         // Ensure that the vec is big enough
         if rem > self.capacity() {
-            self.reserve(rem - cap);
+            // current length is 0, so reserve completely
+            self.reserve(rem);
         }
+        debug_assert!(rem <= self.capacity());
 
         unsafe {
             {
