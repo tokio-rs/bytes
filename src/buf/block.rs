@@ -175,7 +175,7 @@ impl BlockBuf {
 
                 block.drop(segment_n);
 
-                !MutBuf::has_remaining(block)
+                block.len() == 0
             };
 
             if pop {

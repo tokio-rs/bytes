@@ -6,6 +6,7 @@ extern crate byteorder;
 
 // == Buf
 mod test_append;
+mod test_block;
 mod test_buf;
 mod test_buf_fill;
 mod test_byte_buf;
