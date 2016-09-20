@@ -22,7 +22,7 @@ pub struct RingBuf {
 // TODO: There are most likely many optimizations that can be made
 impl RingBuf {
     /// Allocates a new `RingBuf` with the specified capacity.
-    pub fn new(mut capacity: usize) -> RingBuf {
+    pub fn with_capacity(mut capacity: usize) -> RingBuf {
         // Round to the next power of 2 for better alignment
         capacity = capacity.next_power_of_two();
 
