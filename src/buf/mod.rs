@@ -4,7 +4,7 @@ pub mod byte;
 pub mod ring;
 pub mod take;
 
-use {Bytes};
+use {Bytes, Take};
 use byteorder::ByteOrder;
 use std::{cmp, fmt, io, ptr, usize};
 
@@ -164,6 +164,11 @@ pub trait Buf {
         let mut buf = [0; 8];
         self.read_slice(&mut buf);
         T::read_f64(&buf)
+    }
+
+    /// Create an adapter which will limit at most `limit` bytes from it.
+    fn take(self, limit: usize) -> Take<Self> where Self: Sized {
+        Take::new(self, limit)
     }
 }
 
@@ -328,6 +333,11 @@ pub trait MutBuf {
         let mut buf = [0; 8];
         T::write_f64(&mut buf, n);
         self.write_slice(&buf)
+    }
+
+    /// Create an adapter which will limit at most `limit` bytes from it.
+    fn take(self, limit: usize) -> Take<Self> where Self: Sized {
+        Take::new(self, limit)
     }
 }
 
