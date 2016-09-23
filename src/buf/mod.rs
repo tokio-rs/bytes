@@ -166,9 +166,19 @@ pub trait Buf {
         T::read_f64(&buf)
     }
 
+    /// Creates a "by reference" adaptor for this instance of Buf
+    fn by_ref(&mut self) -> &mut Self where Self: Sized {
+        self
+    }
+
     /// Create an adapter which will limit at most `limit` bytes from it.
     fn take(self, limit: usize) -> Take<Self> where Self: Sized {
         Take::new(self, limit)
+    }
+
+    /// Return a `Reader` for the value. Allows using a `Buf` as an `io::Read`
+    fn reader(self) -> Reader<Self> where Self: Sized {
+        Reader::new(self)
     }
 }
 
@@ -335,9 +345,20 @@ pub trait MutBuf {
         self.write_slice(&buf)
     }
 
+    /// Creates a "by reference" adaptor for this instance of MutBuf
+    fn by_ref(&mut self) -> &mut Self where Self: Sized {
+        self
+    }
+
     /// Create an adapter which will limit at most `limit` bytes from it.
     fn take(self, limit: usize) -> Take<Self> where Self: Sized {
         Take::new(self, limit)
+    }
+
+    /// Return a `Write` for the value. Allows using a `MutBuf` as an
+    /// `io::Write`
+    fn writer(self) -> Writer<Self> where Self: Sized {
+        Writer::new(self)
     }
 }
 
@@ -442,6 +463,43 @@ impl<'a> Sink for &'a mut Vec<u8> {
  *
  */
 
+/// Adapts a `Buf` to the `io::Read` trait
+pub struct Reader<B> {
+    buf: B,
+}
+
+impl<B: Buf> Reader<B> {
+    /// Return a `Reader` for the given `buf`
+    pub fn new(buf: B) -> Reader<B> {
+        Reader { buf: buf }
+    }
+
+    /// Gets a reference to the underlying buf.
+    pub fn get_ref(&self) -> &B {
+        &self.buf
+    }
+
+    /// Gets a mutable reference to the underlying buf.
+    pub fn get_mut(&mut self) -> &mut B {
+        &mut self.buf
+    }
+
+    /// Unwraps this `Reader`, returning the underlying `Buf`
+    pub fn into_inner(self) -> B {
+        self.buf
+    }
+}
+
+impl<B: Buf + Sized> io::Read for Reader<B> {
+    fn read(&mut self, dst: &mut [u8]) -> io::Result<usize> {
+        let len = cmp::min(self.buf.remaining(), dst.len());
+
+        Buf::copy_to(&mut self.buf, &mut dst[0..len]);
+        Ok(len)
+    }
+}
+
+/// Buffer related extension for `io::Read`
 pub trait ReadExt {
     fn read_buf<B: MutBuf>(&mut self, buf: &mut B) -> io::Result<usize>;
 }
@@ -461,6 +519,47 @@ impl<T: io::Read> ReadExt for T {
     }
 }
 
+/// Adapts a `MutBuf` to the `io::Write` trait
+pub struct Writer<B> {
+    buf: B,
+}
+
+impl<B: MutBuf> Writer<B> {
+    /// Return a `Writer` for teh given `buf`
+    pub fn new(buf: B) -> Writer<B> {
+        Writer { buf: buf }
+    }
+
+    /// Gets a reference to the underlying buf.
+    pub fn get_ref(&self) -> &B {
+        &self.buf
+    }
+
+    /// Gets a mutable reference to the underlying buf.
+    pub fn get_mut(&mut self) -> &mut B {
+        &mut self.buf
+    }
+
+    /// Unwraps this `Writer`, returning the underlying `MutBuf`
+    pub fn into_inner(self) -> B {
+        self.buf
+    }
+}
+
+impl<B: MutBuf + Sized> io::Write for Writer<B> {
+    fn write(&mut self, src: &[u8]) -> io::Result<usize> {
+        let n = cmp::min(self.buf.remaining(), src.len());
+
+        self.buf.copy_from(&src[0..n]);
+        Ok(n)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+
+/// Buffer related extension for `io::Write`
 pub trait WriteExt {
     fn write_buf<B: Buf>(&mut self, buf: &mut B) -> io::Result<usize>;
 }

@@ -11,7 +11,7 @@ mod bytes;
 
 pub mod alloc;
 
-pub use buf::{Buf, MutBuf, Source, Sink, ReadExt, WriteExt, Fmt};
+pub use buf::{Buf, MutBuf, Source, Sink, Reader, ReadExt, Writer, WriteExt, Fmt};
 pub use buf::append::AppendBuf;
 pub use buf::block::{BlockBuf, BlockBufCursor};
 pub use buf::byte::{ByteBuf, MutByteBuf};
