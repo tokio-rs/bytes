@@ -41,7 +41,7 @@ impl<T: Buf> Buf for Take<T> {
         cmp::min(self.inner.remaining(), self.limit)
     }
 
-    fn bytes<'a>(&'a self) -> &'a [u8] {
+    fn bytes(&self) -> &[u8] {
         &self.inner.bytes()[..self.limit]
     }
 
@@ -57,7 +57,7 @@ impl<T: MutBuf> MutBuf for Take<T> {
         cmp::min(self.inner.remaining(), self.limit)
     }
 
-    unsafe fn mut_bytes<'a>(&'a mut self) -> &'a mut [u8] {
+    unsafe fn mut_bytes(&mut self) -> &mut [u8] {
         &mut self.inner.mut_bytes()[..self.limit]
     }
 

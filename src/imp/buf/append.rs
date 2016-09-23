@@ -99,7 +99,7 @@ impl MutBuf for AppendBuf {
     }
 
     #[inline]
-    unsafe fn mut_bytes<'a>(&'a mut self) -> &'a mut [u8] {
+    unsafe fn mut_bytes(&mut self) -> &mut [u8] {
         let wr = self.wr as usize;
         let cap = self.cap as usize;
         self.mem.mut_bytes_slice(wr, cap)

@@ -14,6 +14,8 @@ pub use imp::buf::{Buf, MutBuf};
 pub use imp::bytes::Bytes;
 
 pub mod buf {
+    //! Traits, helpers, and type definitions for working with buffers.
+
     pub use imp::buf::{
         Source,
         Sink,

@@ -133,7 +133,7 @@ impl Buf for ByteBuf {
     }
 
     #[inline]
-    fn bytes<'a>(&'a self) -> &'a [u8] {
+    fn bytes(&self) -> &[u8] {
         unsafe { &self.mem.bytes()[self.pos()..self.lim()] }
     }
 
@@ -212,7 +212,7 @@ impl MutByteBuf {
         cnt
     }
 
-    pub fn bytes<'a>(&'a self) -> &'a [u8] {
+    pub fn bytes(&self) -> &[u8] {
         unsafe { &self.buf.mem.bytes()[..self.buf.pos()] }
     }
 }
@@ -224,9 +224,9 @@ impl MutBuf for MutByteBuf {
 
     unsafe fn advance(&mut self, cnt: usize) {
         self.buf.advance(cnt)
-    }
 
-    unsafe fn mut_bytes<'a>(&'a mut self) -> &'a mut [u8] {
+    }
+    unsafe fn mut_bytes(&mut self) -> &mut [u8] {
         let pos = self.buf.pos();
         let lim = self.buf.lim();
         &mut self.buf.mem.mut_bytes()[pos..lim]

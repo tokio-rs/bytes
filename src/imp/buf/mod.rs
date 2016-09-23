@@ -201,7 +201,7 @@ pub trait MutBuf {
     /// length between 0 and `MutBuf::remaining()`.
     ///
     /// The returned byte slice may represent uninitialized memory.
-    unsafe fn mut_bytes<'a>(&'a mut self) -> &'a mut [u8];
+    unsafe fn mut_bytes(&mut self) -> &mut [u8];
 
     fn copy_from<S: Source>(&mut self, src: S) -> usize
             where Self: Sized {
@@ -617,7 +617,7 @@ impl<T: AsMut<[u8]> + AsRef<[u8]>> MutBuf for io::Cursor<T> {
     /// length between 0 and `MutBuf::remaining()`.
     ///
     /// The returned byte slice may represent uninitialized memory.
-    unsafe fn mut_bytes<'a>(&'a mut self) -> &'a mut [u8] {
+    unsafe fn mut_bytes(&mut self) -> &mut [u8] {
         let pos = self.position() as usize;
         &mut (self.get_mut().as_mut())[pos..]
     }
