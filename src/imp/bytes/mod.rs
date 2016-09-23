@@ -10,6 +10,7 @@ use std::{cmp, fmt, ops};
 use std::io::Cursor;
 use std::sync::Arc;
 
+/// An immutable sequence of bytes
 #[derive(Clone)]
 pub struct Bytes {
     kind: Kind,
