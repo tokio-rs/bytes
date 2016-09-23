@@ -1,4 +1,4 @@
-use bytes::{Bytes};
+use {Bytes};
 use std::ops;
 use std::io::Cursor;
 

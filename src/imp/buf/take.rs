@@ -1,4 +1,4 @@
-use buf::{Buf, MutBuf};
+use {Buf, MutBuf};
 use std::{cmp};
 
 #[derive(Debug)]

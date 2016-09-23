@@ -1,7 +1,7 @@
 //! Immutable set of bytes sequential in memory.
 
-use {alloc, MutByteBuf, MutBuf};
-use bytes::{Bytes};
+use {alloc, MutBuf, Bytes};
+use buf::{MutByteBuf};
 use std::ops;
 use std::io::Cursor;
 

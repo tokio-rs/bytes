@@ -1,5 +1,5 @@
-use bytes::{MutBuf, BlockBuf};
-
+use bytes::{MutBuf};
+use bytes::buf::{BlockBuf};
 
 #[test]
 pub fn test_block_drop() {

@@ -1,6 +1,4 @@
-use alloc;
-use buf::{MutBuf};
-use bytes::Bytes;
+use {alloc, MutBuf, Bytes};
 use std::cell::Cell;
 
 /// A `Buf` backed by a contiguous region of memory.

@@ -1,7 +1,7 @@
-use {Bytes, MutByteBuf};
-use buf::{Buf, MutBuf, Source};
-use bytes::seq::Seq;
-use bytes::small::{Small};
+use {Buf, MutBuf, Bytes};
+use super::seq::Seq;
+use super::small::{Small};
+use buf::{Source, MutByteBuf};
 use std::{cmp, ops};
 use std::io::Cursor;
 use std::sync::Arc;

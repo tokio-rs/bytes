@@ -2,8 +2,7 @@ mod rope;
 mod seq;
 mod small;
 
-use alloc;
-use buf::Buf;
+use {alloc, Buf};
 use self::seq::Seq;
 use self::small::Small;
 use self::rope::{Rope, RopeBuf};

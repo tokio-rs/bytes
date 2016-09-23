@@ -1,4 +1,5 @@
-use bytes::{RingBuf, Buf, MutBuf};
+use bytes::{Buf, MutBuf};
+use bytes::buf::RingBuf;
 
 #[test]
 pub fn test_initial_buf_empty() {

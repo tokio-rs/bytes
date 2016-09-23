@@ -1,7 +1,7 @@
 #![allow(warnings)]
 
-use {Buf, MutBuf, AppendBuf, Bytes};
-use alloc::{self, /* Pool */};
+use {alloc, Buf, MutBuf, Bytes};
+use buf::AppendBuf;
 use std::{cmp, ptr, slice};
 use std::io::Cursor;
 use std::rc::Rc;

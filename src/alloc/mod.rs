@@ -1,3 +1,7 @@
+//! Buffer allocation
+//!
+//! This module is currently not really in use
+
 mod heap;
 
 use std::sync::Arc;

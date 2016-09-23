@@ -4,7 +4,8 @@ pub mod byte;
 pub mod ring;
 pub mod take;
 
-use {Bytes, Take};
+use {Bytes};
+use buf::Take;
 use byteorder::ByteOrder;
 use std::{cmp, fmt, io, ptr, usize};
 

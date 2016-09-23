@@ -1,5 +1,5 @@
 use bytes::{Buf, MutBuf};
-use bytes::MutByteBuf;
+use bytes::buf::MutByteBuf;
 
 #[test]
 pub fn test_initial_buf_empty() {

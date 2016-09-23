@@ -1,4 +1,5 @@
 use bytes::*;
+use bytes::buf::*;
 use std::io;
 
 #[test]

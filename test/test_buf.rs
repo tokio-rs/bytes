@@ -48,7 +48,7 @@ fn test_read_u16_buffer_underflow() {
 
 #[test]
 fn test_vec_sink_capacity() {
-    use bytes::Sink;
+    use bytes::buf::Sink;
 
     let mut sink: Vec<u8> = Vec::new();
     sink.reserve(16);
