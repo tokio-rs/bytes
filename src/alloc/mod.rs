@@ -7,7 +7,7 @@ mod heap;
 use std::sync::Arc;
 
 pub struct MemRef {
-    mem: Arc<Vec<u8>>,
+    mem: Arc<Box<[u8]>>,
 }
 
 /// Allocate a segment of memory and return a `MemRef`.
@@ -17,7 +17,7 @@ pub unsafe fn heap(len: usize) -> MemRef {
 
 impl MemRef {
     #[inline]
-    pub unsafe fn new(mem: Arc<Vec<u8>>) -> MemRef {
+    pub unsafe fn new(mem: Arc<Box<[u8]>>) -> MemRef {
         MemRef { mem: mem }
     }
 
@@ -51,6 +51,10 @@ impl MemRef {
         use std::slice;
         let ptr = self.mem.as_ptr().offset(start as isize);
         slice::from_raw_parts_mut(ptr as *mut u8, end - start)
+    }
+
+    pub fn get_ref(&self) -> &Arc<Box<[u8]>> {
+        &self.mem
     }
 }
 

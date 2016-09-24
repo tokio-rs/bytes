@@ -1,7 +1,7 @@
 use {Buf, MutBuf, Bytes};
 use super::seq::Seq;
 use super::small::{Small};
-use buf::{Source, MutByteBuf};
+use buf::{Source, AppendBuf};
 use std::{cmp, ops};
 use std::io::Cursor;
 use std::sync::Arc;
@@ -351,12 +351,12 @@ impl ops::Index<usize> for Node {
 fn concat_bytes<S1, S2>(left: S1, right: S2, len: usize) -> Bytes
     where S1: Source, S2: Source,
 {
-    let mut buf = MutByteBuf::with_capacity(len);
+    let mut buf = AppendBuf::with_capacity(len as u32);
 
     buf.copy_from(left);
     buf.copy_from(right);
 
-    return buf.flip().into();
+    return buf.into();
 }
 
 fn depth_for_len(len: usize) -> u16 {

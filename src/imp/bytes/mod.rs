@@ -1,8 +1,8 @@
-mod rope;
-mod seq;
-mod small;
+pub mod rope;
+pub mod seq;
+pub mod small;
 
-use {alloc, Buf};
+use Buf;
 use self::seq::Seq;
 use self::small::Small;
 use self::rope::{Rope, RopeBuf};
@@ -38,16 +38,22 @@ impl Bytes {
         Bytes { kind: Kind::Small(Small::empty()) }
     }
 
-    /// Creates a new `Bytes` from a `MemRef`, an offset, and a length.
-    ///
-    /// This function is unsafe as there are no guarantees that the given
-    /// arguments are valid.
+    pub fn from_slice<T: AsRef<[u8]>>(slice: T) -> Bytes {
+        Small::from_slice(slice.as_ref())
+            .map(|b| Bytes { kind: Kind::Small(b)})
+            .unwrap_or_else(|| Seq::from_slice(slice.as_ref()))
+    }
+
+    /// Creates a new `Bytes` from an `Arc<Box<[u8]>>`, an offset, and a length.
     #[inline]
-    pub unsafe fn from_mem_ref(mem: alloc::MemRef, pos: u32, len: u32) -> Bytes {
-        Small::from_slice(&mem.bytes_slice(pos as usize, pos as usize + len as usize))
+    pub fn from_boxed(mem: Arc<Box<[u8]>>, pos: usize, len: usize) -> Bytes {
+        // Check ranges
+        assert!(pos + len <= mem.len(), "invalid arguments");
+
+        Small::from_slice(&mem[pos..pos + len])
             .map(|b| Bytes { kind: Kind::Small(b) })
             .unwrap_or_else(|| {
-                let seq = Seq::from_mem_ref(mem, pos, len);
+                let seq = Seq::new(mem, pos, len);
                 Bytes { kind: Kind::Seq(seq) }
             })
     }
@@ -120,6 +126,21 @@ impl Bytes {
     }
 }
 
+impl<'a> From<&'a [u8]> for Bytes {
+    fn from(src: &'a [u8]) -> Bytes {
+        Bytes::from_slice(src)
+    }
+}
+
+impl From<Vec<u8>> for Bytes {
+    fn from(src: Vec<u8>) -> Bytes {
+        let mem = Arc::new(src.into_boxed_slice());
+        let len = mem.len();
+
+        Bytes::from_boxed(mem, 0, len)
+    }
+}
+
 impl ops::Index<usize> for Bytes {
     type Output = u8;
 
@@ -129,14 +150,6 @@ impl ops::Index<usize> for Bytes {
             Kind::Small(ref v) => v.index(index),
             Kind::Rope(ref v) => v.index(index),
         }
-    }
-}
-
-impl<T: AsRef<[u8]>> From<T> for Bytes {
-    fn from(src: T) -> Bytes {
-        Small::from_slice(src.as_ref())
-            .map(|b| Bytes { kind: Kind::Small(b) })
-            .unwrap_or_else(|| Seq::from_slice(src.as_ref()))
     }
 }
 

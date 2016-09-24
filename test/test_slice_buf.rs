@@ -1,51 +1,43 @@
 use bytes::{Buf, MutBuf};
-use bytes::buf::MutByteBuf;
+use bytes::buf::SliceBuf;
 
 #[test]
 pub fn test_initial_buf_empty() {
-    let buf = MutByteBuf::with_capacity(100);
+    let buf = SliceBuf::with_capacity(100);
 
     assert!(buf.capacity() == 128);
-    assert!(buf.remaining() == 128);
-
-    let buf = buf.flip();
-
-    assert!(buf.remaining() == 0);
-
-    let buf = buf.flip();
-
-    assert!(buf.remaining() == 128);
+    assert!(buf.remaining_write() == 128);
+    assert!(buf.remaining_read() == 0);
 }
 
 #[test]
-pub fn test_byte_buf_bytes() {
-    let mut buf = MutByteBuf::with_capacity(32);
+pub fn test_slice_buf_bytes() {
+    let mut buf = SliceBuf::with_capacity(32);
+
     buf.copy_from(&b"hello "[..]);
     assert_eq!(&b"hello "[..], buf.bytes());
 
     buf.copy_from(&b"world"[..]);
     assert_eq!(&b"hello world"[..], buf.bytes());
-    let buf = buf.flip();
-    assert_eq!(&b"hello world"[..], buf.bytes());
 }
 
 #[test]
 pub fn test_byte_buf_read_write() {
-    let mut buf = MutByteBuf::with_capacity(32);
+    let mut buf = SliceBuf::with_capacity(32);
 
     buf.copy_from(&b"hello world"[..]);
-    assert_eq!(21, buf.remaining());
+    assert_eq!(21, buf.remaining_write());
 
     buf.copy_from(&b" goodbye"[..]);
-    assert_eq!(13, buf.remaining());
+    assert_eq!(13, buf.remaining_write());
 
-    let mut buf = buf.flip();
     let mut dst = [0; 5];
 
-    buf.mark();
+    let pos = buf.position();
     assert_eq!(5, buf.copy_to(&mut dst[..]));
     assert_eq!(b"hello", &dst);
-    buf.reset();
+
+    buf.set_position(pos);
     assert_eq!(5, buf.copy_to(&mut dst[..]));
     assert_eq!(b"hello", &dst);
 
@@ -60,12 +52,16 @@ pub fn test_byte_buf_read_write() {
     assert_eq!(7, buf.copy_to(&mut dst[..]));
     assert_eq!(b"goodbye", &dst);
 
-    let mut buf = buf.resume();
-    assert_eq!(13, buf.remaining());
+    assert_eq!(13, buf.remaining_write());
 
     buf.copy_from(&b" have fun"[..]);
-    assert_eq!(4, buf.remaining());
+    assert_eq!(4, buf.remaining_write());
 
-    let buf = buf.flip();
+    assert_eq!(buf.bytes(), b" have fun");
+
+    buf.set_position(0);
     assert_eq!(buf.bytes(), b"hello world goodbye have fun");
+
+    buf.clear();
+    assert_eq!(buf.bytes(), b"");
 }

@@ -73,7 +73,7 @@ impl AppendBuf {
 
         assert!(begin <= end && end <= wr, "invalid range");
 
-        unsafe { Bytes::from_mem_ref(self.mem.clone(), begin, end - begin) }
+        Bytes::from_boxed(self.mem.get_ref().clone(), begin as usize, (end - begin) as usize)
     }
 }
 
@@ -109,5 +109,14 @@ impl MutBuf for AppendBuf {
 impl AsRef<[u8]> for AppendBuf {
     fn as_ref(&self) -> &[u8] {
         self.bytes()
+    }
+}
+
+impl From<AppendBuf> for Bytes {
+    fn from(src: AppendBuf) -> Bytes {
+        let rd = src.rd.get();
+        let wr = src.wr;
+
+        Bytes::from_boxed(src.mem.get_ref().clone(), rd as usize, (wr - rd) as usize)
     }
 }

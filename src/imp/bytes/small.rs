@@ -58,7 +58,7 @@ impl Small {
     }
 
     pub fn slice(&self, begin: usize, end: usize) -> Bytes {
-        Bytes::from(&self.as_ref()[begin..end])
+        Bytes::from_slice(&self.as_ref()[begin..end])
     }
 
     pub fn len(&self) -> usize {

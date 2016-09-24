@@ -5,10 +5,10 @@ use std::io;
 #[test]
 pub fn test_readijng_buf_from_reader() {
     let mut reader = chunks(vec![b"foo", b"bar", b"baz"]);
-    let mut buf = MutByteBuf::with_capacity(1024);
+    let mut buf = AppendBuf::with_capacity(1024);
 
     assert_eq!(3, reader.read_buf(&mut buf).unwrap());
-    assert_eq!(Bytes::from(&b"foo"), Bytes::from(buf.flip()));
+    assert_eq!(Bytes::from_slice(&b"foo"), Bytes::from(buf));
 }
 
 fn chunks(chunks: Vec<&'static [u8]>) -> Chunked {
