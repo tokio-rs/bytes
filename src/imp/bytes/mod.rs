@@ -2,7 +2,7 @@ pub mod rope;
 pub mod seq;
 pub mod small;
 
-use Buf;
+use {Buf, IntoBuf};
 use self::seq::Seq;
 use self::small::Small;
 use self::rope::{Rope, RopeBuf};
@@ -187,6 +187,20 @@ impl cmp::PartialEq<Bytes> for Bytes {
         return !self.eq(other)
     }
 }
+
+impl<'a> IntoBuf for &'a Bytes {
+    type Buf = BytesBuf<'a>;
+
+    fn into_buf(self) -> Self::Buf {
+        self.buf()
+    }
+}
+
+/*
+ *
+ * ===== BytesBuf =====
+ *
+ */
 
 impl<'a> Buf for BytesBuf<'a> {
     fn remaining(&self) -> usize {

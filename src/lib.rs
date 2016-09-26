@@ -10,7 +10,7 @@ mod imp;
 // TODO: delete
 mod alloc;
 
-pub use imp::buf::{Buf, MutBuf};
+pub use imp::buf::{Buf, MutBuf, IntoBuf};
 pub use imp::bytes::Bytes;
 
 pub mod buf {

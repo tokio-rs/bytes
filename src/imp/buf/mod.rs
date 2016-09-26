@@ -365,6 +365,40 @@ pub trait MutBuf {
 
 /*
  *
+ * ===== IntoBuf =====
+ *
+ */
+
+/// Conversion into a `Buf`
+///
+/// Usually, `IntoBuf` is implemented on references of types and not directly
+/// on the types themselves. For example, `IntoBuf` is implemented for `&'a
+/// Vec<u8>` and not `Vec<u8>` directly.
+pub trait IntoBuf {
+    type Buf: Buf;
+
+    fn into_buf(self) -> Self::Buf;
+}
+
+impl<'a> IntoBuf for &'a [u8] {
+    type Buf = io::Cursor<&'a [u8]>;
+
+    /// Creates a buffer from a value
+    fn into_buf(self) -> Self::Buf {
+        io::Cursor::new(self)
+    }
+}
+
+impl<'a> IntoBuf for &'a Vec<u8> {
+    type Buf = io::Cursor<&'a [u8]>;
+
+    fn into_buf(self) -> Self::Buf {
+        io::Cursor::new(&self[..])
+    }
+}
+
+/*
+ *
  * ===== Sink / Source =====
  *
  */
