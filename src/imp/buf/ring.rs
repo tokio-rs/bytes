@@ -1,187 +1,158 @@
-use {alloc, Buf, MutBuf};
-use std::{cmp, fmt};
+use {Buf, MutBuf};
+use imp::alloc;
+use std::fmt;
 
-enum Mark {
-    NoMark,
-    At { pos: usize, len: usize },
-}
 
-/// Buf backed by a continous chunk of memory. Maintains a read cursor and a
-/// write cursor. When reads and writes reach the end of the allocated buffer,
-/// wraps around to the start.
+/// `RingBuf` is backed by contiguous memory and writes may wrap.
 ///
-/// This type is suited for use cases where reads and writes are intermixed.
-pub struct RingBuf {
-    ptr: alloc::MemRef,  // Pointer to the memory
-    cap: usize,          // Capacity of the buffer
-    pos: usize,          // Offset of read cursor
-    len: usize,          // Number of bytes to read
-    mark: Mark,          // Marked read position
+/// When writing reaches the end of the memory, writing resume at the beginning
+/// of the memory. Writes may never overwrite pending reads.
+pub struct RingBuf<T = Box<[u8]>> {
+    // Contiguous memory
+    mem: T,
+    // Current read position
+    rd: u64,
+    // Current write position
+    wr: u64,
+    // Mask used to convert the cursor to an offset
+    mask: u64,
 }
 
-// TODO: There are most likely many optimizations that can be made
 impl RingBuf {
     /// Allocates a new `RingBuf` with the specified capacity.
-    pub fn with_capacity(mut capacity: usize) -> RingBuf {
-        // Round to the next power of 2 for better alignment
-        capacity = capacity.next_power_of_two();
+    pub fn with_capacity(capacity: usize) -> RingBuf {
+        let mem = unsafe { alloc::with_capacity(capacity) };
+        RingBuf::new(mem)
+    }
+}
 
-        unsafe {
-            let mem = alloc::heap(capacity as usize);
+impl<T: AsRef<[u8]>> RingBuf<T> {
+    /// Creates a new `RingBuf` wrapping the provided slice
+    pub fn new(mem: T) -> RingBuf<T> {
+        // Ensure that the memory chunk provided has a length that is a power
+        // of 2
+        let len = mem.as_ref().len() as u64;
+        let mask = len - 1;
 
-            RingBuf {
-                ptr: mem,
-                cap: capacity,
-                pos: 0,
-                len: 0,
-                mark: Mark::NoMark,
-            }
+        assert!(len & mask == 0, "mem length must be power of two");
+
+        RingBuf {
+            mem: mem,
+            rd: 0,
+            wr: 0,
+            mask: mask,
         }
-    }
-
-    /// Returns `true` if the buf cannot accept any further writes.
-    pub fn is_full(&self) -> bool {
-        self.cap == self.len
-    }
-
-    /// Returns `true` if the buf cannot accept any further reads.
-    pub fn is_empty(&self) -> bool {
-        self.len == 0
     }
 
     /// Returns the number of bytes that the buf can hold.
     pub fn capacity(&self) -> usize {
-        self.cap
+        self.mem.as_ref().len()
     }
 
-    /// Marks the current read location.
-    ///
-    /// Together with `reset`, this can be used to read from a section of the
-    /// buffer multiple times. The mark will be cleared if it is overwritten
-    /// during a write.
-    pub fn mark(&mut self) {
-        self.mark = Mark::At { pos: self.pos, len: self.len };
+    /// Return the read cursor position
+    pub fn position(&self) -> u64 {
+        self.rd
     }
 
-    /// Resets the read position to the previously marked position.
-    ///
-    /// Together with `mark`, this can be used to read from a section of the
-    /// buffer multiple times.
-    ///
-    /// # Panics
-    ///
-    /// This method will panic if no mark has been set,
-    pub fn reset(&mut self){
-        match self.mark {
-            Mark::NoMark => panic!("no mark set"),
-            Mark::At {pos, len} => {
-                self.pos = pos;
-                self.len = len;
-                self.mark = Mark::NoMark;
-            }
+    /// Set the read cursor position
+    pub fn set_position(&mut self, position: u64) {
+        assert!(position <= self.wr && position + self.capacity() as u64 >= self.wr,
+                "position out of bounds");
+        self.rd = position;
+    }
+
+    /// Return the number of buffered bytes
+    pub fn len(&self) -> usize {
+        if self.wr >= self.capacity() as u64 {
+            (self.rd - (self.wr - self.capacity() as u64)) as usize
+        } else {
+            self.rd as usize
         }
+    }
+
+    /// Returns `true` if the buf cannot accept any further reads.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 
     /// Resets all internal state to the initial state.
     pub fn clear(&mut self) {
-        self.pos = 0;
-        self.len = 0;
-        self.mark = Mark::NoMark;
+        self.rd = 0;
+        self.wr = 0;
     }
 
     /// Returns the number of bytes remaining to read.
-    fn read_remaining(&self) -> usize {
-        self.len
+    pub fn remaining_read(&self) -> usize {
+        (self.wr - self.rd) as usize
     }
 
     /// Returns the remaining write capacity until which the buf becomes full.
-    fn write_remaining(&self) -> usize {
-        self.cap - self.len
-    }
-
-    fn advance_reader(&mut self, mut cnt: usize) {
-        if self.cap == 0 {
-            return;
-        }
-        cnt = cmp::min(cnt, self.read_remaining());
-
-        self.pos += cnt;
-        self.pos %= self.cap;
-        self.len -= cnt;
-    }
-
-    fn advance_writer(&mut self, mut cnt: usize) {
-        cnt = cmp::min(cnt, self.write_remaining());
-        self.len += cnt;
-
-        // Adjust the mark to account for bytes written.
-        if let Mark::At { ref mut len, .. } = self.mark {
-            *len += cnt;
-        }
-
-        // Clear the mark if we've written past it.
-        if let Mark::At { len, .. } = self.mark {
-            if len > self.cap {
-                self.mark = Mark::NoMark;
-            }
-        }
+    pub fn remaining_write(&self) -> usize {
+        self.capacity() - self.remaining_read()
     }
 }
 
-impl fmt::Debug for RingBuf {
+impl<T: AsRef<[u8]>> fmt::Debug for RingBuf<T> {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        write!(fmt, "RingBuf[.. {}]", self.len)
+        write!(fmt, "RingBuf[.. {}]", self.len())
     }
 }
 
-impl Buf for RingBuf {
+impl<T: AsRef<[u8]>> Buf for RingBuf<T> {
     fn remaining(&self) -> usize {
-        self.read_remaining()
+        self.remaining_read()
     }
 
     fn bytes(&self) -> &[u8] {
-        let mut to = self.pos + self.len;
+        // This comparison must be performed in order to differentiate between
+        // the at capacity case and the empty case.
+        if self.wr > self.rd {
+            let a = (self.rd & self.mask) as usize;
+            let b = (self.wr & self.mask) as usize;
 
-        if to > self.cap {
-            to = self.cap
+            println!("a={:?}; b={:?}, wr={:?}; rd={:?}", a, b, self.wr, self.rd);
+
+            if b > a {
+                &self.mem.as_ref()[a..b]
+            } else {
+                &self.mem.as_ref()[a..]
+            }
+        } else {
+            &[]
         }
-
-        unsafe { &self.ptr.bytes()[self.pos .. to] }
     }
 
     fn advance(&mut self, cnt: usize) {
-        self.advance_reader(cnt)
+        assert!(cnt <= self.remaining_read(), "buffer overflow");
+        self.rd += cnt as u64
     }
 }
 
-impl MutBuf for RingBuf {
-
+impl<T> MutBuf for RingBuf<T>
+    where T: AsRef<[u8]> + AsMut<[u8]>,
+{
     fn remaining(&self) -> usize {
-        self.write_remaining()
+        self.remaining_write()
     }
 
     unsafe fn advance(&mut self, cnt: usize) {
-        self.advance_writer(cnt)
+        assert!(cnt <= self.remaining_write(), "buffer overflow");
+        self.wr += cnt as u64;
     }
 
     unsafe fn mut_bytes(&mut self) -> &mut [u8] {
-        if self.cap == 0 {
-            return self.ptr.mut_bytes();
+        let a = (self.wr & self.mask) as usize;
+
+        if self.wr > self.rd {
+            let b = (self.rd & self.mask) as usize;
+
+            if a >= b {
+                &mut self.mem.as_mut()[a..]
+            } else {
+                &mut self.mem.as_mut()[a..b]
+            }
+        } else {
+            &mut self.mem.as_mut()[a..]
         }
-        let mut from;
-        let mut to;
-
-        from = self.pos + self.len;
-        from %= self.cap;
-
-        to = from + <Self as MutBuf>::remaining(&self);
-
-        if to >= self.cap {
-            to = self.cap;
-        }
-
-        &mut self.ptr.mut_bytes()[from..to]
     }
 }
-
-unsafe impl Send for RingBuf { }

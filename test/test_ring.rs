@@ -2,6 +2,12 @@ use bytes::{Buf, MutBuf};
 use bytes::buf::RingBuf;
 
 #[test]
+pub fn test_ring_buf_is_send() {
+    fn is_send<T: Send>() {}
+    is_send::<RingBuf>();
+}
+
+#[test]
 pub fn test_initial_buf_empty() {
     let mut buf = RingBuf::with_capacity(16);
     assert_eq!(MutBuf::remaining(&buf), 16);
@@ -18,11 +24,11 @@ pub fn test_initial_buf_empty() {
 
     let mut out = [0u8; 3];
 
-    buf.mark();
+    let pos = buf.position();
     let bytes_read = buf.copy_to(&mut out[..]);
     assert_eq!(bytes_read, 3);
     assert_eq!(out, [1, 2, 3]);
-    buf.reset();
+    buf.set_position(pos);
     let bytes_read = buf.copy_to(&mut out[..]);
     assert_eq!(bytes_read, 3);
     assert_eq!(out, [1, 2, 3]);
@@ -43,11 +49,11 @@ fn test_wrapping_write() {
     let bytes_written = buf.copy_from(&[23;8][..]);
     assert_eq!(bytes_written, 8);
 
-    buf.mark();
+    let pos = buf.position();
     let bytes_read = buf.copy_to(&mut out[..]);
     assert_eq!(bytes_read, 10);
     assert_eq!(out, [42, 42, 23, 23, 23, 23, 23, 23, 23, 23]);
-    buf.reset();
+    buf.set_position(pos);
     let bytes_read = buf.copy_to(&mut out[..]);
     assert_eq!(bytes_read, 10);
     assert_eq!(out, [42, 42, 23, 23, 23, 23, 23, 23, 23, 23]);
@@ -77,10 +83,10 @@ fn test_io_write_and_read() {
 fn test_wrap_reset() {
     let mut buf = RingBuf::with_capacity(8);
     buf.copy_from(&[1, 2, 3, 4, 5, 6, 7][..]);
-    buf.mark();
+    let pos = buf.position();
     buf.copy_to(&mut [0; 4][..]);
     buf.copy_from(&[1, 2, 3, 4][..]);
-    buf.reset();
+    buf.set_position(pos);
 }
 
 #[test]
@@ -88,9 +94,9 @@ fn test_wrap_reset() {
 fn test_mark_write() {
     let mut buf = RingBuf::with_capacity(8);
     buf.copy_from(&[1, 2, 3, 4, 5, 6, 7][..]);
-    buf.mark();
+    let pos = buf.position();
     buf.copy_from(&[8][..]);
-    buf.reset();
+    buf.set_position(pos);
 
     let mut buf2 = [0; 8];
     buf.copy_to(&mut buf2[..]);
@@ -104,8 +110,8 @@ fn test_reset_full() {
     let mut buf = RingBuf::with_capacity(8);
     buf.copy_from(&[1, 2, 3, 4, 5, 6, 7, 8][..]);
     assert_eq!(MutBuf::remaining(&buf), 0);
-    buf.mark();
-    buf.reset();
+    let pos = buf.position();
+    buf.set_position(pos);
     assert_eq!(MutBuf::remaining(&buf), 0);
 }
 
