@@ -397,6 +397,14 @@ impl<'a> IntoBuf for &'a Vec<u8> {
     }
 }
 
+impl<'a> IntoBuf for &'a () {
+    type Buf = io::Cursor<&'static [u8]>;
+
+    fn into_buf(self) -> Self::Buf {
+        io::Cursor::new(&[])
+    }
+}
+
 /*
  *
  * ===== Sink / Source =====
