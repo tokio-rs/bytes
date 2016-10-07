@@ -389,6 +389,16 @@ impl<'a> IntoBuf for &'a [u8] {
     }
 }
 
+// Kind of annoying...
+impl<'a> IntoBuf for &'a &'static [u8] {
+    type Buf = io::Cursor<&'static [u8]>;
+
+    /// Creates a buffer from a value
+    fn into_buf(self) -> Self::Buf {
+        io::Cursor::new(self)
+    }
+}
+
 impl<'a> IntoBuf for &'a Vec<u8> {
     type Buf = io::Cursor<&'a [u8]>;
 
