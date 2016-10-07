@@ -285,11 +285,11 @@ impl Node {
 }
 
 impl<'a> Source for &'a Node {
-    fn copy_to<B: MutBuf>(self, buf: &mut B) {
+    fn source<B: MutBuf>(self, buf: &mut B) {
         match *self {
-            Node::Seq(ref b) => b.as_slice().copy_to(buf),
-            Node::Small(ref b) => b.as_ref().copy_to(buf),
-            Node::Rope(ref b) => b.buf().copy_to(buf),
+            Node::Seq(ref b) => b.as_slice().source(buf),
+            Node::Small(ref b) => b.as_ref().source(buf),
+            Node::Rope(ref b) => b.buf().source(buf),
             Node::Empty => unreachable!(),
         }
     }

@@ -38,12 +38,14 @@ pub fn test_rope_slice() {
     let left = bytes.slice_to(250);
     assert_eq!(250, left.len());
 
+    dst.clear();
     left.buf().copy_to(&mut dst);
     assert_eq!(dst, &TEST_BYTES_1[..250]);
 
     let right = bytes.slice_from(250);
     assert_eq!(TEST_BYTES_1.len() - 250, right.len());
 
+    dst.clear();
     right.buf().copy_to(&mut dst);
     // assert_eq!(dst, &TEST_BYTES_1[250..]);
 }

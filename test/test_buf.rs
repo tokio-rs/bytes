@@ -54,6 +54,6 @@ fn test_vec_sink_capacity() {
     sink.reserve(16);
     assert!(sink.capacity() >= 16, "Capacity {} must be at least 16", sink.capacity());
     let mut source = Cursor::new(b"0123456789abcdef0123456789abcdef");
-    sink.copy_from(&mut source);
+    sink.sink(&mut source);
     assert!(sink.len() <= sink.capacity(), "Length {} must be less than or equal to capacity {}", sink.len(), sink.capacity());
 }

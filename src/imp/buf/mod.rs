@@ -27,10 +27,10 @@ pub trait Buf {
         self.remaining() > 0
     }
 
-    fn copy_to<S: Sink>(&mut self, dst: S) -> usize
+    fn copy_to<S: Sink + ?Sized>(&mut self, dst: &mut S) -> usize
             where Self: Sized {
         let rem = self.remaining();
-        dst.copy_from(self);
+        dst.sink(self);
         rem - self.remaining()
     }
 
@@ -206,7 +206,7 @@ pub trait MutBuf {
     fn copy_from<S: Source>(&mut self, src: S) -> usize
             where Self: Sized {
         let rem = self.remaining();
-        src.copy_to(self);
+        src.source(self);
         rem - self.remaining()
     }
 
@@ -440,36 +440,37 @@ impl<'a> IntoBuf for &'a () {
 
 /// A value that writes bytes from itself into a `MutBuf`.
 pub trait Source {
-    fn copy_to<B: MutBuf>(self, buf: &mut B);
+    /// Copy data from self into destination buffer
+    fn source<B: MutBuf>(self, buf: &mut B);
 }
 
 impl<'a> Source for &'a [u8] {
-    fn copy_to<B: MutBuf>(self, buf: &mut B) {
+    fn source<B: MutBuf>(self, buf: &mut B) {
         buf.write_slice(self);
     }
 }
 
 impl Source for u8 {
-    fn copy_to<B: MutBuf>(self, buf: &mut B) {
+    fn source<B: MutBuf>(self, buf: &mut B) {
         let src = [self];
         buf.write_slice(&src);
     }
 }
 
 impl Source for Bytes {
-    fn copy_to<B: MutBuf>(self, buf: &mut B) {
-        Source::copy_to(&self, buf);
+    fn source<B: MutBuf>(self, buf: &mut B) {
+        Source::source(&self, buf);
     }
 }
 
 impl<'a> Source for &'a Bytes {
-    fn copy_to<B: MutBuf>(self, buf: &mut B) {
-        Source::copy_to(self.buf(), buf);
+    fn source<B: MutBuf>(self, buf: &mut B) {
+        Source::source(&mut self.buf(), buf);
     }
 }
 
-impl<T: Buf> Source for T {
-    fn copy_to<B: MutBuf>(mut self, buf: &mut B) {
+impl<'a, T: Buf> Source for &'a mut T {
+    fn source<B: MutBuf>(mut self, buf: &mut B) {
         while self.has_remaining() && buf.has_remaining() {
             let l;
 
@@ -491,38 +492,18 @@ impl<T: Buf> Source for T {
 }
 
 pub trait Sink {
-    fn copy_from<B: Buf>(self, buf: &mut B);
+    fn sink<B: Buf>(&mut self, buf: &mut B);
 }
 
-impl<'a> Sink for &'a mut [u8] {
-    fn copy_from<B: Buf>(self, buf: &mut B) {
+impl Sink for [u8] {
+    fn sink<B: Buf>(&mut self, buf: &mut B) {
         buf.read_slice(self);
     }
 }
 
-impl<'a> Sink for &'a mut Vec<u8> {
-    fn copy_from<B: Buf>(self, buf: &mut B) {
-        use std::slice;
-
-        self.clear();
-
-        let rem = buf.remaining();
-
-        // Ensure that the vec is big enough
-        if rem > self.capacity() {
-            // current length is 0, so reserve completely
-            self.reserve(rem);
-        }
-        debug_assert!(rem <= self.capacity());
-
-        unsafe {
-            {
-                let dst = &mut self[..];
-                buf.read_slice(slice::from_raw_parts_mut(dst.as_mut_ptr(), rem));
-            }
-
-            self.set_len(rem);
-        }
+impl<T: MutBuf> Sink for T {
+    fn sink<B: Buf>(&mut self, buf: &mut B) {
+        Source::source(buf, self)
     }
 }
 
