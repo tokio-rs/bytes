@@ -10,6 +10,8 @@ mod imp;
 // TODO: delete
 mod alloc;
 
+use std::io;
+
 pub use imp::buf::{Buf, MutBuf, IntoBuf};
 pub use imp::bytes::Bytes;
 
@@ -36,6 +38,12 @@ pub mod buf {
 
 pub enum AllocError {
     OutOfMemory
+}
+
+impl From<AllocError> for io::Error {
+    fn from(_ : AllocError) -> io::Error {
+        io::Error::new(io::ErrorKind::Other, "Out of Memory")
+    }
 }
 ///
 /// BufferPool
