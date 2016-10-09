@@ -33,3 +33,22 @@ pub mod buf {
     pub use imp::buf::take::Take;
     pub use imp::bytes::BytesBuf;
 }
+
+pub enum AllocError {
+    OutOfMemory
+}
+///
+/// BufferPool
+/// The Trait which defines an allocator of fixed-sized buffers
+/// which implement the MutBuf trait
+///
+pub trait BufferPool {
+
+    ///Something that implements the Buf and MutBuf trait and constraints
+    type Item : MutBuf;
+
+    /// Function which produces a new buffer on demand.  In a real server
+    /// scenario, this might run out of memory, hence the possibility for
+    /// an io::Error
+    fn get(&self) -> Result<Self::Item, AllocError>;
+}
