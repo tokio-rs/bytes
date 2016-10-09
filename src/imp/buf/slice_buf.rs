@@ -145,6 +145,16 @@ impl<T> MutBuf for SliceBuf<T>
     }
 }
 
+impl Clone for SliceBuf {
+    fn clone(&self) -> Self {
+        SliceBuf {
+            mem: self.mem.clone(),
+            rd: self.rd,
+            wr: self.wr,
+        }
+    }
+}
+
 impl<T> fmt::Debug for SliceBuf<T>
     where T: AsRef<[u8]>,
 {

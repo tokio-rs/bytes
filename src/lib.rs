@@ -10,6 +10,8 @@ mod imp;
 // TODO: delete
 mod alloc;
 
+use std::io;
+
 pub use imp::buf::{Buf, MutBuf, IntoBuf};
 pub use imp::bytes::Bytes;
 
@@ -32,4 +34,29 @@ pub mod buf {
     pub use imp::buf::ring::RingBuf;
     pub use imp::buf::take::Take;
     pub use imp::bytes::BytesBuf;
+}
+
+pub enum AllocError {
+    OutOfMemory
+}
+
+impl From<AllocError> for io::Error {
+    fn from(_ : AllocError) -> io::Error {
+        io::Error::new(io::ErrorKind::Other, "Out of Memory")
+    }
+}
+///
+/// BufferPool
+/// The Trait which defines an allocator of fixed-sized buffers
+/// which implement the MutBuf trait
+///
+pub trait BufferPool {
+
+    ///Something that implements the Buf and MutBuf trait and constraints
+    type Item : MutBuf;
+
+    /// Function which produces a new buffer on demand.  In a real server
+    /// scenario, this might run out of memory, hence the possibility for
+    /// an io::Error
+    fn get(&self) -> Result<Self::Item, AllocError>;
 }

@@ -292,7 +292,7 @@ impl MutBuf for BlockBuf {
     }
 
     #[inline]
-    unsafe fn mut_bytes(&mut self) -> &mut [u8] {
+    unsafe fn mut_bytes<'a>(&'a mut self) -> &'a mut [u8] {
         if self.needs_alloc() {
             if self.blocks.len() != self.blocks.capacity() {
                 self.allocate_block()
