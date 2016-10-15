@@ -92,8 +92,14 @@ impl Bytes {
         }
     }
 
-    pub fn concat(&self, other: &Bytes) -> Bytes {
-        Rope::concat(self.clone(), other.clone())
+    /// Concatenate two `Bytes` together
+    pub fn concat(self, other: Bytes) -> Bytes {
+        Rope::concat(self, other)
+    }
+
+    /// Divide one `Bytes` into two at an index
+    pub fn split_at(self, mid: usize) -> (Bytes, Bytes) {
+        (self.slice_to(mid), self.slice_from(mid))
     }
 
     /// Returns a new ByteStr value containing the byte range between `begin`

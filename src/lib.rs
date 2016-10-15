@@ -29,6 +29,7 @@ pub mod buf {
     pub use imp::buf::slice::SliceBuf;
     pub use imp::buf::append::AppendBuf;
     pub use imp::buf::block::{BlockBuf, BlockBufCursor};
+    pub use imp::buf::bound::{BoundBuf};
     pub use imp::buf::ring::RingBuf;
     pub use imp::buf::take::Take;
     pub use imp::bytes::BytesBuf;

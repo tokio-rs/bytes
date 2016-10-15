@@ -57,7 +57,7 @@ pub fn test_rope_concat_two_byte_str() {
     let left = Bytes::from(TEST_BYTES_1);
     let right = Bytes::from(TEST_BYTES_2);
 
-    let both = left.concat(&right);
+    let both = left.concat(right);
 
     assert_eq!(both.len(), TEST_BYTES_1.len() + TEST_BYTES_2.len());
 
@@ -71,13 +71,13 @@ pub fn test_rope_concat_two_byte_str() {
 #[test]
 pub fn test_rope_equality() {
     let a = Bytes::from(&b"Mary had a little lamb, its fleece was white as snow; "[..])
-        .concat(&Bytes::from(&b"And everywhere that Mary went, the lamb was sure to go."[..]));
+        .concat(Bytes::from(&b"And everywhere that Mary went, the lamb was sure to go."[..]));
 
     let b = Bytes::from(&b"Mary had a little lamb, "[..])
-        .concat(&Bytes::from(&b"its fleece was white as snow; "[..]))
+        .concat(Bytes::from(&b"its fleece was white as snow; "[..]))
         .concat(
-            &Bytes::from(&b"And everywhere that Mary went, "[..])
-                .concat(&Bytes::from(&b"the lamb was sure to go."[..])));
+            Bytes::from(&b"And everywhere that Mary went, "[..])
+                .concat(Bytes::from(&b"the lamb was sure to go."[..])));
 
     assert_eq!(a, b);
 }

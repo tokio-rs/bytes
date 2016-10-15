@@ -145,7 +145,7 @@ impl BlockBuf {
 
             ret = Some(match ret.take() {
                 Some(curr) => {
-                    curr.concat(&segment)
+                    curr.concat(segment)
                 }
                 None => segment,
             });
