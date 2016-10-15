@@ -1,6 +1,6 @@
 pub mod append;
 pub mod block;
-pub mod slice_buf;
+pub mod slice;
 pub mod ring;
 pub mod take;
 
