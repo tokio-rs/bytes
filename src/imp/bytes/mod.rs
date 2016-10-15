@@ -44,6 +44,18 @@ impl Bytes {
             .unwrap_or_else(|| Seq::from_slice(slice.as_ref()))
     }
 
+    pub fn from_vec(mem: Vec<u8>) -> Bytes {
+        let pos = 0;
+        let len = mem.len();
+
+        Small::from_slice(&mem[..])
+            .map(|b| Bytes { kind: Kind::Small(b) })
+            .unwrap_or_else(|| {
+                let seq = Seq::new(Arc::new(mem.into_boxed_slice()), pos, len);
+                Bytes { kind: Kind::Seq(seq) }
+            })
+    }
+
     /// Creates a new `Bytes` from an `Arc<Box<[u8]>>`, an offset, and a length.
     #[inline]
     pub fn from_boxed(mem: Arc<Box<[u8]>>, pos: usize, len: usize) -> Bytes {
