@@ -1,5 +1,6 @@
 pub mod append;
 pub mod block;
+pub mod bound;
 pub mod slice;
 pub mod ring;
 pub mod take;
