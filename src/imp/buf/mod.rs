@@ -635,7 +635,14 @@ impl<T: io::Write> WriteExt for T {
 
 impl<T: AsRef<[u8]>> Buf for io::Cursor<T> {
     fn remaining(&self) -> usize {
-        self.get_ref().as_ref().len() - self.position() as usize
+        let len = self.get_ref().as_ref().len();
+        let pos = self.position();
+
+        if pos >= len as u64 {
+            return 0;
+        }
+
+        len - pos as usize
     }
 
     fn bytes(&self) -> &[u8] {
@@ -653,7 +660,7 @@ impl<T: AsRef<[u8]>> Buf for io::Cursor<T> {
 impl<T: AsMut<[u8]> + AsRef<[u8]>> MutBuf for io::Cursor<T> {
 
     fn remaining(&self) -> usize {
-        self.get_ref().as_ref().len() - self.position() as usize
+        Buf::remaining(self)
     }
 
     /// Advance the internal cursor of the MutBuf
