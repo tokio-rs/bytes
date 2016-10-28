@@ -110,8 +110,6 @@ impl<T: AsRef<[u8]>> Buf for RingBuf<T> {
             let a = (self.rd & self.mask) as usize;
             let b = (self.wr & self.mask) as usize;
 
-            println!("a={:?}; b={:?}, wr={:?}; rd={:?}", a, b, self.wr, self.rd);
-
             if b > a {
                 &self.mem.as_ref()[a..b]
             } else {
