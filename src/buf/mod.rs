@@ -1,14 +1,10 @@
-pub mod append;
-pub mod block;
-pub mod bound;
+pub mod byte;
 pub mod slice;
-pub mod ring;
 pub mod take;
 
-use {Bytes};
-use buf::Take;
+use {Bytes, Take, TakeMut};
 use byteorder::ByteOrder;
-use std::{cmp, fmt, io, ptr, usize};
+use std::{cmp, io, ptr, usize};
 
 /// A trait for values that provide sequential read access to bytes.
 pub trait Buf {
@@ -28,16 +24,18 @@ pub trait Buf {
         self.remaining() > 0
     }
 
-    fn copy_to<S: Sink + ?Sized>(&mut self, dst: &mut S) -> usize
-            where Self: Sized {
-        let rem = self.remaining();
+    /// Copies bytes from `self` into `dst`
+    ///
+    /// # Panics
+    ///
+    /// The function panics if `self` does not contain enough bytes to fill
+    /// `dst`.
+    fn copy_to<S: Sink + ?Sized>(&mut self, dst: &mut S) where Self: Sized {
         dst.sink(self);
-        rem - self.remaining()
     }
 
-    /// Read bytes from the `Buf` into the given slice and advance the cursor by
-    /// the number of bytes read.
-    /// Returns the number of bytes read.
+    /// Copies bytes from the `Buf` into the given slice and advance the cursor by
+    /// the number of bytes copied.
     ///
     /// ```
     /// use std::io::Cursor;
@@ -46,11 +44,15 @@ pub trait Buf {
     /// let mut buf = Cursor::new(b"hello world");
     /// let mut dst = [0; 5];
     ///
-    /// buf.read_slice(&mut dst);
+    /// buf.copy_to_slice(&mut dst);
     /// assert_eq!(b"hello", &dst);
     /// assert_eq!(6, buf.remaining());
     /// ```
-    fn read_slice(&mut self, dst: &mut [u8]) {
+    ///
+    /// # Panics
+    ///
+    /// This function panics if `self.remaining() < dst.len()`
+    fn copy_to_slice(&mut self, dst: &mut [u8]) {
         let mut off = 0;
 
         assert!(self.remaining() >= dst.len());
@@ -72,7 +74,7 @@ pub trait Buf {
         }
     }
 
-    /// Reads an unsigned 8 bit integer from the `Buf` without advancing the
+    /// Gets an unsigned 8 bit integer from the `Buf` without advancing the
     /// buffer cursor
     fn peek_u8(&self) -> Option<u8> {
         if self.has_remaining() {
@@ -82,89 +84,89 @@ pub trait Buf {
         }
     }
 
-    /// Reads an unsigned 8 bit integer from the `Buf`.
-    fn read_u8(&mut self) -> u8 {
+    /// Gets an unsigned 8 bit integer from the `Buf`.
+    fn get_u8(&mut self) -> u8 {
         let mut buf = [0; 1];
-        self.read_slice(&mut buf);
+        self.copy_to_slice(&mut buf);
         buf[0]
     }
 
-    /// Reads a signed 8 bit integer from the `Buf`.
-    fn read_i8(&mut self) -> i8 {
+    /// Gets a signed 8 bit integer from the `Buf`.
+    fn get_i8(&mut self) -> i8 {
         let mut buf = [0; 1];
-        self.read_slice(&mut buf);
+        self.copy_to_slice(&mut buf);
         buf[0] as i8
     }
 
-    /// Reads an unsigned 16 bit integer from the `Buf`
-    fn read_u16<T: ByteOrder>(&mut self) -> u16 {
+    /// Gets an unsigned 16 bit integer from the `Buf`
+    fn get_u16<T: ByteOrder>(&mut self) -> u16 {
         let mut buf = [0; 2];
-        self.read_slice(&mut buf);
+        self.copy_to_slice(&mut buf);
         T::read_u16(&buf)
     }
 
-    /// Reads a signed 16 bit integer from the `Buf`
-    fn read_i16<T: ByteOrder>(&mut self) -> i16 {
+    /// Gets a signed 16 bit integer from the `Buf`
+    fn get_i16<T: ByteOrder>(&mut self) -> i16 {
         let mut buf = [0; 2];
-        self.read_slice(&mut buf);
+        self.copy_to_slice(&mut buf);
         T::read_i16(&buf)
     }
 
-    /// Reads an unsigned 32 bit integer from the `Buf`
-    fn read_u32<T: ByteOrder>(&mut self) -> u32 {
+    /// Gets an unsigned 32 bit integer from the `Buf`
+    fn get_u32<T: ByteOrder>(&mut self) -> u32 {
         let mut buf = [0; 4];
-        self.read_slice(&mut buf);
+        self.copy_to_slice(&mut buf);
         T::read_u32(&buf)
     }
 
-    /// Reads a signed 32 bit integer from the `Buf`
-    fn read_i32<T: ByteOrder>(&mut self) -> i32 {
+    /// Gets a signed 32 bit integer from the `Buf`
+    fn get_i32<T: ByteOrder>(&mut self) -> i32 {
         let mut buf = [0; 4];
-        self.read_slice(&mut buf);
+        self.copy_to_slice(&mut buf);
         T::read_i32(&buf)
     }
 
-    /// Reads an unsigned 64 bit integer from the `Buf`
-    fn read_u64<T: ByteOrder>(&mut self) -> u64 {
+    /// Gets an unsigned 64 bit integer from the `Buf`
+    fn get_u64<T: ByteOrder>(&mut self) -> u64 {
         let mut buf = [0; 8];
-        self.read_slice(&mut buf);
+        self.copy_to_slice(&mut buf);
         T::read_u64(&buf)
     }
 
-    /// Reads a signed 64 bit integer from the `Buf`
-    fn read_i64<T: ByteOrder>(&mut self) -> i64 {
+    /// Gets a signed 64 bit integer from the `Buf`
+    fn get_i64<T: ByteOrder>(&mut self) -> i64 {
         let mut buf = [0; 8];
-        self.read_slice(&mut buf);
+        self.copy_to_slice(&mut buf);
         T::read_i64(&buf)
     }
 
-    /// Reads an unsigned n-bytes integer from the `Buf`
-    fn read_uint<T: ByteOrder>(&mut self, nbytes: usize) -> u64 {
+    /// Gets an unsigned n-bytes integer from the `Buf`
+    fn get_uint<T: ByteOrder>(&mut self, nbytes: usize) -> u64 {
         let mut buf = [0; 8];
-        self.read_slice(&mut buf[..nbytes]);
+        self.copy_to_slice(&mut buf[..nbytes]);
         T::read_uint(&buf[..nbytes], nbytes)
     }
 
-    /// Reads a signed n-bytes integer from the `Buf`
-    fn read_int<T: ByteOrder>(&mut self, nbytes: usize) -> i64 {
+    /// Gets a signed n-bytes integer from the `Buf`
+    fn get_int<T: ByteOrder>(&mut self, nbytes: usize) -> i64 {
         let mut buf = [0; 8];
-        self.read_slice(&mut buf[..nbytes]);
+        self.copy_to_slice(&mut buf[..nbytes]);
         T::read_int(&buf[..nbytes], nbytes)
     }
 
-    /// Reads a IEEE754 single-precision (4 bytes) floating point number from
+    /// Gets a IEEE754 single-precision (4 bytes) floating point number from
     /// the `Buf`
-    fn read_f32<T: ByteOrder>(&mut self) -> f32 {
+    fn get_f32<T: ByteOrder>(&mut self) -> f32 {
         let mut buf = [0; 4];
-        self.read_slice(&mut buf);
+        self.copy_to_slice(&mut buf);
         T::read_f32(&buf)
     }
 
-    /// Reads a IEEE754 double-precision (8 bytes) floating point number from
+    /// Gets a IEEE754 double-precision (8 bytes) floating point number from
     /// the `Buf`
-    fn read_f64<T: ByteOrder>(&mut self) -> f64 {
+    fn get_f64<T: ByteOrder>(&mut self) -> f64 {
         let mut buf = [0; 8];
-        self.read_slice(&mut buf);
+        self.copy_to_slice(&mut buf);
         T::read_f64(&buf)
     }
 
@@ -175,7 +177,7 @@ pub trait Buf {
 
     /// Create an adapter which will limit at most `limit` bytes from it.
     fn take(self, limit: usize) -> Take<Self> where Self: Sized {
-        Take::new(self, limit)
+        take::new(self, limit)
     }
 
     /// Return a `Reader` for the value. Allows using a `Buf` as an `io::Read`
@@ -185,61 +187,64 @@ pub trait Buf {
 }
 
 /// A trait for values that provide sequential write access to bytes.
-pub trait MutBuf {
+pub trait BufMut {
 
-    /// Returns the number of bytes that can be written to the MutBuf
-    fn remaining(&self) -> usize;
+    /// Returns the number of bytes that can be written to the BufMut
+    fn remaining_mut(&self) -> usize;
 
-    /// Advance the internal cursor of the MutBuf
-    unsafe fn advance(&mut self, cnt: usize);
+    /// Advance the internal cursor of the BufMut
+    unsafe fn advance_mut(&mut self, cnt: usize);
 
     /// Returns true iff there is any more space for bytes to be written
-    fn has_remaining(&self) -> bool {
-        self.remaining() > 0
+    fn has_remaining_mut(&self) -> bool {
+        self.remaining_mut() > 0
     }
 
-    /// Returns a mutable slice starting at the current MutBuf position and of
-    /// length between 0 and `MutBuf::remaining()`.
+    /// Returns a mutable slice starting at the current BufMut position and of
+    /// length between 0 and `BufMut::remaining()`.
     ///
     /// The returned byte slice may represent uninitialized memory.
-    unsafe fn mut_bytes(&mut self) -> &mut [u8];
+    unsafe fn bytes_mut(&mut self) -> &mut [u8];
 
-    fn copy_from<S: Source>(&mut self, src: S) -> usize
-            where Self: Sized {
-        let rem = self.remaining();
+    /// Copies bytes from `src` into `self`
+    ///
+    /// # Panics
+    ///
+    /// Panics if `self` does not have enough capacity to copy all the data
+    /// from `src`
+    fn copy_from<S: Source>(&mut self, src: S) where Self: Sized {
         src.source(self);
-        rem - self.remaining()
     }
 
-    /// Write bytes from the given slice into the `MutBuf` and advance the
+    /// Copies bytes from the given slice into the `BufMut` and advance the
     /// cursor by the number of bytes written.
     /// Returns the number of bytes written.
     ///
     /// ```
-    /// use bytes::MutBuf;
+    /// use bytes::BufMut;
     /// use std::io::Cursor;
     ///
     /// let mut dst = [0; 6];
     ///
     /// {
     ///     let mut buf = Cursor::new(&mut dst);
-    ///     buf.write_slice(b"hello");
+    ///     buf.copy_from_slice(b"hello");
     ///
-    ///     assert_eq!(1, buf.remaining());
+    ///     assert_eq!(1, buf.remaining_mut());
     /// }
     ///
     /// assert_eq!(b"hello\0", &dst);
     /// ```
-    fn write_slice(&mut self, src: &[u8]) {
+    fn copy_from_slice(&mut self, src: &[u8]) {
         let mut off = 0;
 
-        assert!(self.remaining() >= src.len(), "buffer overflow");
+        assert!(self.remaining_mut() >= src.len(), "buffer overflow");
 
         while off < src.len() {
             let cnt;
 
             unsafe {
-                let dst = self.mut_bytes();
+                let dst = self.bytes_mut();
                 cnt = cmp::min(dst.len(), src.len() - off);
 
                 ptr::copy_nonoverlapping(
@@ -251,113 +256,119 @@ pub trait MutBuf {
 
             }
 
-            unsafe { self.advance(cnt); }
+            unsafe { self.advance_mut(cnt); }
         }
     }
 
-    fn write_str(&mut self, src: &str) {
-        self.write_slice(src.as_bytes());
+    /// Writes the given string into self.
+    ///
+    /// # Panics
+    ///
+    /// The function panics if `self` does not have enough remaining capacity
+    /// to write the full string.
+    fn put_str(&mut self, src: &str) {
+        self.copy_from_slice(src.as_bytes());
     }
 
-    /// Writes an unsigned 8 bit integer to the MutBuf.
-    fn write_u8(&mut self, n: u8) {
-        self.write_slice(&[n])
+    /// Writes an unsigned 8 bit integer to the BufMut.
+    fn put_u8(&mut self, n: u8) {
+        self.copy_from_slice(&[n])
     }
 
-    /// Writes a signed 8 bit integer to the MutBuf.
-    fn write_i8(&mut self, n: i8) {
-        self.write_slice(&[n as u8])
+    /// Writes a signed 8 bit integer to the BufMut.
+    fn put_i8(&mut self, n: i8) {
+        self.copy_from_slice(&[n as u8])
     }
 
-    /// Writes an unsigned 16 bit integer to the MutBuf.
-    fn write_u16<T: ByteOrder>(&mut self, n: u16) {
+    /// Writes an unsigned 16 bit integer to the BufMut.
+    fn put_u16<T: ByteOrder>(&mut self, n: u16) {
         let mut buf = [0; 2];
         T::write_u16(&mut buf, n);
-        self.write_slice(&buf)
+        self.copy_from_slice(&buf)
     }
 
-    /// Writes a signed 16 bit integer to the MutBuf.
-    fn write_i16<T: ByteOrder>(&mut self, n: i16) {
+    /// Writes a signed 16 bit integer to the BufMut.
+    fn put_i16<T: ByteOrder>(&mut self, n: i16) {
         let mut buf = [0; 2];
         T::write_i16(&mut buf, n);
-        self.write_slice(&buf)
+        self.copy_from_slice(&buf)
     }
 
-    /// Writes an unsigned 32 bit integer to the MutBuf.
-    fn write_u32<T: ByteOrder>(&mut self, n: u32) {
+    /// Writes an unsigned 32 bit integer to the BufMut.
+    fn put_u32<T: ByteOrder>(&mut self, n: u32) {
         let mut buf = [0; 4];
         T::write_u32(&mut buf, n);
-        self.write_slice(&buf)
+        self.copy_from_slice(&buf)
     }
 
-    /// Writes a signed 32 bit integer to the MutBuf.
-    fn write_i32<T: ByteOrder>(&mut self, n: i32) {
+    /// Writes a signed 32 bit integer to the BufMut.
+    fn put_i32<T: ByteOrder>(&mut self, n: i32) {
         let mut buf = [0; 4];
         T::write_i32(&mut buf, n);
-        self.write_slice(&buf)
+        self.copy_from_slice(&buf)
     }
 
-    /// Writes an unsigned 64 bit integer to the MutBuf.
-    fn write_u64<T: ByteOrder>(&mut self, n: u64) {
+    /// Writes an unsigned 64 bit integer to the BufMut.
+    fn put_u64<T: ByteOrder>(&mut self, n: u64) {
         let mut buf = [0; 8];
         T::write_u64(&mut buf, n);
-        self.write_slice(&buf)
+        self.copy_from_slice(&buf)
     }
 
-    /// Writes a signed 64 bit integer to the MutBuf.
-    fn write_i64<T: ByteOrder>(&mut self, n: i64) {
+    /// Writes a signed 64 bit integer to the BufMut.
+    fn put_i64<T: ByteOrder>(&mut self, n: i64) {
         let mut buf = [0; 8];
         T::write_i64(&mut buf, n);
-        self.write_slice(&buf)
+        self.copy_from_slice(&buf)
     }
 
-    /// Writes an unsigned n-bytes integer to the MutBuf.
+    /// Writes an unsigned n-bytes integer to the BufMut.
     ///
     /// If the given integer is not representable in the given number of bytes,
     /// this method panics. If `nbytes > 8`, this method panics.
-    fn write_uint<T: ByteOrder>(&mut self, n: u64, nbytes: usize) {
+    fn put_uint<T: ByteOrder>(&mut self, n: u64, nbytes: usize) {
         let mut buf = [0; 8];
         T::write_uint(&mut buf, n, nbytes);
-        self.write_slice(&buf[0..nbytes])
+        self.copy_from_slice(&buf[0..nbytes])
     }
 
-    /// Writes a signed n-bytes integer to the MutBuf.
+    /// Writes a signed n-bytes integer to the BufMut.
     ///
     /// If the given integer is not representable in the given number of bytes,
     /// this method panics. If `nbytes > 8`, this method panics.
-    fn write_int<T: ByteOrder>(&mut self, n: i64, nbytes: usize) {
+    fn put_int<T: ByteOrder>(&mut self, n: i64, nbytes: usize) {
         let mut buf = [0; 8];
         T::write_int(&mut buf, n, nbytes);
-        self.write_slice(&buf[0..nbytes])
+        self.copy_from_slice(&buf[0..nbytes])
     }
 
     /// Writes a IEEE754 single-precision (4 bytes) floating point number to
-    /// the MutBuf.
-    fn write_f32<T: ByteOrder>(&mut self, n: f32) {
+    /// the BufMut.
+    fn put_f32<T: ByteOrder>(&mut self, n: f32) {
         let mut buf = [0; 4];
         T::write_f32(&mut buf, n);
-        self.write_slice(&buf)
+        self.copy_from_slice(&buf)
     }
 
     /// Writes a IEEE754 double-precision (8 bytes) floating point number to
-    /// the MutBuf.
-    fn write_f64<T: ByteOrder>(&mut self, n: f64) {
+    /// the BufMut.
+    fn put_f64<T: ByteOrder>(&mut self, n: f64) {
         let mut buf = [0; 8];
         T::write_f64(&mut buf, n);
-        self.write_slice(&buf)
+        self.copy_from_slice(&buf)
     }
 
-    /// Creates a "by reference" adaptor for this instance of MutBuf
+    /// Creates a "by reference" adaptor for this instance of BufMut
     fn by_ref(&mut self) -> &mut Self where Self: Sized {
         self
     }
 
     /// Create an adapter which will limit at most `limit` bytes from it.
-    fn take(self, limit: usize) -> Take<Self> where Self: Sized {
-        Take::new(self, limit)
+    fn take_mut(self, limit: usize) -> TakeMut<Self> where Self: Sized {
+        take::new_mut(self, limit)
     }
 
-    /// Return a `Write` for the value. Allows using a `MutBuf` as an
+    /// Return a `Write` for the value. Allows using a `BufMut` as an
     /// `io::Write`
     fn writer(self) -> Writer<Self> where Self: Sized {
         Writer::new(self)
@@ -376,8 +387,10 @@ pub trait MutBuf {
 /// on the types themselves. For example, `IntoBuf` is implemented for `&'a
 /// Vec<u8>` and not `Vec<u8>` directly.
 pub trait IntoBuf {
+    /// The `Buf` type that `self` is being converted into
     type Buf: Buf;
 
+    /// Creates a `Buf` from a value.
     fn into_buf(self) -> Self::Buf;
 }
 
@@ -439,45 +452,47 @@ impl<'a> IntoBuf for &'a () {
  */
 
 
-/// A value that writes bytes from itself into a `MutBuf`.
+/// A value that writes bytes from itself into a `BufMut`.
 pub trait Source {
     /// Copy data from self into destination buffer
-    fn source<B: MutBuf>(self, buf: &mut B);
+    fn source<B: BufMut>(self, buf: &mut B);
 }
 
 impl<'a> Source for &'a [u8] {
-    fn source<B: MutBuf>(self, buf: &mut B) {
-        buf.write_slice(self);
+    fn source<B: BufMut>(self, buf: &mut B) {
+        buf.copy_from_slice(self);
     }
 }
 
 impl Source for u8 {
-    fn source<B: MutBuf>(self, buf: &mut B) {
+    fn source<B: BufMut>(self, buf: &mut B) {
         let src = [self];
-        buf.write_slice(&src);
+        buf.copy_from_slice(&src);
     }
 }
 
 impl Source for Bytes {
-    fn source<B: MutBuf>(self, buf: &mut B) {
-        Source::source(&self, buf);
+    fn source<B: BufMut>(self, buf: &mut B) {
+        Source::source(self.as_ref(), buf);
     }
 }
 
 impl<'a> Source for &'a Bytes {
-    fn source<B: MutBuf>(self, buf: &mut B) {
-        Source::source(&mut self.buf(), buf);
+    fn source<B: BufMut>(self, buf: &mut B) {
+        Source::source(self.as_ref(), buf);
     }
 }
 
 impl<'a, T: Buf> Source for &'a mut T {
-    fn source<B: MutBuf>(mut self, buf: &mut B) {
-        while self.has_remaining() && buf.has_remaining() {
+    fn source<B: BufMut>(mut self, buf: &mut B) {
+        assert!(buf.remaining_mut() >= self.remaining());
+
+        while self.has_remaining() {
             let l;
 
             unsafe {
                 let s = self.bytes();
-                let d = buf.mut_bytes();
+                let d = buf.bytes_mut();
                 l = cmp::min(s.len(), d.len());
 
                 ptr::copy_nonoverlapping(
@@ -487,22 +502,24 @@ impl<'a, T: Buf> Source for &'a mut T {
             }
 
             self.advance(l);
-            unsafe { buf.advance(l); }
+            unsafe { buf.advance_mut(l); }
         }
     }
 }
 
+/// A value that copies bytes from a `Buf` into itself
 pub trait Sink {
+    /// Copy bytes from `buf` into `self`
     fn sink<B: Buf>(&mut self, buf: &mut B);
 }
 
 impl Sink for [u8] {
     fn sink<B: Buf>(&mut self, buf: &mut B) {
-        buf.read_slice(self);
+        buf.copy_to_slice(self);
     }
 }
 
-impl<T: MutBuf> Sink for T {
+impl<T: BufMut> Sink for T {
     fn sink<B: Buf>(&mut self, buf: &mut B) {
         Source::source(buf, self)
     }
@@ -550,32 +567,12 @@ impl<B: Buf + Sized> io::Read for Reader<B> {
     }
 }
 
-/// Buffer related extension for `io::Read`
-pub trait ReadExt {
-    fn read_buf<B: MutBuf>(&mut self, buf: &mut B) -> io::Result<usize>;
-}
-
-impl<T: io::Read> ReadExt for T {
-    fn read_buf<B: MutBuf>(&mut self, buf: &mut B) -> io::Result<usize> {
-        if !buf.has_remaining() {
-            return Ok(0);
-        }
-
-        unsafe {
-            let i = try!(self.read(buf.mut_bytes()));
-
-            buf.advance(i);
-            Ok(i)
-        }
-    }
-}
-
-/// Adapts a `MutBuf` to the `io::Write` trait
+/// Adapts a `BufMut` to the `io::Write` trait
 pub struct Writer<B> {
     buf: B,
 }
 
-impl<B: MutBuf> Writer<B> {
+impl<B: BufMut> Writer<B> {
     /// Return a `Writer` for teh given `buf`
     pub fn new(buf: B) -> Writer<B> {
         Writer { buf: buf }
@@ -591,15 +588,15 @@ impl<B: MutBuf> Writer<B> {
         &mut self.buf
     }
 
-    /// Unwraps this `Writer`, returning the underlying `MutBuf`
+    /// Unwraps this `Writer`, returning the underlying `BufMut`
     pub fn into_inner(self) -> B {
         self.buf
     }
 }
 
-impl<B: MutBuf + Sized> io::Write for Writer<B> {
+impl<B: BufMut + Sized> io::Write for Writer<B> {
     fn write(&mut self, src: &[u8]) -> io::Result<usize> {
-        let n = cmp::min(self.buf.remaining(), src.len());
+        let n = cmp::min(self.buf.remaining_mut(), src.len());
 
         self.buf.copy_from(&src[0..n]);
         Ok(n)
@@ -610,28 +607,39 @@ impl<B: MutBuf + Sized> io::Write for Writer<B> {
     }
 }
 
-/// Buffer related extension for `io::Write`
-pub trait WriteExt {
-    fn write_buf<B: Buf>(&mut self, buf: &mut B) -> io::Result<usize>;
-}
-
-impl<T: io::Write> WriteExt for T {
-    fn write_buf<B: Buf>(&mut self, buf: &mut B) -> io::Result<usize> {
-        if !buf.has_remaining() {
-            return Ok(0);
-        }
-
-        let i = try!(self.write(buf.bytes()));
-        buf.advance(i);
-        Ok(i)
-    }
-}
-
 /*
  *
  * ===== Buf impls =====
  *
  */
+
+impl<'a, T: Buf> Buf for &'a mut T {
+    fn remaining(&self) -> usize {
+        (**self).remaining()
+    }
+
+    fn bytes(&self) -> &[u8] {
+        (**self).bytes()
+    }
+
+    fn advance(&mut self, cnt: usize) {
+        (**self).advance(cnt)
+    }
+}
+
+impl<'a, T: BufMut> BufMut for &'a mut T {
+    fn remaining_mut(&self) -> usize {
+        (**self).remaining_mut()
+    }
+
+    unsafe fn bytes_mut(&mut self) -> &mut [u8] {
+        (**self).bytes_mut()
+    }
+
+    unsafe fn advance_mut(&mut self, cnt: usize) {
+        (**self).advance_mut(cnt)
+    }
+}
 
 impl<T: AsRef<[u8]>> Buf for io::Cursor<T> {
     fn remaining(&self) -> usize {
@@ -657,35 +665,34 @@ impl<T: AsRef<[u8]>> Buf for io::Cursor<T> {
     }
 }
 
-impl<T: AsMut<[u8]> + AsRef<[u8]>> MutBuf for io::Cursor<T> {
-
-    fn remaining(&self) -> usize {
-        Buf::remaining(self)
+impl<T: AsMut<[u8]> + AsRef<[u8]>> BufMut for io::Cursor<T> {
+    fn remaining_mut(&self) -> usize {
+        self.remaining()
     }
 
-    /// Advance the internal cursor of the MutBuf
-    unsafe fn advance(&mut self, cnt: usize) {
+    /// Advance the internal cursor of the BufMut
+    unsafe fn advance_mut(&mut self, cnt: usize) {
         let pos = self.position() as usize;
         let pos = cmp::min(self.get_mut().as_mut().len(), pos + cnt);
         self.set_position(pos as u64);
     }
 
-    /// Returns a mutable slice starting at the current MutBuf position and of
-    /// length between 0 and `MutBuf::remaining()`.
+    /// Returns a mutable slice starting at the current BufMut position and of
+    /// length between 0 and `BufMut::remaining()`.
     ///
     /// The returned byte slice may represent uninitialized memory.
-    unsafe fn mut_bytes(&mut self) -> &mut [u8] {
+    unsafe fn bytes_mut(&mut self) -> &mut [u8] {
         let pos = self.position() as usize;
         &mut (self.get_mut().as_mut())[pos..]
     }
 }
 
-impl MutBuf for Vec<u8> {
-    fn remaining(&self) -> usize {
+impl BufMut for Vec<u8> {
+    fn remaining_mut(&self) -> usize {
         usize::MAX - self.len()
     }
 
-    unsafe fn advance(&mut self, cnt: usize) {
+    unsafe fn advance_mut(&mut self, cnt: usize) {
         let len = self.len() + cnt;
 
         if len > self.capacity() {
@@ -698,7 +705,7 @@ impl MutBuf for Vec<u8> {
         self.set_len(len);
     }
 
-    unsafe fn mut_bytes(&mut self) -> &mut [u8] {
+    unsafe fn bytes_mut(&mut self) -> &mut [u8] {
         use std::slice;
 
         if self.capacity() == self.len() {
@@ -710,24 +717,5 @@ impl MutBuf for Vec<u8> {
 
         let ptr = self.as_mut_ptr();
         &mut slice::from_raw_parts_mut(ptr, cap)[len..]
-    }
-}
-
-/*
- *
- * ===== fmt impls =====
- *
- */
-
-pub struct Fmt<'a, B: 'a>(pub &'a mut B);
-
-impl<'a, B: MutBuf> fmt::Write for Fmt<'a, B> {
-    fn write_str(&mut self, s: &str) -> fmt::Result {
-        self.0.write_str(s);
-        Ok(())
-    }
-
-    fn write_fmt(&mut self, args: fmt::Arguments) -> fmt::Result {
-        fmt::write(self, args)
     }
 }

@@ -1,7 +1,6 @@
 //! A buffer backed by a contiguous region of memory.
 
-use {Buf, MutBuf};
-use imp::alloc;
+use {Buf, BufMut};
 use std::fmt;
 
 /*
@@ -21,24 +20,6 @@ pub struct SliceBuf<T = Box<[u8]>> {
     rd: usize,
     // Current write position
     wr: usize,
-}
-
-impl SliceBuf {
-    /// Constructs a new, empty `SliceBuf` with the specified capacity
-    ///
-    /// The `SliceBuf` will be backed by a `Box<[u8]>`.
-    pub fn with_capacity(capacity: usize) -> SliceBuf {
-        let mem = unsafe { alloc::with_capacity(capacity) };
-        SliceBuf::new(mem)
-    }
-
-    /// Create a new `SliceBuf` and copy the contents of the given slice into
-    /// it.
-    pub fn from_slice<T: AsRef<[u8]>>(bytes: &T) -> SliceBuf {
-        let mut buf = SliceBuf::with_capacity(bytes.as_ref().len());
-        buf.write_slice(bytes.as_ref());
-        buf
-    }
 }
 
 impl<T: AsRef<[u8]>> SliceBuf<T> {
@@ -81,24 +62,13 @@ impl<T: AsRef<[u8]>> SliceBuf<T> {
     pub fn clear(&mut self) {
         self.rd = 0;
         self.wr = 0;
-    }
-
-    /// Return the number of bytes left to read
-    pub fn remaining_read(&self) -> usize {
-        self.wr - self.rd
-    }
-
-    /// Return the remaining write capacity
-    pub fn remaining_write(&self) -> usize {
-        self.capacity() - self.wr
-    }
-}
+    }}
 
 impl<T> Buf for SliceBuf<T>
     where T: AsRef<[u8]>,
 {
     fn remaining(&self) -> usize {
-        self.remaining_read()
+        self.wr - self.rd
     }
 
     fn bytes(&self) -> &[u8] {
@@ -110,7 +80,7 @@ impl<T> Buf for SliceBuf<T>
         self.rd += cnt;
     }
 
-    fn read_slice(&mut self, dst: &mut [u8]) {
+    fn copy_to_slice(&mut self, dst: &mut [u8]) {
         assert!(self.remaining() >= dst.len());
 
         let len = dst.len();
@@ -119,23 +89,25 @@ impl<T> Buf for SliceBuf<T>
     }
 }
 
-impl<T> MutBuf for SliceBuf<T>
+impl<T> BufMut for SliceBuf<T>
     where T: AsRef<[u8]> + AsMut<[u8]>,
 {
-    fn remaining(&self) -> usize {
-        self.remaining_write()
+    fn remaining_mut(&self) -> usize {
+        self.capacity() - self.wr
     }
 
-    unsafe fn advance(&mut self, cnt: usize) {
-        assert!(cnt <= self.remaining_write());
+    unsafe fn advance_mut(&mut self, cnt: usize) {
+        assert!(cnt <= self.remaining_mut());
         self.wr += cnt;
     }
 
-    unsafe fn mut_bytes(&mut self) -> &mut [u8] {
+    unsafe fn bytes_mut(&mut self) -> &mut [u8] {
         &mut self.mem.as_mut()[self.wr..]
     }
 
-    fn write_slice(&mut self, src: &[u8]) {
+    fn copy_from_slice(&mut self, src: &[u8]) {
+        assert!(self.remaining_mut() >= src.len());
+
         let wr = self.wr;
 
         self.mem.as_mut()[wr..wr+src.len()]
@@ -150,5 +122,18 @@ impl<T> fmt::Debug for SliceBuf<T>
 {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         self.bytes().fmt(fmt)
+    }
+}
+
+impl<T> fmt::Write for SliceBuf<T>
+    where T: AsRef<[u8]> + AsMut<[u8]>
+{
+    fn write_str(&mut self, s: &str) -> fmt::Result {
+        BufMut::put_str(self, s);
+        Ok(())
+    }
+
+    fn write_fmt(&mut self, args: fmt::Arguments) -> fmt::Result {
+        fmt::write(self, args)
     }
 }

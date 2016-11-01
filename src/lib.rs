@@ -1,36 +1,22 @@
-#![crate_name = "bytes"]
-#![deny(warnings)]
+//! Provides abstractions for working with bytes.
 
-#[macro_use]
-extern crate log;
+#![deny(warnings, missing_docs)]
+
 extern crate byteorder;
 
-// Implementation in here
-mod imp;
-// TODO: delete
-mod alloc;
+mod buf;
+mod bytes;
 
-pub use imp::buf::{Buf, MutBuf, IntoBuf};
-pub use imp::bytes::Bytes;
-
-pub mod buf {
-    //! Traits, helpers, and type definitions for working with buffers.
-
-    pub use imp::buf::{
-        Source,
-        Sink,
-        Reader,
-        ReadExt,
-        Writer,
-        WriteExt,
-        Fmt,
-    };
-
-    pub use imp::buf::slice::SliceBuf;
-    pub use imp::buf::append::AppendBuf;
-    pub use imp::buf::block::{BlockBuf, BlockBufCursor};
-    pub use imp::buf::bound::{BoundBuf};
-    pub use imp::buf::ring::RingBuf;
-    pub use imp::buf::take::Take;
-    pub use imp::bytes::BytesBuf;
-}
+pub use buf::{
+    Buf,
+    BufMut,
+    IntoBuf,
+    Source,
+    Sink,
+    Reader,
+    Writer,
+};
+pub use buf::byte::{ByteBuf};
+pub use buf::slice::{SliceBuf};
+pub use buf::take::{Take, TakeMut};
+pub use bytes::{Bytes, BytesMut};
