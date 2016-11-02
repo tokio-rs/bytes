@@ -13,7 +13,7 @@ use std::fmt;
 ///
 /// This `Buf` is better suited for cases where there is a clear delineation
 /// between reading and writing.
-pub struct SliceBuf<T = Box<[u8]>> {
+pub struct SliceBuf<T> {
     // Contiguous memory
     mem: T,
     // Current read position
