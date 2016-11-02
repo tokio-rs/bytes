@@ -1,4 +1,4 @@
-use ByteBuf;
+use {IntoBuf, ByteBuf, SliceBuf};
 
 use std::cell::UnsafeCell;
 use std::sync::Arc;
@@ -127,6 +127,22 @@ impl Bytes {
     /// allocated and the data is copied to it.
     pub fn into_mut(self) -> BytesMut {
         self.try_mut().unwrap_or_else(BytesMut::from_slice)
+    }
+}
+
+impl IntoBuf for Bytes {
+    type Buf = SliceBuf<Self>;
+
+    fn into_buf(self) -> Self::Buf {
+        SliceBuf::new(self)
+    }
+}
+
+impl<'a> IntoBuf for &'a Bytes {
+    type Buf = SliceBuf<Self>;
+
+    fn into_buf(self) -> Self::Buf {
+        SliceBuf::new(self)
     }
 }
 
@@ -340,6 +356,22 @@ impl BytesMut {
             mem: self.mem.clone(),
             .. *self
         }
+    }
+}
+
+impl IntoBuf for BytesMut {
+    type Buf = SliceBuf<Self>;
+
+    fn into_buf(self) -> Self::Buf {
+        SliceBuf::new(self)
+    }
+}
+
+impl<'a> IntoBuf for &'a BytesMut {
+    type Buf = SliceBuf<&'a BytesMut>;
+
+    fn into_buf(self) -> Self::Buf {
+        SliceBuf::new(self)
     }
 }
 
