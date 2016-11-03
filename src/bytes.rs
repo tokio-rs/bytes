@@ -166,6 +166,12 @@ impl ops::Deref for Bytes {
     }
 }
 
+impl From<BytesMut> for Bytes {
+    fn from(src: BytesMut) -> Bytes {
+        src.freeze()
+    }
+}
+
 impl From<Vec<u8>> for Bytes {
     fn from(src: Vec<u8>) -> Bytes {
         BytesMut::from(src).freeze()

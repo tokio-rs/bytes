@@ -1,4 +1,4 @@
-use {Buf, BufMut, BytesMut};
+use {Buf, BufMut, Bytes, BytesMut};
 
 use std::{cmp, fmt};
 
@@ -183,6 +183,19 @@ impl BufMut for ByteBuf {
             self.bytes_mut()[..len].copy_from_slice(src);
             self.advance_mut(len);
         }
+    }
+}
+
+impl From<ByteBuf> for Bytes {
+    fn from(src: ByteBuf) -> Bytes {
+        let bytes = BytesMut::from(src);
+        bytes.freeze()
+    }
+}
+
+impl From<ByteBuf> for BytesMut {
+    fn from(src: ByteBuf) -> BytesMut {
+        src.mem
     }
 }
 
