@@ -1,8 +1,9 @@
 extern crate bytes;
 extern crate byteorder;
 
-use bytes::BufMut;
+use bytes::{Buf, BufMut, ByteBuf};
 use std::usize;
+use std::fmt::Write;
 
 #[test]
 fn test_vec_as_mut_buf() {
@@ -44,4 +45,14 @@ fn test_put_u16() {
     buf.clear();
     buf.put_u16::<byteorder::LittleEndian>(8532);
     assert_eq!(b"\x54\x21", &buf[..]);
+}
+
+#[test]
+fn test_clone() {
+    let mut buf = ByteBuf::with_capacity(100);
+    buf.write_str("this is a test").unwrap();
+    let buf2 = buf.clone();
+
+    buf.write_str(" of our emergecy broadcast system").unwrap();
+    assert_ne!(buf.bytes(), buf2.bytes());
 }

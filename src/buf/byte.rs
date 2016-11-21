@@ -215,3 +215,13 @@ impl fmt::Write for ByteBuf {
         fmt::write(self, args)
     }
 }
+
+impl Clone for ByteBuf {
+    fn clone(&self) -> Self {
+        ByteBuf {
+            mem: self.mem.clone(),
+            rd: self.rd,
+        }
+    }
+}
+

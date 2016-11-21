@@ -558,3 +558,16 @@ impl<'a, T: ?Sized> PartialEq<&'a T> for Bytes
         *self == **other
     }
 }
+
+impl Clone for BytesMut {
+    fn clone(&self) -> BytesMut {
+        let mut v = Vec::with_capacity(self.len());
+        v.extend_from_slice(&self[..]);
+        BytesMut {
+            mem: Mem { inner : Arc::new(UnsafeCell::new(v.into_boxed_slice())) },
+            pos: self.pos,
+            len: self.len,
+            cap: self.cap,
+        }
+    }
+}
