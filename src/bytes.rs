@@ -148,7 +148,7 @@ impl<'a> IntoBuf for &'a Bytes {
 
 impl Clone for Bytes {
     fn clone(&self) -> Bytes {
-        Bytes { inner: self.inner.clone() }
+        Bytes { inner: self.inner.shallow_clone() }
     }
 }
 
@@ -253,7 +253,7 @@ impl BytesMut {
     ///
     /// Panics if `at > capacity`
     pub fn split_off(&mut self, at: usize) -> BytesMut {
-        let mut other = self.clone();
+        let mut other = self.shallow_clone();
 
         other.set_start(at);
         self.set_end(at);
@@ -273,7 +273,7 @@ impl BytesMut {
     ///
     /// Panics if `at > len`
     pub fn drain_to(&mut self, at: usize) -> BytesMut {
-        let mut other = self.clone();
+        let mut other = self.shallow_clone();
 
         other.set_end(at);
         self.set_start(at);
@@ -357,7 +357,7 @@ impl BytesMut {
     /// Increments the ref count. This should only be done if it is known that
     /// it can be done safely. As such, this fn is not public, instead other
     /// fns will use this one while maintaining the guarantees.
-    fn clone(&self) -> BytesMut {
+    fn shallow_clone(&self) -> BytesMut {
          BytesMut {
             mem: self.mem.clone(),
             .. *self
