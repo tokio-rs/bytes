@@ -54,5 +54,5 @@ fn test_clone() {
     let buf2 = buf.clone();
 
     buf.write_str(" of our emergecy broadcast system").unwrap();
-    assert_ne!(buf.bytes(), buf2.bytes());
+    assert!(buf.bytes() != buf2.bytes());
 }
