@@ -1,8 +1,8 @@
 use {IntoBuf, ByteBuf, SliceBuf};
 
+use std::{cmp, fmt, mem, ops, slice};
 use std::cell::UnsafeCell;
 use std::sync::Arc;
-use std::{cmp, fmt, ops};
 
 /// A reference counted slice of bytes.
 ///
@@ -20,14 +20,17 @@ pub struct Bytes {
 /// A `BytesMut` is a unique handle to a slice of bytes allowing mutation of
 /// the underlying bytes.
 pub struct BytesMut {
-    mem: Mem,
-    pos: usize,
-    len: usize,
-    cap: usize,
-}
+    // Pointer to the start of the memory owned by this BytesMut
+    ptr: *mut u8,
 
-struct Mem {
-    inner: Arc<UnsafeCell<Box<[u8]>>>,
+    // Number of bytes that have been initialized
+    len: usize,
+
+    // Total number of bytes owned by this BytesMut
+    cap: usize,
+
+    // If this pointer is set, then the the BytesMut is backed by an Arc
+    arc: UnsafeCell<Option<Arc<Vec<u8>>>>,
 }
 
 /*
@@ -61,9 +64,10 @@ impl Bytes {
     pub fn slice(&self, start: usize, end: usize) -> Bytes {
         let mut ret = self.clone();
 
-        ret.inner
-            .set_end(end)
-            .set_start(start);
+        unsafe {
+            ret.inner.set_end(end);
+            ret.inner.set_start(start);
+        }
 
         ret
     }
@@ -113,7 +117,7 @@ impl Bytes {
     /// This will only succeed if there are no other outstanding references to
     /// the underlying chunk of memory.
     pub fn try_mut(mut self) -> Result<BytesMut, Bytes> {
-        if self.inner.mem.is_mut_safe() {
+        if self.inner.is_mut_safe() {
             Ok(self.inner)
         } else {
             Err(self)
@@ -207,12 +211,7 @@ unsafe impl Sync for Bytes {}
 impl BytesMut {
     /// Create a new `BytesMut` with the specified capacity.
     pub fn with_capacity(cap: usize) -> BytesMut {
-        BytesMut {
-            mem: Mem::with_capacity(cap),
-            pos: 0,
-            len: 0,
-            cap: cap,
-        }
+        BytesMut::from(Vec::with_capacity(cap))
     }
 
     /// Creates a new `BytesMut` and copy the given slice into it.
@@ -255,8 +254,10 @@ impl BytesMut {
     pub fn split_off(&mut self, at: usize) -> BytesMut {
         let mut other = self.shallow_clone();
 
-        other.set_start(at);
-        self.set_end(at);
+        unsafe {
+            other.set_start(at);
+            self.set_end(at);
+        }
 
         return other
     }
@@ -275,8 +276,10 @@ impl BytesMut {
     pub fn drain_to(&mut self, at: usize) -> BytesMut {
         let mut other = self.shallow_clone();
 
-        other.set_end(at);
-        self.set_start(at);
+        unsafe {
+            other.set_end(at);
+            self.set_start(at);
+        }
 
         return other
     }
@@ -290,8 +293,7 @@ impl BytesMut {
     ///
     /// This a slice of bytes that have been initialized
     pub fn as_mut(&mut self) -> &mut [u8] {
-        let end = self.pos + self.len;
-        &mut self.mem.as_mut()[self.pos..end]
+        unsafe { slice::from_raw_parts_mut(self.ptr, self.len) }
     }
 
     /// Sets the length of the buffer
@@ -313,22 +315,23 @@ impl BytesMut {
     ///
     /// This a slice of all bytes, including uninitialized memory
     pub unsafe fn as_raw(&mut self) -> &mut [u8] {
-        let end = self.pos + self.cap;
-        &mut self.mem.as_mut()[self.pos..end]
+        slice::from_raw_parts_mut(self.ptr, self.cap)
     }
 
     /// Changes the starting index of this window to the index specified.
-    ///
-    /// Returns the windows back to chain multiple calls to this method.
     ///
     /// # Panics
     ///
     /// This method will panic if `start` is out of bounds for the underlying
     /// slice.
-    fn set_start(&mut self, start: usize) -> &mut BytesMut {
+    unsafe fn set_start(&mut self, start: usize) {
         assert!(start <= self.cap);
-        self.pos += start;
+        debug_assert!(self.is_shared());
+        debug_assert!(self.len <= self.cap);
 
+        self.ptr = self.ptr.offset(start as isize);
+
+        // TODO: This could probably be optimized with some bit fiddling
         if self.len >= start {
             self.len -= start;
         } else {
@@ -336,31 +339,73 @@ impl BytesMut {
         }
 
         self.cap -= start;
-        self
     }
 
     /// Changes the end index of this window to the index specified.
-    ///
-    /// Returns the windows back to chain multiple calls to this method.
     ///
     /// # Panics
     ///
     /// This method will panic if `start` is out of bounds for the underlying
     /// slice.
-    fn set_end(&mut self, end: usize) -> &mut BytesMut {
+    unsafe fn set_end(&mut self, end: usize) {
         assert!(end <= self.cap);
+        debug_assert!(self.is_shared());
+
         self.cap = end;
         self.len = cmp::min(self.len, end);
-        self
+    }
+
+    /// Checks if it is safe to mutate the memory
+    fn is_mut_safe(&mut self) -> bool {
+        unsafe {
+            (*self.arc.get()).as_mut()
+                // Check if there is only one outstanding reference to the memory
+                .map(|a| Arc::get_mut(a).is_some())
+                // If there is no arc, then this is a unique pointer
+                .unwrap_or(true)
+        }
     }
 
     /// Increments the ref count. This should only be done if it is known that
     /// it can be done safely. As such, this fn is not public, instead other
     /// fns will use this one while maintaining the guarantees.
     fn shallow_clone(&self) -> BytesMut {
+        let arc = unsafe {
+            match *self.arc.get() {
+                Some(ref arc) => {
+                    // Already backed by an arc, just clone it
+                    arc.clone()
+                }
+                None => {
+                    // Promote this `Bytes` to an arc, and clone it
+                    let v = Vec::from_raw_parts(self.ptr, self.len, self.cap);
+                    let a = Arc::new(v);
+
+                    *self.arc.get() = Some(a.clone());
+
+                    a
+                }
+            }
+        };
+
          BytesMut {
-            mem: self.mem.clone(),
+             arc: UnsafeCell::new(Some(arc)),
             .. *self
+        }
+    }
+
+    fn is_shared(&self) -> bool {
+        unsafe { (*self.arc.get()).is_some() }
+    }
+}
+
+impl Drop for BytesMut {
+    fn drop(&mut self) {
+        if !self.is_shared() {
+            unsafe {
+                // Not shared, manually free
+                let _ = Vec::from_raw_parts(self.ptr, self.len, self.cap);
+            }
         }
     }
 }
@@ -383,8 +428,7 @@ impl<'a> IntoBuf for &'a BytesMut {
 
 impl AsRef<[u8]> for BytesMut {
     fn as_ref(&self) -> &[u8] {
-        let end = self.pos + self.len;
-        &self.mem.as_ref()[self.pos..end]
+        unsafe { slice::from_raw_parts(self.ptr, self.len) }
     }
 }
 
@@ -403,15 +447,18 @@ impl ops::DerefMut for BytesMut {
 }
 
 impl From<Vec<u8>> for BytesMut {
-    fn from(src: Vec<u8>) -> BytesMut {
+    fn from(mut src: Vec<u8>) -> BytesMut {
         let len = src.len();
         let cap = src.capacity();
+        let ptr = src.as_mut_ptr();
+
+        mem::forget(src);
 
         BytesMut {
-            mem: Mem::from_vec(src),
-            pos: 0,
+            ptr: ptr,
             len: len,
             cap: cap,
+            arc: UnsafeCell::new(None),
         }
     }
 }
@@ -438,44 +485,6 @@ impl fmt::Debug for BytesMut {
 }
 
 unsafe impl Send for BytesMut {}
-
-/*
- *
- * ===== Mem =====
- *
- */
-
-impl Mem {
-    fn with_capacity(cap: usize) -> Mem {
-        let mut vec = Vec::with_capacity(cap);
-        unsafe { vec.set_len(cap); }
-
-        Mem { inner: Arc::new(UnsafeCell::new(vec.into_boxed_slice())) }
-    }
-
-    fn from_vec(mut vec: Vec<u8>) -> Mem {
-        let cap = vec.capacity();
-        unsafe { vec.set_len(cap); }
-
-        Mem { inner: Arc::new(UnsafeCell::new(vec.into_boxed_slice())) }
-    }
-
-    fn as_ref(&self) -> &[u8] {
-        unsafe { &*self.inner.get() }
-    }
-
-    fn as_mut(&mut self) -> &mut [u8] {
-        unsafe { &mut *self.inner.get() }
-    }
-
-    fn is_mut_safe(&mut self) -> bool {
-        Arc::get_mut(&mut self.inner).is_some()
-    }
-
-    fn clone(&self) -> Mem {
-        Mem { inner: self.inner.clone() }
-    }
-}
 
 /*
  *
@@ -563,11 +572,7 @@ impl Clone for BytesMut {
     fn clone(&self) -> BytesMut {
         let mut v = Vec::with_capacity(self.len());
         v.extend_from_slice(&self[..]);
-        BytesMut {
-            mem: Mem { inner : Arc::new(UnsafeCell::new(v.into_boxed_slice())) },
-            pos: self.pos,
-            len: self.len,
-            cap: self.cap,
-        }
+
+        BytesMut::from(v)
     }
 }
