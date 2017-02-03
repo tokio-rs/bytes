@@ -40,7 +40,22 @@ pub struct BytesMut {
  */
 
 impl Bytes {
+    /// Creates a new empty `Bytes`
+    #[inline]
+    pub fn new() -> Bytes {
+        use std::ptr;
+        Bytes {
+            inner: BytesMut {
+                ptr: ptr::null_mut(),
+                len: 0,
+                cap: 0,
+                arc: UnsafeCell::new(None),
+            }
+        }
+    }
+
     /// Creates a new `Bytes` and copy the given slice into it.
+    #[inline]
     pub fn from_slice<T: AsRef<[u8]>>(bytes: T) -> Bytes {
         BytesMut::from_slice(bytes).freeze()
     }
@@ -210,32 +225,38 @@ unsafe impl Sync for Bytes {}
 
 impl BytesMut {
     /// Create a new `BytesMut` with the specified capacity.
+    #[inline]
     pub fn with_capacity(cap: usize) -> BytesMut {
         BytesMut::from(Vec::with_capacity(cap))
     }
 
     /// Creates a new `BytesMut` and copy the given slice into it.
+    #[inline]
     pub fn from_slice<T: AsRef<[u8]>>(bytes: T) -> BytesMut {
         let buf = ByteBuf::from_slice(bytes);
         buf.into_inner()
     }
 
     /// Returns the number of bytes contained in this `BytesMut`.
+    /// #[inline]
     pub fn len(&self) -> usize {
         self.len
     }
 
     /// Returns true if the value contains no bytes
+    /// #[inline]
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
 
     /// Returns the total byte capacity of this `BytesMut`
+    /// #[inline]
     pub fn capacity(&self) -> usize {
         self.cap
     }
 
     /// Return an immutable handle to the bytes
+    /// #[inline]
     pub fn freeze(self) -> Bytes {
         Bytes { inner: self }
     }

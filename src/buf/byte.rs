@@ -10,11 +10,13 @@ pub struct ByteBuf {
 
 impl ByteBuf {
     /// Create a new `ByteBuf` with 8kb capacity
+    #[inline]
     pub fn new() -> ByteBuf {
         ByteBuf::with_capacity(8 * 1024)
     }
 
     /// Create a new `ByteBuf` with `cap` capacity
+    #[inline]
     pub fn with_capacity(cap: usize) -> ByteBuf {
         ByteBuf {
             mem: BytesMut::with_capacity(cap),
@@ -23,6 +25,7 @@ impl ByteBuf {
     }
 
     /// Create a new `ByteBuf` backed by `bytes`
+    #[inline]
     pub fn from_bytes(bytes: BytesMut) -> ByteBuf {
         ByteBuf {
             mem: bytes,
@@ -31,6 +34,7 @@ impl ByteBuf {
     }
 
     /// Create a new `ByteBuf` containing the given slice
+    #[inline]
     pub fn from_slice<T: AsRef<[u8]>>(bytes: T) -> ByteBuf {
         let mut buf = ByteBuf::with_capacity(bytes.as_ref().len());
         buf.copy_from_slice(bytes.as_ref());
@@ -137,19 +141,23 @@ impl ByteBuf {
 }
 
 impl Buf for ByteBuf {
+    #[inline]
     fn remaining(&self) -> usize {
         self.len() - self.rd
     }
 
+    #[inline]
     fn bytes(&self) -> &[u8] {
         &self.mem[self.rd..]
     }
 
+    #[inline]
     fn advance(&mut self, cnt: usize) {
         assert!(cnt <= self.remaining(), "buffer overflow");
         self.rd += cnt;
     }
 
+    #[inline]
     fn copy_to_slice(&mut self, dst: &mut [u8]) {
         assert!(self.remaining() >= dst.len());
 
@@ -160,20 +168,24 @@ impl Buf for ByteBuf {
 }
 
 impl BufMut for ByteBuf {
+    #[inline]
     fn remaining_mut(&self) -> usize {
         self.capacity() - self.len()
     }
 
+    #[inline]
     unsafe fn advance_mut(&mut self, cnt: usize) {
         let new_len = self.len() + cnt;
         self.mem.set_len(new_len);
     }
 
+    #[inline]
     unsafe fn bytes_mut(&mut self) -> &mut [u8] {
         let len = self.len();
         &mut self.mem.as_raw()[len..]
     }
 
+    #[inline]
     fn copy_from_slice(&mut self, src: &[u8]) {
         assert!(self.remaining_mut() >= src.len());
 
