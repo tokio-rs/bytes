@@ -10,9 +10,8 @@ use std::sync::Arc;
 /// be immutable, `Bytes` is `Sync`, `Clone` is shallow (ref count increment),
 /// and all operations only update views into the underlying data without
 /// requiring any copies.
-#[derive(Eq)]
 pub struct Bytes {
-    inner: BytesMut,
+    inner: Inner,
 }
 
 /// A unique reference to a slice of bytes.
@@ -20,6 +19,10 @@ pub struct Bytes {
 /// A `BytesMut` is a unique handle to a slice of bytes allowing mutation of
 /// the underlying bytes.
 pub struct BytesMut {
+    inner: Inner
+}
+
+pub struct Inner {
     // Pointer to the start of the memory owned by this BytesMut
     ptr: *mut u8,
 
@@ -45,7 +48,7 @@ impl Bytes {
     pub fn new() -> Bytes {
         use std::ptr;
         Bytes {
-            inner: BytesMut {
+            inner: Inner {
                 ptr: ptr::null_mut(),
                 len: 0,
                 cap: 0,
@@ -109,7 +112,7 @@ impl Bytes {
     ///
     /// Panics if `at > len`
     pub fn split_off(&mut self, at: usize) -> Bytes {
-        self.inner.split_off(at).freeze()
+        Bytes { inner: self.inner.split_off(at) }
     }
 
     /// Splits the buffer into two at the given index.
@@ -124,7 +127,7 @@ impl Bytes {
     ///
     /// Panics if `at > len`
     pub fn drain_to(&mut self, at: usize) -> Bytes {
-        self.inner.drain_to(at).freeze()
+        Bytes { inner: self.inner.drain_to(at) }
     }
 
     /// Attempt to convert into a `BytesMut` handle.
@@ -133,7 +136,7 @@ impl Bytes {
     /// the underlying chunk of memory.
     pub fn try_mut(mut self) -> Result<BytesMut, Bytes> {
         if self.inner.is_mut_safe() {
-            Ok(self.inner)
+            Ok(BytesMut { inner: self.inner })
         } else {
             Err(self)
         }
@@ -181,7 +184,7 @@ impl ops::Deref for Bytes {
     type Target = [u8];
 
     fn deref(&self) -> &[u8] {
-        self.as_ref()
+        self.inner.as_ref()
     }
 }
 
@@ -205,13 +208,16 @@ impl<'a> From<&'a [u8]> for Bytes {
 
 impl PartialEq for Bytes {
     fn eq(&self, other: &Bytes) -> bool {
-        self.inner == other.inner
+        self.inner.as_ref() == other.inner.as_ref()
     }
+}
+
+impl Eq for Bytes {
 }
 
 impl fmt::Debug for Bytes {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        fmt::Debug::fmt(&self.inner, fmt)
+        fmt::Debug::fmt(&self.inner.as_ref(), fmt)
     }
 }
 
@@ -238,27 +244,27 @@ impl BytesMut {
     }
 
     /// Returns the number of bytes contained in this `BytesMut`.
-    /// #[inline]
+    #[inline]
     pub fn len(&self) -> usize {
-        self.len
+        self.inner.len()
     }
 
     /// Returns true if the value contains no bytes
-    /// #[inline]
+    #[inline]
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
 
     /// Returns the total byte capacity of this `BytesMut`
-    /// #[inline]
+    #[inline]
     pub fn capacity(&self) -> usize {
-        self.cap
+        self.inner.capacity()
     }
 
     /// Return an immutable handle to the bytes
-    /// #[inline]
+    #[inline]
     pub fn freeze(self) -> Bytes {
-        Bytes { inner: self }
+        Bytes { inner: self.inner }
     }
 
     /// Splits the bytes into two at the given index.
@@ -273,14 +279,7 @@ impl BytesMut {
     ///
     /// Panics if `at > capacity`
     pub fn split_off(&mut self, at: usize) -> BytesMut {
-        let mut other = self.shallow_clone();
-
-        unsafe {
-            other.set_start(at);
-            self.set_end(at);
-        }
-
-        return other
+        BytesMut { inner: self.inner.split_off(at) }
     }
 
     /// Splits the buffer into two at the given index.
@@ -295,14 +294,7 @@ impl BytesMut {
     ///
     /// Panics if `at > len`
     pub fn drain_to(&mut self, at: usize) -> BytesMut {
-        let mut other = self.shallow_clone();
-
-        unsafe {
-            other.set_end(at);
-            self.set_start(at);
-        }
-
-        return other
+        BytesMut { inner: self.inner.drain_to(at) }
     }
 
     /// Returns the inner contents of this `BytesMut` as a slice.
@@ -314,7 +306,7 @@ impl BytesMut {
     ///
     /// This a slice of bytes that have been initialized
     pub fn as_mut(&mut self) -> &mut [u8] {
-        unsafe { slice::from_raw_parts_mut(self.ptr, self.len) }
+        self.inner.as_mut()
     }
 
     /// Sets the length of the buffer
@@ -328,15 +320,81 @@ impl BytesMut {
     /// This method will panic if `len` is out of bounds for the underlying
     /// slice or if it comes after the `end` of the configured window.
     pub unsafe fn set_len(&mut self, len: usize) {
-        assert!(len <= self.cap);
-        self.len = len;
+        self.inner.set_len(len);
     }
 
     /// Returns the inner contents of this `BytesMut` as a mutable slice
     ///
     /// This a slice of all bytes, including uninitialized memory
+    #[inline]
     pub unsafe fn as_raw(&mut self) -> &mut [u8] {
+        self.inner.as_raw()
+    }
+}
+
+/*
+ *
+ * ===== Inner =====
+ *
+ */
+
+impl Inner {
+    #[inline]
+    fn as_ref(&self) -> &[u8] {
+        unsafe { slice::from_raw_parts(self.ptr, self.len) }
+    }
+
+    #[inline]
+    fn as_mut(&mut self) -> &mut [u8] {
+        unsafe { slice::from_raw_parts_mut(self.ptr, self.len) }
+    }
+
+    #[inline]
+    unsafe fn as_raw(&mut self) -> &mut [u8] {
         slice::from_raw_parts_mut(self.ptr, self.cap)
+    }
+
+    #[inline]
+    fn len(&self) -> usize {
+        self.len
+    }
+
+    #[inline]
+    unsafe fn set_len(&mut self, len: usize) {
+        assert!(len <= self.cap);
+        self.len = len;
+    }
+
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    #[inline]
+    pub fn capacity(&self) -> usize {
+        self.cap
+    }
+
+    fn split_off(&mut self, at: usize) -> Inner {
+        let mut other = self.shallow_clone();
+
+        unsafe {
+            other.set_start(at);
+            self.set_end(at);
+        }
+
+        return other
+    }
+
+    fn drain_to(&mut self, at: usize) -> Inner {
+        let mut other = self.shallow_clone();
+
+        unsafe {
+            other.set_end(at);
+            self.set_start(at);
+        }
+
+        return other
     }
 
     /// Changes the starting index of this window to the index specified.
@@ -390,7 +448,7 @@ impl BytesMut {
     /// Increments the ref count. This should only be done if it is known that
     /// it can be done safely. As such, this fn is not public, instead other
     /// fns will use this one while maintaining the guarantees.
-    fn shallow_clone(&self) -> BytesMut {
+    fn shallow_clone(&self) -> Inner {
         let arc = unsafe {
             match *self.arc.get() {
                 Some(ref arc) => {
@@ -409,7 +467,7 @@ impl BytesMut {
             }
         };
 
-         BytesMut {
+         Inner {
              arc: UnsafeCell::new(Some(arc)),
             .. *self
         }
@@ -420,7 +478,7 @@ impl BytesMut {
     }
 }
 
-impl Drop for BytesMut {
+impl Drop for Inner {
     fn drop(&mut self) {
         if !self.is_shared() {
             unsafe {
@@ -430,6 +488,8 @@ impl Drop for BytesMut {
         }
     }
 }
+
+unsafe impl Send for Inner {}
 
 impl IntoBuf for BytesMut {
     type Buf = SliceBuf<Self>;
@@ -449,7 +509,7 @@ impl<'a> IntoBuf for &'a BytesMut {
 
 impl AsRef<[u8]> for BytesMut {
     fn as_ref(&self) -> &[u8] {
-        unsafe { slice::from_raw_parts(self.ptr, self.len) }
+        self.inner.as_ref()
     }
 }
 
@@ -476,10 +536,12 @@ impl From<Vec<u8>> for BytesMut {
         mem::forget(src);
 
         BytesMut {
-            ptr: ptr,
-            len: len,
-            cap: cap,
-            arc: UnsafeCell::new(None),
+            inner: Inner {
+                ptr: ptr,
+                len: len,
+                cap: cap,
+                arc: UnsafeCell::new(None),
+            },
         }
     }
 }
@@ -492,7 +554,7 @@ impl<'a> From<&'a [u8]> for BytesMut {
 
 impl PartialEq for BytesMut {
     fn eq(&self, other: &BytesMut) -> bool {
-        **self == **other
+        self.inner.as_ref() == other.inner.as_ref()
     }
 }
 
@@ -501,11 +563,9 @@ impl Eq for BytesMut {
 
 impl fmt::Debug for BytesMut {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        fmt::Debug::fmt(self.as_ref(), fmt)
+        fmt::Debug::fmt(self.inner.as_ref(), fmt)
     }
 }
-
-unsafe impl Send for BytesMut {}
 
 /*
  *
@@ -553,7 +613,7 @@ impl<'a> PartialEq<BytesMut> for &'a [u8] {
 
 impl PartialEq<[u8]> for Bytes {
     fn eq(&self, other: &[u8]) -> bool {
-        self.inner == *other
+        self.inner.as_ref() == other
     }
 }
 
