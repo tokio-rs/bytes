@@ -1,7 +1,7 @@
 use {IntoBuf, ByteBuf, SliceBuf};
 
-use std::{cmp, fmt, mem, ops, slice};
-use std::cell::UnsafeCell;
+use std::{cmp, fmt, mem, ops, slice, ptr};
+use std::cell::{Cell, UnsafeCell};
 use std::sync::Arc;
 
 /// A reference counted slice of bytes.
@@ -22,7 +22,16 @@ pub struct BytesMut {
     inner: Inner
 }
 
-pub struct Inner {
+struct Inner {
+    data: Data,
+
+    // If this pointer is set, then the the BytesMut is backed by an Arc
+    arc: Cell<usize>,
+}
+
+#[repr(C)]
+#[derive(Eq, PartialEq, Clone, Copy)]
+struct Data {
     // Pointer to the start of the memory owned by this BytesMut
     ptr: *mut u8,
 
@@ -31,10 +40,28 @@ pub struct Inner {
 
     // Total number of bytes owned by this BytesMut
     cap: usize,
-
-    // If this pointer is set, then the the BytesMut is backed by an Arc
-    arc: UnsafeCell<Option<Arc<Vec<u8>>>>,
 }
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+enum Kind {
+    Vec,
+    Arc,
+    Inline,
+    Static,
+}
+
+type Shared = Arc<UnsafeCell<Vec<u8>>>;
+
+#[cfg(target_pointer_width = "64")]
+const INLINE_CAP: usize = 8 * 3;
+
+#[cfg(target_pointer_width = "32")]
+const INNER_CAP: usize = 4 * 3;
+
+const KIND_MASK: usize = 3;
+const KIND_INLINE: usize = 1;
+const KIND_STATIC: usize = 2;
+
 
 /*
  *
@@ -46,13 +73,14 @@ impl Bytes {
     /// Creates a new empty `Bytes`
     #[inline]
     pub fn new() -> Bytes {
-        use std::ptr;
         Bytes {
             inner: Inner {
-                ptr: ptr::null_mut(),
-                len: 0,
-                cap: 0,
-                arc: UnsafeCell::new(None),
+                data: Data {
+                    ptr: ptr::null_mut(),
+                    len: 0,
+                    cap: 0,
+                },
+                arc: Cell::new(0),
             }
         }
     }
@@ -61,6 +89,23 @@ impl Bytes {
     #[inline]
     pub fn from_slice<T: AsRef<[u8]>>(bytes: T) -> Bytes {
         BytesMut::from_slice(bytes).freeze()
+    }
+
+    /// Creates a new `Bytes` from a static slice.
+    ///
+    /// This is a zero copy function
+    #[inline]
+    pub fn from_static(bytes: &'static [u8]) -> Bytes {
+        Bytes {
+            inner: Inner {
+                data: Data {
+                    ptr: bytes.as_ptr() as *mut u8,
+                    len: bytes.len(),
+                    cap: bytes.len(),
+                },
+                arc: Cell::new(KIND_STATIC),
+            }
+        }
     }
 
     /// Returns the number of bytes contained in this `Bytes`.
@@ -233,14 +278,44 @@ impl BytesMut {
     /// Create a new `BytesMut` with the specified capacity.
     #[inline]
     pub fn with_capacity(cap: usize) -> BytesMut {
-        BytesMut::from(Vec::with_capacity(cap))
+        if cap <= INLINE_CAP {
+            BytesMut {
+                inner: Inner {
+                    data: Data {
+                        ptr: ptr::null_mut(),
+                        len: 0,
+                        cap: 0,
+                    },
+                    arc: Cell::new(KIND_INLINE),
+                }
+            }
+        } else {
+            BytesMut::from(Vec::with_capacity(cap))
+        }
     }
 
     /// Creates a new `BytesMut` and copy the given slice into it.
     #[inline]
     pub fn from_slice<T: AsRef<[u8]>>(bytes: T) -> BytesMut {
-        let buf = ByteBuf::from_slice(bytes);
-        buf.into_inner()
+        let b = bytes.as_ref();
+
+        if b.len() <= INLINE_CAP {
+            unsafe {
+                let len = b.len();
+                let mut data: [u8; INLINE_CAP] = mem::uninitialized();
+                data[0..len].copy_from_slice(b);
+
+                BytesMut {
+                    inner: Inner {
+                        data: mem::transmute(data),
+                        arc: Cell::new(KIND_INLINE | (len << 2)),
+                    }
+                }
+            }
+        } else {
+            let buf = ByteBuf::from_slice(b);
+            buf.into_inner()
+        }
     }
 
     /// Returns the number of bytes contained in this `BytesMut`.
@@ -341,28 +416,62 @@ impl BytesMut {
 impl Inner {
     #[inline]
     fn as_ref(&self) -> &[u8] {
-        unsafe { slice::from_raw_parts(self.ptr, self.len) }
+        if self.is_inline() {
+            unsafe {
+                slice::from_raw_parts(&self.data as *const _ as *const u8, self.inline_len())
+            }
+        } else {
+            unsafe { slice::from_raw_parts(self.data.ptr, self.data.len) }
+        }
     }
 
     #[inline]
     fn as_mut(&mut self) -> &mut [u8] {
-        unsafe { slice::from_raw_parts_mut(self.ptr, self.len) }
+        debug_assert!(self.kind() != Kind::Static);
+
+        if self.is_inline() {
+            unsafe {
+                slice::from_raw_parts_mut(&mut self.data as *mut _ as *mut u8, self.inline_len())
+            }
+        } else {
+            unsafe { slice::from_raw_parts_mut(self.data.ptr, self.data.len) }
+        }
     }
 
     #[inline]
     unsafe fn as_raw(&mut self) -> &mut [u8] {
-        slice::from_raw_parts_mut(self.ptr, self.cap)
+        debug_assert!(self.kind() != Kind::Static);
+
+        if self.is_inline() {
+            slice::from_raw_parts_mut(&mut self.data as *mut _ as *mut u8, INLINE_CAP)
+        } else {
+            slice::from_raw_parts_mut(self.data.ptr, self.data.cap)
+        }
     }
 
     #[inline]
     fn len(&self) -> usize {
-        self.len
+        if self.is_inline() {
+            self.inline_len()
+        } else {
+            self.data.len
+        }
+    }
+
+    #[inline]
+    fn inline_len(&self) -> usize {
+        self.arc.get() >> 2
     }
 
     #[inline]
     unsafe fn set_len(&mut self, len: usize) {
-        assert!(len <= self.cap);
-        self.len = len;
+        if self.is_inline() {
+            assert!(len <= INLINE_CAP);
+            self.arc.set(len << 2 | KIND_INLINE);
+        } else {
+            assert!(len <= self.data.cap);
+            self.data.len = len;
+        }
     }
 
     #[inline]
@@ -372,7 +481,11 @@ impl Inner {
 
     #[inline]
     pub fn capacity(&self) -> usize {
-        self.cap
+        if self.is_inline() {
+            INLINE_CAP
+        } else {
+            self.data.cap
+        }
     }
 
     fn split_off(&mut self, at: usize) -> Inner {
@@ -404,20 +517,46 @@ impl Inner {
     /// This method will panic if `start` is out of bounds for the underlying
     /// slice.
     unsafe fn set_start(&mut self, start: usize) {
-        assert!(start <= self.cap);
         debug_assert!(self.is_shared());
-        debug_assert!(self.len <= self.cap);
 
-        self.ptr = self.ptr.offset(start as isize);
+        if self.is_inline() {
+            if start == 0 {
+                return;
+            }
 
-        // TODO: This could probably be optimized with some bit fiddling
-        if self.len >= start {
-            self.len -= start;
+            let len = self.inline_len();
+
+            if len <= start {
+                assert!(start <= INLINE_CAP);
+
+                // Set the length to zero
+                self.arc.set(KIND_INLINE);
+            } else {
+                debug_assert!(start <= INLINE_CAP);
+
+                let new_len = len - start;
+
+                let dst = &self.data as *const Data as *mut Data as *mut u8;
+                let src = (dst as *const u8).offset(start as isize);
+
+                ptr::copy(src, dst, new_len);
+
+                self.arc.set((new_len << 2) | KIND_INLINE);
+            }
         } else {
-            self.len = 0;
-        }
+            assert!(start <= self.data.cap);
 
-        self.cap -= start;
+            self.data.ptr = self.data.ptr.offset(start as isize);
+
+            // TODO: This could probably be optimized with some bit fiddling
+            if self.data.len >= start {
+                self.data.len -= start;
+            } else {
+                self.data.len = 0;
+            }
+
+            self.data.cap -= start;
+        }
     }
 
     /// Changes the end index of this window to the index specified.
@@ -427,21 +566,33 @@ impl Inner {
     /// This method will panic if `start` is out of bounds for the underlying
     /// slice.
     unsafe fn set_end(&mut self, end: usize) {
-        assert!(end <= self.cap);
         debug_assert!(self.is_shared());
 
-        self.cap = end;
-        self.len = cmp::min(self.len, end);
+        if self.is_inline() {
+            assert!(end <= INLINE_CAP);
+            let new_len = cmp::min(self.inline_len(), end);
+
+            self.arc.set((new_len << 2) | KIND_INLINE);
+        } else {
+            assert!(end <= self.data.cap);
+            debug_assert!(self.is_shared());
+
+            self.data.cap = end;
+            self.data.len = cmp::min(self.data.len, end);
+        }
     }
 
     /// Checks if it is safe to mutate the memory
     fn is_mut_safe(&mut self) -> bool {
-        unsafe {
-            (*self.arc.get()).as_mut()
-                // Check if there is only one outstanding reference to the memory
-                .map(|a| Arc::get_mut(a).is_some())
-                // If there is no arc, then this is a unique pointer
-                .unwrap_or(true)
+        match self.kind() {
+            Kind::Static => false,
+            Kind::Arc => {
+                unsafe {
+                    let arc: &mut Shared = mem::transmute(&mut self.arc);
+                    Arc::get_mut(arc).is_some()
+                }
+            }
+            Kind::Vec | Kind::Inline => true,
         }
     }
 
@@ -449,42 +600,90 @@ impl Inner {
     /// it can be done safely. As such, this fn is not public, instead other
     /// fns will use this one while maintaining the guarantees.
     fn shallow_clone(&self) -> Inner {
-        let arc = unsafe {
-            match *self.arc.get() {
-                Some(ref arc) => {
-                    // Already backed by an arc, just clone it
-                    arc.clone()
-                }
-                None => {
+        match self.kind() {
+            Kind::Vec => {
+                unsafe {
                     // Promote this `Bytes` to an arc, and clone it
-                    let v = Vec::from_raw_parts(self.ptr, self.len, self.cap);
+                    let v = Vec::from_raw_parts(
+                        self.data.ptr,
+                        self.data.len,
+                        self.data.cap);
+
                     let a = Arc::new(v);
+                    self.arc.set(mem::transmute(a.clone()));
 
-                    *self.arc.get() = Some(a.clone());
-
-                    a
+                    Inner {
+                        data: self.data,
+                        arc: Cell::new(mem::transmute(a)),
+                    }
                 }
             }
-        };
+            Kind::Arc => {
+                unsafe {
+                    let arc: &Shared = mem::transmute(&self.arc);
 
-         Inner {
-             arc: UnsafeCell::new(Some(arc)),
-            .. *self
+                    Inner {
+                        data: self.data,
+                        arc: Cell::new(mem::transmute(arc.clone())),
+                    }
+                }
+            }
+            Kind::Inline | Kind::Static => {
+                Inner {
+                    data: self.data,
+                    arc: Cell::new(self.arc.get()),
+                }
+            }
         }
     }
 
+    #[inline]
+    fn kind(&self) -> Kind {
+        let arc = self.arc.get();
+
+        if arc == 0 {
+            return Kind::Vec
+        }
+
+        let kind = arc & KIND_MASK;
+
+        match kind {
+            0 => Kind::Arc,
+            KIND_INLINE => Kind::Inline,
+            KIND_STATIC => Kind::Static,
+            _ => unreachable!(),
+        }
+    }
+
+    #[inline]
+    fn is_inline(&self) -> bool {
+        self.arc.get() & KIND_MASK == KIND_INLINE
+    }
+
+    #[inline]
     fn is_shared(&self) -> bool {
-        unsafe { (*self.arc.get()).is_some() }
+        self.kind() != Kind::Vec
     }
 }
 
 impl Drop for Inner {
     fn drop(&mut self) {
-        if !self.is_shared() {
-            unsafe {
-                // Not shared, manually free
-                let _ = Vec::from_raw_parts(self.ptr, self.len, self.cap);
+        match self.kind() {
+            Kind::Vec => {
+                unsafe {
+                    // Not shared, manually free
+                    let _ = Vec::from_raw_parts(
+                        self.data.ptr,
+                        self.data.len,
+                        self.data.cap);
+                }
             }
+            Kind::Arc => {
+                unsafe {
+                    let _: Arc<UnsafeCell<Vec<u8>>> = mem::transmute(self.arc.get());
+                }
+            }
+            _ => {}
         }
     }
 }
@@ -537,10 +736,12 @@ impl From<Vec<u8>> for BytesMut {
 
         BytesMut {
             inner: Inner {
-                ptr: ptr,
-                len: len,
-                cap: cap,
-                arc: UnsafeCell::new(None),
+                data: Data {
+                    ptr: ptr,
+                    len: len,
+                    cap: cap,
+                },
+                arc: Cell::new(0),
             },
         }
     }
@@ -651,9 +852,6 @@ impl<'a, T: ?Sized> PartialEq<&'a T> for Bytes
 
 impl Clone for BytesMut {
     fn clone(&self) -> BytesMut {
-        let mut v = Vec::with_capacity(self.len());
-        v.extend_from_slice(&self[..]);
-
-        BytesMut::from(v)
+        BytesMut::from_slice(self.as_ref())
     }
 }

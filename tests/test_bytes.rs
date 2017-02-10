@@ -81,14 +81,14 @@ fn slice() {
 #[should_panic]
 fn slice_oob_1() {
     let a = Bytes::from_slice(b"hello world");
-    a.slice(5, 20);
+    a.slice(5, 25);
 }
 
 #[test]
 #[should_panic]
 fn slice_oob_2() {
     let a = Bytes::from_slice(b"hello world");
-    a.slice(15, 20);
+    a.slice(25, 30);
 }
 
 #[test]
@@ -110,14 +110,14 @@ fn split_off() {
 #[should_panic]
 fn split_off_oob() {
     let mut hello = Bytes::from_slice(b"helloworld");
-    hello.split_off(11);
+    hello.split_off(25);
 }
 
 #[test]
 #[should_panic]
 fn split_off_oob_mut() {
     let mut hello = BytesMut::from_slice(b"helloworld");
-    hello.split_off(11);
+    hello.split_off(25);
 }
 
 #[test]
@@ -151,14 +151,14 @@ fn drain_to() {
 #[should_panic]
 fn drain_to_oob() {
     let mut hello = Bytes::from_slice(b"helloworld");
-    hello.drain_to(11);
+    hello.drain_to(30);
 }
 
 #[test]
 #[should_panic]
 fn drain_to_oob_mut() {
     let mut hello = BytesMut::from_slice(b"helloworld");
-    hello.drain_to(11);
+    hello.drain_to(30);
 }
 
 #[test]
