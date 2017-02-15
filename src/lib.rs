@@ -16,7 +16,5 @@ pub use buf::{
     Reader,
     Writer,
 };
-pub use buf::byte::{ByteBuf};
-pub use buf::slice::{SliceBuf};
 pub use buf::take::{Take, TakeMut};
 pub use bytes::{Bytes, BytesMut};

@@ -19,7 +19,7 @@ use std::sync::Arc;
 /// ```
 /// use bytes::Bytes;
 ///
-/// let mem = Bytes::from_slice(b"Hello world");
+/// let mem = Bytes::from(&b"Hello world"[..]);
 /// let a = mem.slice(0, 5);
 ///
 /// assert_eq!(&a[..], b"Hello");
@@ -186,6 +186,17 @@ const INLINE_LEN_MASK: usize = 0xff << INLINE_LEN_OFFSET;
 
 impl Bytes {
     /// Creates a new empty `Bytes`
+    ///
+    /// This will not allocate and the returned `Bytes` handle will be empty.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Bytes;
+    ///
+    /// let b = Bytes::new();
+    /// assert_eq!(&b[..], b"");
+    /// ```
     #[inline]
     pub fn new() -> Bytes {
         Bytes {
@@ -200,15 +211,19 @@ impl Bytes {
         }
     }
 
-    /// Creates a new `Bytes` and copy the given slice into it.
-    #[inline]
-    pub fn from_slice<T: AsRef<[u8]>>(bytes: T) -> Bytes {
-        BytesMut::from_slice(bytes).freeze()
-    }
-
     /// Creates a new `Bytes` from a static slice.
     ///
-    /// This is a zero copy function
+    /// The returned `Bytes` will point directly to the static slice. There is
+    /// no allocating or copying.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Bytes;
+    ///
+    /// let b = Bytes::from_static(b"hello");
+    /// assert_eq!(&b[..], b"hello");
+    /// ```
     #[inline]
     pub fn from_static(bytes: &'static [u8]) -> Bytes {
         Bytes {
@@ -224,44 +239,113 @@ impl Bytes {
     }
 
     /// Returns the number of bytes contained in this `Bytes`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Bytes;
+    ///
+    /// let b = Bytes::from(&b"hello"[..]);
+    /// assert_eq!(b.len(), 5);
+    /// ```
     pub fn len(&self) -> usize {
         self.inner.len()
     }
 
-    /// Returns the total byte capacity of this `Bytes`
-    #[inline]
-    pub fn capacity(&self) -> usize {
-        self.inner.capacity()
-    }
-
-    /// Returns true if the value contains no bytes
+    /// Returns true if the `Bytes` has a length of 0.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Bytes;
+    ///
+    /// let b = Bytes::new();
+    /// assert!(b.is_empty());
+    /// ```
     pub fn is_empty(&self) -> bool {
         self.inner.is_empty()
     }
 
-    /// Returns the inner contents of this `Bytes` as a slice.
-    pub fn as_slice(&self) -> &[u8] {
-        self.as_ref()
-    }
-
-    /// Extracts a new `Bytes` referencing the bytes from range [start, end).
-    pub fn slice(&self, start: usize, end: usize) -> Bytes {
+    /// Returns a slice of self for the index range `[begin..end)`.
+    ///
+    /// This will increment the reference count for the underlying memory and
+    /// return a new `Bytes` handle set to the slice.
+    ///
+    /// This operation is `O(1)`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Bytes;
+    ///
+    /// let a = Bytes::from(&b"hello world"[..]);
+    /// let b = a.slice(2, 5);
+    ///
+    /// assert_eq!(&b[..], b"llo");
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// Requires that `begin <= end` and `end <= self.len()`, otherwise slicing
+    /// will panic.
+    pub fn slice(&self, begin: usize, end: usize) -> Bytes {
         let ret = self.clone();
 
         unsafe {
             ret.inner.set_end(end);
-            ret.inner.set_start(start);
+            ret.inner.set_start(begin);
         }
 
         ret
     }
 
-    /// Extracts a new `Bytes` referencing the bytes from range [start, len).
-    pub fn slice_from(&self, start: usize) -> Bytes {
-        self.slice(start, self.len())
+    /// Returns a slice of self for the index range `[begin..self.len())`.
+    ///
+    /// This will increment the reference count for the underlying memory and
+    /// return a new `Bytes` handle set to the slice.
+    ///
+    /// This operation is `O(1)` and is equivalent to `self.slice(begin,
+    /// self.len())`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Bytes;
+    ///
+    /// let a = Bytes::from(&b"hello world"[..]);
+    /// let b = a.slice_from(6);
+    ///
+    /// assert_eq!(&b[..], b"world");
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// Requires that `begin <= self.len()`, otherwise slicing will panic.
+    pub fn slice_from(&self, begin: usize) -> Bytes {
+        self.slice(begin, self.len())
     }
 
-    /// Extracts a new `Bytes` referencing the bytes from range [0, end).
+    /// Returns a slice of self for the index range `[0..end)`.
+    ///
+    /// This will increment the reference count for the underlying memory and
+    /// return a new `Bytes` handle set to the slice.
+    ///
+    /// This operation is `O(1)` and is equivalent to `self.slice(0, end)`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Bytes;
+    ///
+    /// let a = Bytes::from(&b"hello world"[..]);
+    /// let b = a.slice_to(5);
+    ///
+    /// assert_eq!(&b[..], b"hello");
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// Requires that `end <= self.len()`, otherwise slicing will panic.
     pub fn slice_to(&self, end: usize) -> Bytes {
         self.slice(0, end)
     }
@@ -274,6 +358,18 @@ impl Bytes {
     /// This is an O(1) operation that just increases the reference count and
     /// sets a few indexes.
     ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Bytes;
+    ///
+    /// let a = Bytes::from(&b"hello world"[..]);
+    /// let b = a.split_off(5);
+    ///
+    /// assert_eq!(&a[..], b"hello");
+    /// assert_eq!(&b[..], b" world");
+    /// ```
+    ///
     /// # Panics
     ///
     /// Panics if `at > len`
@@ -281,13 +377,25 @@ impl Bytes {
         Bytes { inner: self.inner.split_off(at) }
     }
 
-    /// Splits the buffer into two at the given index.
+    /// Splits the bytes into two at the given index.
     ///
     /// Afterwards `self` contains elements `[at, len)`, and the returned
     /// `Bytes` contains elements `[0, at)`.
     ///
     /// This is an O(1) operation that just increases the reference count and
     /// sets a few indexes.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Bytes;
+    ///
+    /// let a = Bytes::from(&b"hello world"[..]);
+    /// let b = a.drain_to(5);
+    ///
+    /// assert_eq!(&a[..], b" world");
+    /// assert_eq!(&b[..], b"hello");
+    /// ```
     ///
     /// # Panics
     ///
@@ -299,22 +407,37 @@ impl Bytes {
     /// Attempt to convert into a `BytesMut` handle.
     ///
     /// This will only succeed if there are no other outstanding references to
-    /// the underlying chunk of memory.
+    /// the underlying chunk of memory. `Bytes` handles that contain inlined
+    /// bytes will always be convertable to `BytesMut`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Bytes;
+    ///
+    /// let a = Bytes::from(&b"Mary had a little lamb, little lamb, little lamb..."[..]);
+    ///
+    /// // Create a shallow clone
+    /// let b = a.clone();
+    ///
+    /// // This will fail because `b` shares a reference with `a`
+    /// let a = a.try_mut().unwrap_err();
+    ///
+    /// drop(b);
+    ///
+    /// // This will succeed
+    /// let mut a = a.try_mut().unwrap();
+    ///
+    /// a[0] = b'b';
+    ///
+    /// assert_eq!(&a[..4], b"bary");
+    /// ```
     pub fn try_mut(mut self) -> Result<BytesMut, Bytes> {
         if self.inner.is_mut_safe() {
             Ok(BytesMut { inner: self.inner })
         } else {
             Err(self)
         }
-    }
-
-    /// Consumes handle, returning a new mutable handle
-    ///
-    /// The function attempts to avoid copying, however if it is unable to
-    /// obtain a unique reference to the underlying data, a new buffer is
-    /// allocated and the data is copied to it.
-    pub fn into_mut(self) -> BytesMut {
-        self.try_mut().unwrap_or_else(BytesMut::from_slice)
     }
 }
 
@@ -437,52 +560,75 @@ impl BytesMut {
         }
     }
 
-    /// Creates a new `BytesMut` and copy the given slice into it.
-    #[inline]
-    pub fn from_slice<T: AsRef<[u8]>>(bytes: T) -> BytesMut {
-        let b = bytes.as_ref();
-
-        if b.len() <= INLINE_CAP {
-            unsafe {
-                let len = b.len();
-                let mut data: [u8; INLINE_CAP] = mem::uninitialized();
-                data[0..len].copy_from_slice(b);
-
-                let a = KIND_INLINE | (len << INLINE_LEN_OFFSET);
-
-                BytesMut {
-                    inner: Inner {
-                        data: mem::transmute(data),
-                        arc: Cell::new(a),
-                    }
-                }
-            }
-        } else {
-            let mut buf = BytesMut::with_capacity(bytes.as_ref().len());
-            buf.copy_from_slice(bytes.as_ref());
-            buf
-        }
-    }
-
     /// Returns the number of bytes contained in this `BytesMut`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::BytesMut;
+    ///
+    /// let b = BytesMut::from(&b"hello"[..]);
+    /// assert_eq!(b.len(), 5);
+    /// ```
     #[inline]
     pub fn len(&self) -> usize {
         self.inner.len()
     }
 
-    /// Returns true if the value contains no bytes
+    /// Returns true if the `BytesMut` has a length of 0.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::BytesMut;
+    ///
+    /// let b = BytesMut::with_capacity(64);
+    /// assert!(b.is_empty());
+    /// ```
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
 
-    /// Returns the total byte capacity of this `BytesMut`
+    /// Returns the number of bytes the `BytesMut` can hold without reallocating.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::BytesMut;
+    ///
+    /// let b = BytesMut::with_capacity(64);
+    /// assert_eq!(b.capacity(), 64);
+    /// ```
     #[inline]
     pub fn capacity(&self) -> usize {
         self.inner.capacity()
     }
 
-    /// Return an immutable handle to the bytes
+    /// Convert `self` into an immutable `Bytes`
+    ///
+    /// The conversion is zero cost and is used to indicate that the slice
+    /// referenced by the handle will no longer be mutated. Once the conversion
+    /// is done, the handle can be cloned and shared across threads.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::{BytesMut, BufMut};
+    /// use std::thread;
+    ///
+    /// let mut b = BytesMut::with_capacity(64);
+    /// b.put_str("hello world");
+    /// let b1 = b.freeze();
+    /// let b2 = b1.clone();
+    ///
+    /// let th = thread::spawn(move || {
+    ///     assert_eq!(&b1[..], b"hello world");
+    /// });
+    ///
+    /// assert_eq!(&b2[..], b"hello world");
+    /// th.join().unwrap();
+    /// ```
     #[inline]
     pub fn freeze(self) -> Bytes {
         Bytes { inner: self.inner }
@@ -493,10 +639,22 @@ impl BytesMut {
     /// Afterwards `self` contains elements `[0, at)`, and the returned
     /// `BytesMut` contains elements `[at, capacity)`.
     ///
-    /// This is an O(1) operation [1] that just increases the reference count
-    /// and sets a few indexes.
+    /// This is an O(1) operation that just increases the reference count and
+    /// sets a few indexes.
     ///
-    /// [1] Inlined bytes are copied
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::BytesMut;
+    ///
+    /// let mut a = BytesMut::from(&b"hello world"[..]);
+    /// let b = a.split_off(5);
+    ///
+    /// a[0] = b'j';
+    ///
+    /// assert_eq!(&a[..], b"jello");
+    /// assert_eq!(&b[..], b" world");
+    /// ```
     ///
     /// # Panics
     ///
@@ -510,10 +668,23 @@ impl BytesMut {
     /// Afterwards `self` contains elements `[0, at)`, and the returned
     /// `BytesMut` contains elements `[at, capacity)`.
     ///
-    /// This is an O(1) operation [1] that just increases the reference count
+    /// This is an O(1) operation that just increases the reference count
     /// and sets a few indexes.
     ///
-    /// [1] Inlined bytes are copied
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::BytesMut;
+    ///
+    /// let mut a = BytesMut::from(&b"hello world"[..]);
+    /// let mut b = a.split_off_mut(5);
+    ///
+    /// a[0] = b'j';
+    /// b[0] = b'!';
+    ///
+    /// assert_eq!(&a[..], b"jello");
+    /// assert_eq!(&b[..], b"!world");
+    /// ```
     ///
     /// # Panics
     ///
@@ -527,10 +698,22 @@ impl BytesMut {
     /// Afterwards `self` contains elements `[at, len)`, and the returned `Bytes`
     /// contains elements `[0, at)`.
     ///
-    /// This is an O(1) operation [1] that just increases the reference count
-    /// and sets a few indexes.
+    /// This is an O(1) operation that just increases the reference count and
+    /// sets a few indexes.
     ///
-    /// [1] Inlined bytes are copied.
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::BytesMut;
+    ///
+    /// let mut a = BytesMut::from(&b"hello world"[..]);
+    /// let b = a.drain_to(5);
+    ///
+    /// a[0] = b'!';
+    ///
+    /// assert_eq!(&a[..], b"!world");
+    /// assert_eq!(&b[..], b"hello");
+    /// ```
     ///
     /// # Panics
     ///
@@ -544,10 +727,23 @@ impl BytesMut {
     /// Afterwards `self` contains elements `[at, len)`, and the returned `BytesMut`
     /// contains elements `[0, at)`.
     ///
-    /// This is an O(1) operation [1] that just increases the reference count and
+    /// This is an O(1) operation that just increases the reference count and
     /// sets a few indexes.
     ///
-    /// [1] Inlined bytes are copied.
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::BytesMut;
+    ///
+    /// let mut a = BytesMut::from(&b"hello world"[..]);
+    /// let mut b = a.drain_to_mut(5);
+    ///
+    /// a[0] = b'!';
+    /// b[0] = b'j';
+    ///
+    /// assert_eq!(&a[..], b"!world");
+    /// assert_eq!(&b[..], b"jello");
+    /// ```
     ///
     /// # Panics
     ///
@@ -556,38 +752,38 @@ impl BytesMut {
         BytesMut { inner: self.inner.drain_to(at) }
     }
 
-    /// Returns the inner contents of this `BytesMut` as a slice.
-    pub fn as_slice(&self) -> &[u8] {
-        self.as_ref()
-    }
-
-    /// Returns the inner contents of this `BytesMut` as a mutable slice
-    ///
-    /// This a slice of bytes that have been initialized
-    pub fn as_mut(&mut self) -> &mut [u8] {
-        self.inner.as_mut()
-    }
-
     /// Sets the length of the buffer
     ///
     /// This will explicitly set the size of the buffer without actually
     /// modifying the data, so it is up to the caller to ensure that the data
     /// has been initialized.
     ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::BytesMut;
+    ///
+    /// let mut b = BytesMut::from(&b"hello world"[..]);
+    ///
+    /// unsafe {
+    ///     b.set_len(5);
+    /// }
+    ///
+    /// assert_eq!(&b[..], b"hello");
+    ///
+    /// unsafe {
+    ///     b.set_len(11);
+    /// }
+    ///
+    /// assert_eq!(&b[..], b"hello world");
+    /// ```
+    ///
     /// # Panics
     ///
     /// This method will panic if `len` is out of bounds for the underlying
     /// slice or if it comes after the `end` of the configured window.
     pub unsafe fn set_len(&mut self, len: usize) {
-        self.inner.set_len(len);
-    }
-
-    /// Returns the inner contents of this `BytesMut` as a mutable slice
-    ///
-    /// This a slice of all bytes, including uninitialized memory
-    #[inline]
-    pub unsafe fn as_raw(&mut self) -> &mut [u8] {
-        self.inner.as_raw()
+        self.inner.set_len(len)
     }
 }
 
@@ -600,13 +796,13 @@ impl BufMut for BytesMut {
     #[inline]
     unsafe fn advance_mut(&mut self, cnt: usize) {
         let new_len = self.len() + cnt;
-        self.set_len(new_len);
+        self.inner.set_len(new_len);
     }
 
     #[inline]
     unsafe fn bytes_mut(&mut self) -> &mut [u8] {
         let len = self.len();
-        &mut self.as_raw()[len..]
+        &mut self.inner.as_raw()[len..]
     }
 
     #[inline]
@@ -654,7 +850,7 @@ impl ops::Deref for BytesMut {
 
 impl ops::DerefMut for BytesMut {
     fn deref_mut(&mut self) -> &mut [u8] {
-        self.as_mut()
+        self.inner.as_mut()
     }
 }
 
@@ -681,7 +877,33 @@ impl From<Vec<u8>> for BytesMut {
 
 impl<'a> From<&'a [u8]> for BytesMut {
     fn from(src: &'a [u8]) -> BytesMut {
-        BytesMut::from_slice(src)
+        if src.len() <= INLINE_CAP {
+            unsafe {
+                let len = src.len();
+                let mut data: [u8; INLINE_CAP] = mem::uninitialized();
+                data[0..len].copy_from_slice(src);
+
+                let a = KIND_INLINE | (len << INLINE_LEN_OFFSET);
+
+                BytesMut {
+                    inner: Inner {
+                        data: mem::transmute(data),
+                        arc: Cell::new(a),
+                    }
+                }
+            }
+        } else {
+            let mut buf = BytesMut::with_capacity(src.len());
+            buf.copy_from_slice(src.as_ref());
+            buf
+        }
+    }
+}
+
+impl From<Bytes> for BytesMut {
+    fn from(src: Bytes) -> BytesMut {
+        src.try_mut()
+            .unwrap_or_else(|src| BytesMut::from(&src[..]))
     }
 }
 
@@ -697,6 +919,17 @@ impl Eq for BytesMut {
 impl fmt::Debug for BytesMut {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt::Debug::fmt(self.inner.as_ref(), fmt)
+    }
+}
+
+impl fmt::Write for BytesMut {
+    fn write_str(&mut self, s: &str) -> fmt::Result {
+        BufMut::put_str(self, s);
+        Ok(())
+    }
+
+    fn write_fmt(&mut self, args: fmt::Arguments) -> fmt::Result {
+        fmt::write(self, args)
     }
 }
 
@@ -1122,6 +1355,6 @@ impl<'a, T: ?Sized> PartialEq<&'a T> for Bytes
 
 impl Clone for BytesMut {
     fn clone(&self) -> BytesMut {
-        BytesMut::from_slice(self.as_ref())
+        BytesMut::from(&self[..])
     }
 }

@@ -1,7 +1,7 @@
 extern crate bytes;
 extern crate byteorder;
 
-use bytes::{Buf, BufMut, ByteBuf};
+use bytes::{BufMut, BytesMut};
 use std::usize;
 use std::fmt::Write;
 
@@ -49,10 +49,10 @@ fn test_put_u16() {
 
 #[test]
 fn test_clone() {
-    let mut buf = ByteBuf::with_capacity(100);
+    let mut buf = BytesMut::with_capacity(100);
     buf.write_str("this is a test").unwrap();
     let buf2 = buf.clone();
 
     buf.write_str(" of our emergecy broadcast system").unwrap();
-    assert!(buf.bytes() != buf2.bytes());
+    assert!(buf != buf2);
 }

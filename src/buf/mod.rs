@@ -1,5 +1,3 @@
-pub mod byte;
-pub mod slice;
 pub mod take;
 
 use {Bytes, Take, TakeMut};
