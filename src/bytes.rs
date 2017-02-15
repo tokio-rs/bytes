@@ -1,29 +1,140 @@
-use {IntoBuf, ByteBuf, SliceBuf};
+use {IntoBuf, BufMut};
 
 use std::{cmp, fmt, mem, ops, slice, ptr};
 use std::cell::{Cell, UnsafeCell};
+use std::io::Cursor;
 use std::sync::Arc;
 
-/// A reference counted slice of bytes.
+/// A reference counted contiguous slice of memory.
 ///
-/// A `Bytes` is an immutable sequence of bytes. Given that it is guaranteed to
-/// be immutable, `Bytes` is `Sync`, `Clone` is shallow (ref count increment),
-/// and all operations only update views into the underlying data without
-/// requiring any copies.
+/// `Bytes` is an efficient container for storing and operating on continguous
+/// slices of memory. It is intended for use primarily in networking code, but
+/// could have applications elsewhere as well.
+///
+/// `Bytes` values facilitate zero-copy network programming by allowing multiple
+/// `Bytes` objects to point to the same underlying memory. This is managed by
+/// using a reference count to track when the memory is no longer needed and can
+/// be freed.
+///
+/// ```
+/// use bytes::Bytes;
+///
+/// let mem = Bytes::from_slice(b"Hello world");
+/// let a = mem.slice(0, 5);
+///
+/// assert_eq!(&a[..], b"Hello");
+///
+/// let b = mem.drain_to(6);
+///
+/// assert_eq!(&mem[..], b"world");
+/// assert_eq!(&b[..], b"Hello ");
+/// ```
+///
+/// # Memory layout
+///
+/// The `Bytes` struct itself is fairly small, limited to a pointer to the
+/// memory and 4 `usize` fields used to track information about which segment of
+/// the underlying memory the `Bytes` handle has access to.
+///
+/// The memory layout looks like this:
+///
+/// ```text
+/// +-------+
+/// | Bytes |
+/// +-------+
+///  /      \_____
+/// |              \
+/// v               v
+/// +-----+------------------------------------+
+/// | Arc |         |      Data     |          |
+/// +-----+------------------------------------+
+/// ```
+///
+/// `Bytes` keeps both a pointer to the shared `Arc` containing the full memory
+/// slice and a pointer to the start of the region visible by the handle.
+/// `Bytes` also tracks the length of its view into the memory.
+///
+/// # Sharing
+///
+/// The memory itself is reference counted, and multiple `Bytes` objects may
+/// point to the same region. Each `Bytes` handle point to different sections within
+/// the memory region, and `Bytes` handle may or may not have overlapping views
+/// into the memory.
+///
+///
+/// ```text
+///
+///    Arc ptrs                   +---------+
+///    ________________________ / | Bytes 2 |
+///   /                           +---------+
+///  /          +-----------+     |         |
+/// |_________/ |  Bytes 1  |     |         |
+/// |           +-----------+     |         |
+/// |           |           | ___/ data     | tail
+/// |      data |      tail |/              |
+/// v           v           v               v
+/// +-----+---------------------------------+-----+
+/// | Arc |     |           |               |     |
+/// +-----+---------------------------------+-----+
+/// ```
+///
+/// # Mutating
+///
+/// While `Bytes` handles may potentially represent overlapping views of the
+/// underlying memory slice and may not be mutated, `BytesMut` handles are
+/// guaranteed to be the only handle able to view that slice of memory. As such,
+/// `BytesMut` handles are able to mutate the underlying memory. Note that
+/// holding a unique view to a region of memory does not mean that there are not
+/// other `Bytes` and `BytesMut` handles with disjoint views of the underlying
+/// memory.
+///
+/// # Inline bytes.
+///
+/// As an opitmization, when the slice referenced by a `Bytes` or `BytesMut`
+/// handle is small enough [1], `Bytes` will avoid the allocation by inlining
+/// the slice directly in the handle. In this case, a clone is no longer
+/// "shallow" and the data will be copied.
+///
+/// [1] Small enough: 24 bytes on 64 bit systems, 12 on 32 bit systems.
+///
 pub struct Bytes {
     inner: Inner,
 }
 
-/// A unique reference to a slice of bytes.
+/// A unique reference to a continuous slice of memory.
 ///
-/// A `BytesMut` is a unique handle to a slice of bytes allowing mutation of
-/// the underlying bytes.
+/// `BytesMut` represents a unique view into a potentially shared memory region.
+/// Given the uniqueness guarantee, owners of `BytesMut` handles are able to
+/// mutate the memory.
+///
+/// For more detail, see [Bytes](struct.Bytes.html).
+///
+/// ```
+/// use bytes::{BytesMut, BufMut};
+///
+/// let mut buf = BytesMut::with_capacity(64);
+///
+/// buf.put_u8(b'h');
+/// buf.put_u8(b'e');
+/// buf.put_str("llo");
+///
+/// assert_eq!(&buf[..], b"hello");
+///
+/// // Freeze the buffer so that it can be shared
+/// let a = buf.freeze();
+///
+/// // This does not allocate, instead `b` points to the same memory.
+/// let b = a.clone();
+///
+/// assert_eq!(&a[..], b"hello");
+/// assert_eq!(&b[..], b"hello");
+/// ```
 pub struct BytesMut {
     inner: Inner
 }
 
 struct Inner {
-    data: Data,
+    data: UnsafeCell<Data>,
 
     // If this pointer is set, then the the BytesMut is backed by an Arc
     arc: Cell<usize>,
@@ -62,6 +173,10 @@ const KIND_MASK: usize = 3;
 const KIND_INLINE: usize = 1;
 const KIND_STATIC: usize = 2;
 
+const INLINE_START_OFFSET: usize = 16;
+const INLINE_START_MASK: usize = 0xff << INLINE_START_OFFSET;
+const INLINE_LEN_OFFSET: usize = 8;
+const INLINE_LEN_MASK: usize = 0xff << INLINE_LEN_OFFSET;
 
 /*
  *
@@ -75,11 +190,11 @@ impl Bytes {
     pub fn new() -> Bytes {
         Bytes {
             inner: Inner {
-                data: Data {
+                data: UnsafeCell::new(Data {
                     ptr: ptr::null_mut(),
                     len: 0,
                     cap: 0,
-                },
+                }),
                 arc: Cell::new(0),
             }
         }
@@ -98,11 +213,11 @@ impl Bytes {
     pub fn from_static(bytes: &'static [u8]) -> Bytes {
         Bytes {
             inner: Inner {
-                data: Data {
+                data: UnsafeCell::new(Data {
                     ptr: bytes.as_ptr() as *mut u8,
                     len: bytes.len(),
                     cap: bytes.len(),
-                },
+                }),
                 arc: Cell::new(KIND_STATIC),
             }
         }
@@ -111,6 +226,12 @@ impl Bytes {
     /// Returns the number of bytes contained in this `Bytes`.
     pub fn len(&self) -> usize {
         self.inner.len()
+    }
+
+    /// Returns the total byte capacity of this `Bytes`
+    #[inline]
+    pub fn capacity(&self) -> usize {
+        self.inner.capacity()
     }
 
     /// Returns true if the value contains no bytes
@@ -125,7 +246,7 @@ impl Bytes {
 
     /// Extracts a new `Bytes` referencing the bytes from range [start, end).
     pub fn slice(&self, start: usize, end: usize) -> Bytes {
-        let mut ret = self.clone();
+        let ret = self.clone();
 
         unsafe {
             ret.inner.set_end(end);
@@ -156,7 +277,7 @@ impl Bytes {
     /// # Panics
     ///
     /// Panics if `at > len`
-    pub fn split_off(&mut self, at: usize) -> Bytes {
+    pub fn split_off(&self, at: usize) -> Bytes {
         Bytes { inner: self.inner.split_off(at) }
     }
 
@@ -171,7 +292,7 @@ impl Bytes {
     /// # Panics
     ///
     /// Panics if `at > len`
-    pub fn drain_to(&mut self, at: usize) -> Bytes {
+    pub fn drain_to(&self, at: usize) -> Bytes {
         Bytes { inner: self.inner.drain_to(at) }
     }
 
@@ -198,18 +319,18 @@ impl Bytes {
 }
 
 impl IntoBuf for Bytes {
-    type Buf = SliceBuf<Self>;
+    type Buf = Cursor<Self>;
 
     fn into_buf(self) -> Self::Buf {
-        SliceBuf::new(self)
+        Cursor::new(self)
     }
 }
 
 impl<'a> IntoBuf for &'a Bytes {
-    type Buf = SliceBuf<Self>;
+    type Buf = Cursor<Self>;
 
     fn into_buf(self) -> Self::Buf {
-        SliceBuf::new(self)
+        Cursor::new(self)
     }
 }
 
@@ -276,21 +397,43 @@ unsafe impl Sync for Bytes {}
 
 impl BytesMut {
     /// Create a new `BytesMut` with the specified capacity.
+    ///
+    /// The returned `BytesMut` will be able to hold at least `capacity` bytes
+    /// without reallocating. If `capacity` is under `3 * size:of::<usize>()`,
+    /// then `BytesMut` will not allocate.
+    ///
+    /// It is important to note that this function does not specify the length
+    /// of the returned `BytesMut`, but only the capacity.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::{BytesMut, BufMut};
+    ///
+    /// let mut bytes = BytesMut::with_capacity(64);
+    ///
+    /// // `bytes` contains no data, even though there is capacity
+    /// assert_eq!(bytes.len(), 0);
+    ///
+    /// bytes.copy_from_slice(b"hello world");
+    ///
+    /// assert_eq!(&bytes[..], b"hello world");
+    /// ```
     #[inline]
-    pub fn with_capacity(cap: usize) -> BytesMut {
-        if cap <= INLINE_CAP {
+    pub fn with_capacity(capacity: usize) -> BytesMut {
+        if capacity <= INLINE_CAP {
             BytesMut {
                 inner: Inner {
-                    data: Data {
+                    data: UnsafeCell::new(Data {
                         ptr: ptr::null_mut(),
                         len: 0,
                         cap: 0,
-                    },
+                    }),
                     arc: Cell::new(KIND_INLINE),
                 }
             }
         } else {
-            BytesMut::from(Vec::with_capacity(cap))
+            BytesMut::from(Vec::with_capacity(capacity))
         }
     }
 
@@ -305,16 +448,19 @@ impl BytesMut {
                 let mut data: [u8; INLINE_CAP] = mem::uninitialized();
                 data[0..len].copy_from_slice(b);
 
+                let a = KIND_INLINE | (len << INLINE_LEN_OFFSET);
+
                 BytesMut {
                     inner: Inner {
                         data: mem::transmute(data),
-                        arc: Cell::new(KIND_INLINE | (len << 2)),
+                        arc: Cell::new(a),
                     }
                 }
             }
         } else {
-            let buf = ByteBuf::from_slice(b);
-            buf.into_inner()
+            let mut buf = BytesMut::with_capacity(bytes.as_ref().len());
+            buf.copy_from_slice(bytes.as_ref());
+            buf
         }
     }
 
@@ -347,14 +493,50 @@ impl BytesMut {
     /// Afterwards `self` contains elements `[0, at)`, and the returned
     /// `BytesMut` contains elements `[at, capacity)`.
     ///
-    /// This is an O(1) operation that just increases the reference count and
-    /// sets a few indexes.
+    /// This is an O(1) operation [1] that just increases the reference count
+    /// and sets a few indexes.
+    ///
+    /// [1] Inlined bytes are copied
     ///
     /// # Panics
     ///
     /// Panics if `at > capacity`
-    pub fn split_off(&mut self, at: usize) -> BytesMut {
+    pub fn split_off(&self, at: usize) -> Bytes {
+        Bytes { inner: self.inner.split_off(at) }
+    }
+
+    /// Splits the bytes into two at the given index.
+    ///
+    /// Afterwards `self` contains elements `[0, at)`, and the returned
+    /// `BytesMut` contains elements `[at, capacity)`.
+    ///
+    /// This is an O(1) operation [1] that just increases the reference count
+    /// and sets a few indexes.
+    ///
+    /// [1] Inlined bytes are copied
+    ///
+    /// # Panics
+    ///
+    /// Panics if `at > capacity`
+    pub fn split_off_mut(&mut self, at: usize) -> BytesMut {
         BytesMut { inner: self.inner.split_off(at) }
+    }
+
+    /// Splits the buffer into two at the given index.
+    ///
+    /// Afterwards `self` contains elements `[at, len)`, and the returned `Bytes`
+    /// contains elements `[0, at)`.
+    ///
+    /// This is an O(1) operation [1] that just increases the reference count
+    /// and sets a few indexes.
+    ///
+    /// [1] Inlined bytes are copied.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `at > len`
+    pub fn drain_to(&self, at: usize) -> Bytes {
+        Bytes { inner: self.inner.drain_to(at) }
     }
 
     /// Splits the buffer into two at the given index.
@@ -362,13 +544,15 @@ impl BytesMut {
     /// Afterwards `self` contains elements `[at, len)`, and the returned `BytesMut`
     /// contains elements `[0, at)`.
     ///
-    /// This is an O(1) operation that just increases the reference count and
+    /// This is an O(1) operation [1] that just increases the reference count and
     /// sets a few indexes.
+    ///
+    /// [1] Inlined bytes are copied.
     ///
     /// # Panics
     ///
     /// Panics if `at > len`
-    pub fn drain_to(&mut self, at: usize) -> BytesMut {
+    pub fn drain_to_mut(&mut self, at: usize) -> BytesMut {
         BytesMut { inner: self.inner.drain_to(at) }
     }
 
@@ -407,6 +591,115 @@ impl BytesMut {
     }
 }
 
+impl BufMut for BytesMut {
+    #[inline]
+    fn remaining_mut(&self) -> usize {
+        self.capacity() - self.len()
+    }
+
+    #[inline]
+    unsafe fn advance_mut(&mut self, cnt: usize) {
+        let new_len = self.len() + cnt;
+        self.set_len(new_len);
+    }
+
+    #[inline]
+    unsafe fn bytes_mut(&mut self) -> &mut [u8] {
+        let len = self.len();
+        &mut self.as_raw()[len..]
+    }
+
+    #[inline]
+    fn copy_from_slice(&mut self, src: &[u8]) {
+        assert!(self.remaining_mut() >= src.len());
+
+        let len = src.len();
+
+        unsafe {
+            self.bytes_mut()[..len].copy_from_slice(src);
+            self.advance_mut(len);
+        }
+    }
+}
+
+impl IntoBuf for BytesMut {
+    type Buf = Cursor<Self>;
+
+    fn into_buf(self) -> Self::Buf {
+        Cursor::new(self)
+    }
+}
+
+impl<'a> IntoBuf for &'a BytesMut {
+    type Buf = Cursor<&'a BytesMut>;
+
+    fn into_buf(self) -> Self::Buf {
+        Cursor::new(self)
+    }
+}
+
+impl AsRef<[u8]> for BytesMut {
+    fn as_ref(&self) -> &[u8] {
+        self.inner.as_ref()
+    }
+}
+
+impl ops::Deref for BytesMut {
+    type Target = [u8];
+
+    fn deref(&self) -> &[u8] {
+        self.as_ref()
+    }
+}
+
+impl ops::DerefMut for BytesMut {
+    fn deref_mut(&mut self) -> &mut [u8] {
+        self.as_mut()
+    }
+}
+
+impl From<Vec<u8>> for BytesMut {
+    fn from(mut src: Vec<u8>) -> BytesMut {
+        let len = src.len();
+        let cap = src.capacity();
+        let ptr = src.as_mut_ptr();
+
+        mem::forget(src);
+
+        BytesMut {
+            inner: Inner {
+                data: UnsafeCell::new(Data {
+                    ptr: ptr,
+                    len: len,
+                    cap: cap,
+                }),
+                arc: Cell::new(0),
+            },
+        }
+    }
+}
+
+impl<'a> From<&'a [u8]> for BytesMut {
+    fn from(src: &'a [u8]) -> BytesMut {
+        BytesMut::from_slice(src)
+    }
+}
+
+impl PartialEq for BytesMut {
+    fn eq(&self, other: &BytesMut) -> bool {
+        self.inner.as_ref() == other.inner.as_ref()
+    }
+}
+
+impl Eq for BytesMut {
+}
+
+impl fmt::Debug for BytesMut {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Debug::fmt(self.inner.as_ref(), fmt)
+    }
+}
+
 /*
  *
  * ===== Inner =====
@@ -418,10 +711,13 @@ impl Inner {
     fn as_ref(&self) -> &[u8] {
         if self.is_inline() {
             unsafe {
-                slice::from_raw_parts(&self.data as *const _ as *const u8, self.inline_len())
+                slice::from_raw_parts(self.inline_ptr(), self.inline_len())
             }
         } else {
-            unsafe { slice::from_raw_parts(self.data.ptr, self.data.len) }
+            unsafe {
+                let d = &*self.data.get();
+                slice::from_raw_parts(d.ptr, d.len)
+            }
         }
     }
 
@@ -431,10 +727,13 @@ impl Inner {
 
         if self.is_inline() {
             unsafe {
-                slice::from_raw_parts_mut(&mut self.data as *mut _ as *mut u8, self.inline_len())
+                slice::from_raw_parts_mut(self.inline_ptr(), self.inline_len())
             }
         } else {
-            unsafe { slice::from_raw_parts_mut(self.data.ptr, self.data.len) }
+            unsafe {
+                let d = &*self.data.get();
+                slice::from_raw_parts_mut(d.ptr, d.len)
+            }
         }
     }
 
@@ -443,9 +742,10 @@ impl Inner {
         debug_assert!(self.kind() != Kind::Static);
 
         if self.is_inline() {
-            slice::from_raw_parts_mut(&mut self.data as *mut _ as *mut u8, INLINE_CAP)
+            slice::from_raw_parts_mut(self.inline_ptr(), self.inline_capacity())
         } else {
-            slice::from_raw_parts_mut(self.data.ptr, self.data.cap)
+            let d = &*self.data.get();
+            slice::from_raw_parts_mut(d.ptr, d.cap)
         }
     }
 
@@ -454,23 +754,59 @@ impl Inner {
         if self.is_inline() {
             self.inline_len()
         } else {
-            self.data.len
+            unsafe { (*self.data.get()).len }
         }
     }
 
     #[inline]
+    unsafe fn inline_ptr(&self) -> *mut u8 {
+        (self.data.get() as *mut u8).offset(self.inline_start() as isize)
+    }
+
+    #[inline]
+    fn inline_start(&self) -> usize {
+        (self.arc.get() & INLINE_START_MASK) >> INLINE_START_OFFSET
+    }
+
+    #[inline]
+    fn set_inline_start(&self, start: usize) {
+        debug_assert!(start <= INLINE_START_MASK);
+
+        let v = (self.arc.get() & !INLINE_START_MASK) |
+            (start << INLINE_START_OFFSET);
+
+        self.arc.set(v);
+    }
+
+    #[inline]
     fn inline_len(&self) -> usize {
-        self.arc.get() >> 2
+        (self.arc.get() & INLINE_LEN_MASK) >> INLINE_LEN_OFFSET
+    }
+
+    #[inline]
+    fn set_inline_len(&self, len: usize) {
+        debug_assert!(len <= INLINE_LEN_MASK);
+
+        let v = (self.arc.get() & !INLINE_LEN_MASK) |
+            (len << INLINE_LEN_OFFSET);
+
+        self.arc.set(v);
+    }
+
+    #[inline]
+    fn inline_capacity(&self) -> usize {
+        INLINE_CAP - self.inline_start()
     }
 
     #[inline]
     unsafe fn set_len(&mut self, len: usize) {
         if self.is_inline() {
-            assert!(len <= INLINE_CAP);
-            self.arc.set(len << 2 | KIND_INLINE);
+            assert!(len <= self.inline_capacity());
+            self.set_inline_len(len);
         } else {
-            assert!(len <= self.data.cap);
-            self.data.len = len;
+            let d = &mut *self.data.get();
+            assert!(len <= d.cap);
+            d.len = len;
         }
     }
 
@@ -482,14 +818,14 @@ impl Inner {
     #[inline]
     pub fn capacity(&self) -> usize {
         if self.is_inline() {
-            INLINE_CAP
+            self.inline_capacity()
         } else {
-            self.data.cap
+            unsafe { (*self.data.get()).cap }
         }
     }
 
-    fn split_off(&mut self, at: usize) -> Inner {
-        let mut other = self.shallow_clone();
+    fn split_off(&self, at: usize) -> Inner {
+        let other = self.shallow_clone();
 
         unsafe {
             other.set_start(at);
@@ -499,8 +835,8 @@ impl Inner {
         return other
     }
 
-    fn drain_to(&mut self, at: usize) -> Inner {
-        let mut other = self.shallow_clone();
+    fn drain_to(&self, at: usize) -> Inner {
+        let other = self.shallow_clone();
 
         unsafe {
             other.set_end(at);
@@ -516,46 +852,41 @@ impl Inner {
     ///
     /// This method will panic if `start` is out of bounds for the underlying
     /// slice.
-    unsafe fn set_start(&mut self, start: usize) {
+    unsafe fn set_start(&self, start: usize) {
         debug_assert!(self.is_shared());
 
+        if start == 0 {
+            return;
+        }
+
         if self.is_inline() {
-            if start == 0 {
-                return;
-            }
+            assert!(start <= self.inline_capacity());
 
-            let len = self.inline_len();
+            let old_start = self.inline_start();
+            let old_len = self.inline_len();
 
-            if len <= start {
-                assert!(start <= INLINE_CAP);
+            self.set_inline_start(old_start + start);
 
-                // Set the length to zero
-                self.arc.set(KIND_INLINE);
+            if old_len >= start {
+                self.set_inline_len(old_len - start);
             } else {
-                debug_assert!(start <= INLINE_CAP);
-
-                let new_len = len - start;
-
-                let dst = &self.data as *const Data as *mut Data as *mut u8;
-                let src = (dst as *const u8).offset(start as isize);
-
-                ptr::copy(src, dst, new_len);
-
-                self.arc.set((new_len << 2) | KIND_INLINE);
+                self.set_inline_len(0);
             }
         } else {
-            assert!(start <= self.data.cap);
+            let d = &mut *self.data.get();
 
-            self.data.ptr = self.data.ptr.offset(start as isize);
+            assert!(start <= d.cap);
+
+            d.ptr = d.ptr.offset(start as isize);
 
             // TODO: This could probably be optimized with some bit fiddling
-            if self.data.len >= start {
-                self.data.len -= start;
+            if d.len >= start {
+                d.len -= start;
             } else {
-                self.data.len = 0;
+                d.len = 0;
             }
 
-            self.data.cap -= start;
+            d.cap -= start;
         }
     }
 
@@ -565,20 +896,20 @@ impl Inner {
     ///
     /// This method will panic if `start` is out of bounds for the underlying
     /// slice.
-    unsafe fn set_end(&mut self, end: usize) {
+    unsafe fn set_end(&self, end: usize) {
         debug_assert!(self.is_shared());
 
         if self.is_inline() {
-            assert!(end <= INLINE_CAP);
+            assert!(end <= self.inline_capacity());
             let new_len = cmp::min(self.inline_len(), end);
-
-            self.arc.set((new_len << 2) | KIND_INLINE);
+            self.set_inline_len(new_len);
         } else {
-            assert!(end <= self.data.cap);
-            debug_assert!(self.is_shared());
+            let d = &mut *self.data.get();
 
-            self.data.cap = end;
-            self.data.len = cmp::min(self.data.len, end);
+            assert!(end <= d.cap);
+
+            d.cap = end;
+            d.len = cmp::min(d.len, end);
         }
     }
 
@@ -603,17 +934,16 @@ impl Inner {
         match self.kind() {
             Kind::Vec => {
                 unsafe {
+                    let d = &*self.data.get();
+
                     // Promote this `Bytes` to an arc, and clone it
-                    let v = Vec::from_raw_parts(
-                        self.data.ptr,
-                        self.data.len,
-                        self.data.cap);
+                    let v = Vec::from_raw_parts(d.ptr, d.len, d.cap);
 
                     let a = Arc::new(v);
                     self.arc.set(mem::transmute(a.clone()));
 
                     Inner {
-                        data: self.data,
+                        data: UnsafeCell::new(*d),
                         arc: Cell::new(mem::transmute(a)),
                     }
                 }
@@ -623,14 +953,34 @@ impl Inner {
                     let arc: &Shared = mem::transmute(&self.arc);
 
                     Inner {
-                        data: self.data,
+                        data: UnsafeCell::new(*self.data.get()),
                         arc: Cell::new(mem::transmute(arc.clone())),
                     }
                 }
             }
-            Kind::Inline | Kind::Static => {
+            Kind::Inline => {
+                let len = self.inline_len();
+
+                unsafe {
+                    let mut data: Data = mem::uninitialized();
+
+                    let dst = &mut data as *mut _ as *mut u8;
+                    let src = self.inline_ptr();
+
+                    ptr::copy_nonoverlapping(src, dst, len);
+
+                    let mut a = KIND_INLINE;
+                    a |= len << INLINE_LEN_OFFSET;
+
+                    Inner {
+                        data: UnsafeCell::new(data),
+                        arc: Cell::new(a),
+                    }
+                }
+            }
+            Kind::Static => {
                 Inner {
-                    data: self.data,
+                    data: unsafe { UnsafeCell::new(*self.data.get()) },
                     arc: Cell::new(self.arc.get()),
                 }
             }
@@ -671,11 +1021,9 @@ impl Drop for Inner {
         match self.kind() {
             Kind::Vec => {
                 unsafe {
+                    let d = *self.data.get();
                     // Not shared, manually free
-                    let _ = Vec::from_raw_parts(
-                        self.data.ptr,
-                        self.data.len,
-                        self.data.cap);
+                    let _ = Vec::from_raw_parts(d.ptr, d.len, d.cap);
                 }
             }
             Kind::Arc => {
@@ -689,84 +1037,6 @@ impl Drop for Inner {
 }
 
 unsafe impl Send for Inner {}
-
-impl IntoBuf for BytesMut {
-    type Buf = SliceBuf<Self>;
-
-    fn into_buf(self) -> Self::Buf {
-        SliceBuf::new(self)
-    }
-}
-
-impl<'a> IntoBuf for &'a BytesMut {
-    type Buf = SliceBuf<&'a BytesMut>;
-
-    fn into_buf(self) -> Self::Buf {
-        SliceBuf::new(self)
-    }
-}
-
-impl AsRef<[u8]> for BytesMut {
-    fn as_ref(&self) -> &[u8] {
-        self.inner.as_ref()
-    }
-}
-
-impl ops::Deref for BytesMut {
-    type Target = [u8];
-
-    fn deref(&self) -> &[u8] {
-        self.as_ref()
-    }
-}
-
-impl ops::DerefMut for BytesMut {
-    fn deref_mut(&mut self) -> &mut [u8] {
-        self.as_mut()
-    }
-}
-
-impl From<Vec<u8>> for BytesMut {
-    fn from(mut src: Vec<u8>) -> BytesMut {
-        let len = src.len();
-        let cap = src.capacity();
-        let ptr = src.as_mut_ptr();
-
-        mem::forget(src);
-
-        BytesMut {
-            inner: Inner {
-                data: Data {
-                    ptr: ptr,
-                    len: len,
-                    cap: cap,
-                },
-                arc: Cell::new(0),
-            },
-        }
-    }
-}
-
-impl<'a> From<&'a [u8]> for BytesMut {
-    fn from(src: &'a [u8]) -> BytesMut {
-        BytesMut::from_slice(src)
-    }
-}
-
-impl PartialEq for BytesMut {
-    fn eq(&self, other: &BytesMut) -> bool {
-        self.inner.as_ref() == other.inner.as_ref()
-    }
-}
-
-impl Eq for BytesMut {
-}
-
-impl fmt::Debug for BytesMut {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        fmt::Debug::fmt(self.inner.as_ref(), fmt)
-    }
-}
 
 /*
  *
