@@ -1,23 +1,134 @@
-use {IntoBuf, ByteBuf, SliceBuf};
+use {IntoBuf, BufMut};
 
 use std::{cmp, fmt, mem, ops, slice, ptr};
 use std::cell::{Cell, UnsafeCell};
+use std::io::Cursor;
 use std::sync::Arc;
 
-/// A reference counted slice of bytes.
+/// A reference counted contiguous slice of memory.
 ///
-/// A `Bytes` is an immutable sequence of bytes. Given that it is guaranteed to
-/// be immutable, `Bytes` is `Sync`, `Clone` is shallow (ref count increment),
-/// and all operations only update views into the underlying data without
-/// requiring any copies.
+/// `Bytes` is an efficient container for storing and operating on continguous
+/// slices of memory. It is intended for use primarily in networking code, but
+/// could have applications elsewhere as well.
+///
+/// `Bytes` values facilitate zero-copy network programming by allowing multiple
+/// `Bytes` objects to point to the same underlying memory. This is managed by
+/// using a reference count to track when the memory is no longer needed and can
+/// be freed.
+///
+/// ```
+/// use bytes::Bytes;
+///
+/// let mem = Bytes::from_slice(b"Hello world");
+/// let a = mem.slice(0, 5);
+///
+/// assert_eq!(&a[..], b"Hello");
+///
+/// let b = mem.drain_to(6);
+///
+/// assert_eq!(&mem[..], b"world");
+/// assert_eq!(&b[..], b"Hello ");
+/// ```
+///
+/// # Memory layout
+///
+/// The `Bytes` struct itself is fairly small, limited to a pointer to the
+/// memory and 4 `usize` fields used to track information about which segment of
+/// the underlying memory the `Bytes` handle has access to.
+///
+/// The memory layout looks like this:
+///
+/// ```text
+/// +-------+
+/// | Bytes |
+/// +-------+
+///  /      \_____
+/// |              \
+/// v               v
+/// +-----+------------------------------------+
+/// | Arc |         |      Data     |          |
+/// +-----+------------------------------------+
+/// ```
+///
+/// `Bytes` keeps both a pointer to the shared `Arc` containing the full memory
+/// slice and a pointer to the start of the region visible by the handle.
+/// `Bytes` also tracks the length of its view into the memory.
+///
+/// # Sharing
+///
+/// The memory itself is reference counted, and multiple `Bytes` objects may
+/// point to the same region. Each `Bytes` handle point to different sections within
+/// the memory region, and `Bytes` handle may or may not have overlapping views
+/// into the memory.
+///
+///
+/// ```text
+///
+///    Arc ptrs                   +---------+
+///    ________________________ / | Bytes 2 |
+///   /                           +---------+
+///  /          +-----------+     |         |
+/// |_________/ |  Bytes 1  |     |         |
+/// |           +-----------+     |         |
+/// |           |           | ___/ data     | tail
+/// |      data |      tail |/              |
+/// v           v           v               v
+/// +-----+---------------------------------+-----+
+/// | Arc |     |           |               |     |
+/// +-----+---------------------------------+-----+
+/// ```
+///
+/// # Mutating
+///
+/// While `Bytes` handles may potentially represent overlapping views of the
+/// underlying memory slice and may not be mutated, `BytesMut` handles are
+/// guaranteed to be the only handle able to view that slice of memory. As such,
+/// `BytesMut` handles are able to mutate the underlying memory. Note that
+/// holding a unique view to a region of memory does not mean that there are not
+/// other `Bytes` and `BytesMut` handles with disjoint views of the underlying
+/// memory.
+///
+/// # Inline bytes.
+///
+/// As an opitmization, when the slice referenced by a `Bytes` or `BytesMut`
+/// handle is small enough [1], `Bytes` will avoid the allocation by inlining
+/// the slice directly in the handle. In this case, a clone is no longer
+/// "shallow" and the data will be copied.
+///
+/// [1] Small enough: 24 bytes on 64 bit systems, 12 on 32 bit systems.
+///
 pub struct Bytes {
     inner: Inner,
 }
 
-/// A unique reference to a slice of bytes.
+/// A unique reference to a continuous slice of memory.
 ///
-/// A `BytesMut` is a unique handle to a slice of bytes allowing mutation of
-/// the underlying bytes.
+/// `BytesMut` represents a unique view into a potentially shared memory region.
+/// Given the uniqueness guarantee, owners of `BytesMut` handles are able to
+/// mutate the memory.
+///
+/// For more detail, see [Bytes](struct.Bytes.html).
+///
+/// ```
+/// use bytes::{BytesMut, BufMut};
+///
+/// let mut buf = BytesMut::with_capacity(64);
+///
+/// buf.put_u8(b'h');
+/// buf.put_u8(b'e');
+/// buf.put_str("llo");
+///
+/// assert_eq!(&buf[..], b"hello");
+///
+/// // Freeze the buffer so that it can be shared
+/// let a = buf.freeze();
+///
+/// // This does not allocate, instead `b` points to the same memory.
+/// let b = a.clone();
+///
+/// assert_eq!(&a[..], b"hello");
+/// assert_eq!(&b[..], b"hello");
+/// ```
 pub struct BytesMut {
     inner: Inner
 }
@@ -208,18 +319,18 @@ impl Bytes {
 }
 
 impl IntoBuf for Bytes {
-    type Buf = SliceBuf<Self>;
+    type Buf = Cursor<Self>;
 
     fn into_buf(self) -> Self::Buf {
-        SliceBuf::new(self)
+        Cursor::new(self)
     }
 }
 
 impl<'a> IntoBuf for &'a Bytes {
-    type Buf = SliceBuf<Self>;
+    type Buf = Cursor<Self>;
 
     fn into_buf(self) -> Self::Buf {
-        SliceBuf::new(self)
+        Cursor::new(self)
     }
 }
 
@@ -286,9 +397,31 @@ unsafe impl Sync for Bytes {}
 
 impl BytesMut {
     /// Create a new `BytesMut` with the specified capacity.
+    ///
+    /// The returned `BytesMut` will be able to hold at least `capacity` bytes
+    /// without reallocating. If `capacity` is under `3 * size:of::<usize>()`,
+    /// then `BytesMut` will not allocate.
+    ///
+    /// It is important to note that this function does not specify the length
+    /// of the returned `BytesMut`, but only the capacity.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::{BytesMut, BufMut};
+    ///
+    /// let mut bytes = BytesMut::with_capacity(64);
+    ///
+    /// // `bytes` contains no data, even though there is capacity
+    /// assert_eq!(bytes.len(), 0);
+    ///
+    /// bytes.copy_from_slice(b"hello world");
+    ///
+    /// assert_eq!(&bytes[..], b"hello world");
+    /// ```
     #[inline]
-    pub fn with_capacity(cap: usize) -> BytesMut {
-        if cap <= INLINE_CAP {
+    pub fn with_capacity(capacity: usize) -> BytesMut {
+        if capacity <= INLINE_CAP {
             BytesMut {
                 inner: Inner {
                     data: UnsafeCell::new(Data {
@@ -300,7 +433,7 @@ impl BytesMut {
                 }
             }
         } else {
-            BytesMut::from(Vec::with_capacity(cap))
+            BytesMut::from(Vec::with_capacity(capacity))
         }
     }
 
@@ -325,8 +458,9 @@ impl BytesMut {
                 }
             }
         } else {
-            let buf = ByteBuf::from_slice(b);
-            buf.into_inner()
+            let mut buf = BytesMut::with_capacity(bytes.as_ref().len());
+            buf.copy_from_slice(bytes.as_ref());
+            buf
         }
     }
 
@@ -454,6 +588,115 @@ impl BytesMut {
     #[inline]
     pub unsafe fn as_raw(&mut self) -> &mut [u8] {
         self.inner.as_raw()
+    }
+}
+
+impl BufMut for BytesMut {
+    #[inline]
+    fn remaining_mut(&self) -> usize {
+        self.capacity() - self.len()
+    }
+
+    #[inline]
+    unsafe fn advance_mut(&mut self, cnt: usize) {
+        let new_len = self.len() + cnt;
+        self.set_len(new_len);
+    }
+
+    #[inline]
+    unsafe fn bytes_mut(&mut self) -> &mut [u8] {
+        let len = self.len();
+        &mut self.as_raw()[len..]
+    }
+
+    #[inline]
+    fn copy_from_slice(&mut self, src: &[u8]) {
+        assert!(self.remaining_mut() >= src.len());
+
+        let len = src.len();
+
+        unsafe {
+            self.bytes_mut()[..len].copy_from_slice(src);
+            self.advance_mut(len);
+        }
+    }
+}
+
+impl IntoBuf for BytesMut {
+    type Buf = Cursor<Self>;
+
+    fn into_buf(self) -> Self::Buf {
+        Cursor::new(self)
+    }
+}
+
+impl<'a> IntoBuf for &'a BytesMut {
+    type Buf = Cursor<&'a BytesMut>;
+
+    fn into_buf(self) -> Self::Buf {
+        Cursor::new(self)
+    }
+}
+
+impl AsRef<[u8]> for BytesMut {
+    fn as_ref(&self) -> &[u8] {
+        self.inner.as_ref()
+    }
+}
+
+impl ops::Deref for BytesMut {
+    type Target = [u8];
+
+    fn deref(&self) -> &[u8] {
+        self.as_ref()
+    }
+}
+
+impl ops::DerefMut for BytesMut {
+    fn deref_mut(&mut self) -> &mut [u8] {
+        self.as_mut()
+    }
+}
+
+impl From<Vec<u8>> for BytesMut {
+    fn from(mut src: Vec<u8>) -> BytesMut {
+        let len = src.len();
+        let cap = src.capacity();
+        let ptr = src.as_mut_ptr();
+
+        mem::forget(src);
+
+        BytesMut {
+            inner: Inner {
+                data: UnsafeCell::new(Data {
+                    ptr: ptr,
+                    len: len,
+                    cap: cap,
+                }),
+                arc: Cell::new(0),
+            },
+        }
+    }
+}
+
+impl<'a> From<&'a [u8]> for BytesMut {
+    fn from(src: &'a [u8]) -> BytesMut {
+        BytesMut::from_slice(src)
+    }
+}
+
+impl PartialEq for BytesMut {
+    fn eq(&self, other: &BytesMut) -> bool {
+        self.inner.as_ref() == other.inner.as_ref()
+    }
+}
+
+impl Eq for BytesMut {
+}
+
+impl fmt::Debug for BytesMut {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Debug::fmt(self.inner.as_ref(), fmt)
     }
 }
 
@@ -794,84 +1037,6 @@ impl Drop for Inner {
 }
 
 unsafe impl Send for Inner {}
-
-impl IntoBuf for BytesMut {
-    type Buf = SliceBuf<Self>;
-
-    fn into_buf(self) -> Self::Buf {
-        SliceBuf::new(self)
-    }
-}
-
-impl<'a> IntoBuf for &'a BytesMut {
-    type Buf = SliceBuf<&'a BytesMut>;
-
-    fn into_buf(self) -> Self::Buf {
-        SliceBuf::new(self)
-    }
-}
-
-impl AsRef<[u8]> for BytesMut {
-    fn as_ref(&self) -> &[u8] {
-        self.inner.as_ref()
-    }
-}
-
-impl ops::Deref for BytesMut {
-    type Target = [u8];
-
-    fn deref(&self) -> &[u8] {
-        self.as_ref()
-    }
-}
-
-impl ops::DerefMut for BytesMut {
-    fn deref_mut(&mut self) -> &mut [u8] {
-        self.as_mut()
-    }
-}
-
-impl From<Vec<u8>> for BytesMut {
-    fn from(mut src: Vec<u8>) -> BytesMut {
-        let len = src.len();
-        let cap = src.capacity();
-        let ptr = src.as_mut_ptr();
-
-        mem::forget(src);
-
-        BytesMut {
-            inner: Inner {
-                data: UnsafeCell::new(Data {
-                    ptr: ptr,
-                    len: len,
-                    cap: cap,
-                }),
-                arc: Cell::new(0),
-            },
-        }
-    }
-}
-
-impl<'a> From<&'a [u8]> for BytesMut {
-    fn from(src: &'a [u8]) -> BytesMut {
-        BytesMut::from_slice(src)
-    }
-}
-
-impl PartialEq for BytesMut {
-    fn eq(&self, other: &BytesMut) -> bool {
-        self.inner.as_ref() == other.inner.as_ref()
-    }
-}
-
-impl Eq for BytesMut {
-}
-
-impl fmt::Debug for BytesMut {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        fmt::Debug::fmt(self.inner.as_ref(), fmt)
-    }
-}
 
 /*
  *
