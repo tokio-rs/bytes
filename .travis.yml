@@ -3,11 +3,9 @@ language: rust
 rust:
   - nightly
   - stable
+  # Oldest supported Rust version. Do not change this without a Github issue
+  # discussion.
   - 1.10.0
-
-os:
-  - linux
-  - osx
 
 matrix:
   allow_failures:
