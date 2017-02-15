@@ -2,6 +2,9 @@ extern crate bytes;
 
 use bytes::{Bytes, BytesMut};
 
+const LONG: &'static [u8] = b"mary had a little lamb, little lamb, little lamb";
+const SHORT: &'static [u8] = b"hello world";
+
 fn is_sync<T: Sync>() {}
 fn is_send<T: Send>() {}
 
@@ -93,7 +96,7 @@ fn slice_oob_2() {
 
 #[test]
 fn split_off() {
-    let mut hello = Bytes::from_slice(b"helloworld");
+    let hello = Bytes::from_slice(b"helloworld");
     let world = hello.split_off(5);
 
     assert_eq!(hello, &b"hello"[..]);
@@ -109,7 +112,7 @@ fn split_off() {
 #[test]
 #[should_panic]
 fn split_off_oob() {
-    let mut hello = Bytes::from_slice(b"helloworld");
+    let hello = Bytes::from_slice(b"helloworld");
     hello.split_off(25);
 }
 
@@ -133,24 +136,32 @@ fn split_off_uninitialized() {
 }
 
 #[test]
-fn drain_to() {
-    let mut world = Bytes::from_slice(b"helloworld");
-    let hello = world.drain_to(5);
+fn drain_to_1() {
+    // Inline
+    let a = Bytes::from_slice(SHORT);
+    let b = a.drain_to(4);
 
-    assert_eq!(hello, &b"hello"[..]);
-    assert_eq!(world, &b"world"[..]);
+    assert_eq!(SHORT[4..], a);
+    assert_eq!(SHORT[..4], b);
 
-    let mut world = BytesMut::from_slice(b"helloworld");
-    let hello = world.drain_to(5);
+    // Allocated
+    let a = Bytes::from_slice(LONG);
+    let b = a.drain_to(4);
 
-    assert_eq!(hello, &b"hello"[..]);
-    assert_eq!(world, &b"world"[..]);
+    assert_eq!(LONG[4..], a);
+    assert_eq!(LONG[..4], b);
+
+    let a = Bytes::from_slice(LONG);
+    let b = a.drain_to(30);
+
+    assert_eq!(LONG[30..], a);
+    assert_eq!(LONG[..30], b);
 }
 
 #[test]
 #[should_panic]
 fn drain_to_oob() {
-    let mut hello = Bytes::from_slice(b"helloworld");
+    let hello = Bytes::from_slice(b"helloworld");
     hello.drain_to(30);
 }
 

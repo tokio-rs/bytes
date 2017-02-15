@@ -75,14 +75,14 @@ impl ByteBuf {
 
     /// Splits the buffer into two at the current read index.
     pub fn drain_read(&mut self) -> BytesMut {
-        let drained = self.mem.drain_to(self.rd);
+        let drained = self.mem.drain_to_mut(self.rd);
         self.rd = 0;
         drained
     }
 
     /// Splits the buffer into two at the given index.
     pub fn drain_to(&mut self, at: usize) -> BytesMut {
-        let drained = self.mem.drain_to(at);
+        let drained = self.mem.drain_to_mut(at);
 
         if at >= self.rd {
             self.rd = 0;

@@ -23,7 +23,7 @@ pub struct BytesMut {
 }
 
 struct Inner {
-    data: Data,
+    data: UnsafeCell<Data>,
 
     // If this pointer is set, then the the BytesMut is backed by an Arc
     arc: Cell<usize>,
@@ -62,6 +62,10 @@ const KIND_MASK: usize = 3;
 const KIND_INLINE: usize = 1;
 const KIND_STATIC: usize = 2;
 
+const INLINE_START_OFFSET: usize = 16;
+const INLINE_START_MASK: usize = 0xff << INLINE_START_OFFSET;
+const INLINE_LEN_OFFSET: usize = 8;
+const INLINE_LEN_MASK: usize = 0xff << INLINE_LEN_OFFSET;
 
 /*
  *
@@ -75,11 +79,11 @@ impl Bytes {
     pub fn new() -> Bytes {
         Bytes {
             inner: Inner {
-                data: Data {
+                data: UnsafeCell::new(Data {
                     ptr: ptr::null_mut(),
                     len: 0,
                     cap: 0,
-                },
+                }),
                 arc: Cell::new(0),
             }
         }
@@ -98,11 +102,11 @@ impl Bytes {
     pub fn from_static(bytes: &'static [u8]) -> Bytes {
         Bytes {
             inner: Inner {
-                data: Data {
+                data: UnsafeCell::new(Data {
                     ptr: bytes.as_ptr() as *mut u8,
                     len: bytes.len(),
                     cap: bytes.len(),
-                },
+                }),
                 arc: Cell::new(KIND_STATIC),
             }
         }
@@ -111,6 +115,12 @@ impl Bytes {
     /// Returns the number of bytes contained in this `Bytes`.
     pub fn len(&self) -> usize {
         self.inner.len()
+    }
+
+    /// Returns the total byte capacity of this `Bytes`
+    #[inline]
+    pub fn capacity(&self) -> usize {
+        self.inner.capacity()
     }
 
     /// Returns true if the value contains no bytes
@@ -125,7 +135,7 @@ impl Bytes {
 
     /// Extracts a new `Bytes` referencing the bytes from range [start, end).
     pub fn slice(&self, start: usize, end: usize) -> Bytes {
-        let mut ret = self.clone();
+        let ret = self.clone();
 
         unsafe {
             ret.inner.set_end(end);
@@ -156,7 +166,7 @@ impl Bytes {
     /// # Panics
     ///
     /// Panics if `at > len`
-    pub fn split_off(&mut self, at: usize) -> Bytes {
+    pub fn split_off(&self, at: usize) -> Bytes {
         Bytes { inner: self.inner.split_off(at) }
     }
 
@@ -171,7 +181,7 @@ impl Bytes {
     /// # Panics
     ///
     /// Panics if `at > len`
-    pub fn drain_to(&mut self, at: usize) -> Bytes {
+    pub fn drain_to(&self, at: usize) -> Bytes {
         Bytes { inner: self.inner.drain_to(at) }
     }
 
@@ -281,11 +291,11 @@ impl BytesMut {
         if cap <= INLINE_CAP {
             BytesMut {
                 inner: Inner {
-                    data: Data {
+                    data: UnsafeCell::new(Data {
                         ptr: ptr::null_mut(),
                         len: 0,
                         cap: 0,
-                    },
+                    }),
                     arc: Cell::new(KIND_INLINE),
                 }
             }
@@ -305,10 +315,12 @@ impl BytesMut {
                 let mut data: [u8; INLINE_CAP] = mem::uninitialized();
                 data[0..len].copy_from_slice(b);
 
+                let a = KIND_INLINE | (len << INLINE_LEN_OFFSET);
+
                 BytesMut {
                     inner: Inner {
                         data: mem::transmute(data),
-                        arc: Cell::new(KIND_INLINE | (len << 2)),
+                        arc: Cell::new(a),
                     }
                 }
             }
@@ -347,14 +359,50 @@ impl BytesMut {
     /// Afterwards `self` contains elements `[0, at)`, and the returned
     /// `BytesMut` contains elements `[at, capacity)`.
     ///
-    /// This is an O(1) operation that just increases the reference count and
-    /// sets a few indexes.
+    /// This is an O(1) operation [1] that just increases the reference count
+    /// and sets a few indexes.
+    ///
+    /// [1] Inlined bytes are copied
     ///
     /// # Panics
     ///
     /// Panics if `at > capacity`
-    pub fn split_off(&mut self, at: usize) -> BytesMut {
+    pub fn split_off(&self, at: usize) -> Bytes {
+        Bytes { inner: self.inner.split_off(at) }
+    }
+
+    /// Splits the bytes into two at the given index.
+    ///
+    /// Afterwards `self` contains elements `[0, at)`, and the returned
+    /// `BytesMut` contains elements `[at, capacity)`.
+    ///
+    /// This is an O(1) operation [1] that just increases the reference count
+    /// and sets a few indexes.
+    ///
+    /// [1] Inlined bytes are copied
+    ///
+    /// # Panics
+    ///
+    /// Panics if `at > capacity`
+    pub fn split_off_mut(&mut self, at: usize) -> BytesMut {
         BytesMut { inner: self.inner.split_off(at) }
+    }
+
+    /// Splits the buffer into two at the given index.
+    ///
+    /// Afterwards `self` contains elements `[at, len)`, and the returned `Bytes`
+    /// contains elements `[0, at)`.
+    ///
+    /// This is an O(1) operation [1] that just increases the reference count
+    /// and sets a few indexes.
+    ///
+    /// [1] Inlined bytes are copied.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `at > len`
+    pub fn drain_to(&self, at: usize) -> Bytes {
+        Bytes { inner: self.inner.drain_to(at) }
     }
 
     /// Splits the buffer into two at the given index.
@@ -362,13 +410,15 @@ impl BytesMut {
     /// Afterwards `self` contains elements `[at, len)`, and the returned `BytesMut`
     /// contains elements `[0, at)`.
     ///
-    /// This is an O(1) operation that just increases the reference count and
+    /// This is an O(1) operation [1] that just increases the reference count and
     /// sets a few indexes.
+    ///
+    /// [1] Inlined bytes are copied.
     ///
     /// # Panics
     ///
     /// Panics if `at > len`
-    pub fn drain_to(&mut self, at: usize) -> BytesMut {
+    pub fn drain_to_mut(&mut self, at: usize) -> BytesMut {
         BytesMut { inner: self.inner.drain_to(at) }
     }
 
@@ -418,10 +468,13 @@ impl Inner {
     fn as_ref(&self) -> &[u8] {
         if self.is_inline() {
             unsafe {
-                slice::from_raw_parts(&self.data as *const _ as *const u8, self.inline_len())
+                slice::from_raw_parts(self.inline_ptr(), self.inline_len())
             }
         } else {
-            unsafe { slice::from_raw_parts(self.data.ptr, self.data.len) }
+            unsafe {
+                let d = &*self.data.get();
+                slice::from_raw_parts(d.ptr, d.len)
+            }
         }
     }
 
@@ -431,10 +484,13 @@ impl Inner {
 
         if self.is_inline() {
             unsafe {
-                slice::from_raw_parts_mut(&mut self.data as *mut _ as *mut u8, self.inline_len())
+                slice::from_raw_parts_mut(self.inline_ptr(), self.inline_len())
             }
         } else {
-            unsafe { slice::from_raw_parts_mut(self.data.ptr, self.data.len) }
+            unsafe {
+                let d = &*self.data.get();
+                slice::from_raw_parts_mut(d.ptr, d.len)
+            }
         }
     }
 
@@ -443,9 +499,10 @@ impl Inner {
         debug_assert!(self.kind() != Kind::Static);
 
         if self.is_inline() {
-            slice::from_raw_parts_mut(&mut self.data as *mut _ as *mut u8, INLINE_CAP)
+            slice::from_raw_parts_mut(self.inline_ptr(), self.inline_capacity())
         } else {
-            slice::from_raw_parts_mut(self.data.ptr, self.data.cap)
+            let d = &*self.data.get();
+            slice::from_raw_parts_mut(d.ptr, d.cap)
         }
     }
 
@@ -454,23 +511,59 @@ impl Inner {
         if self.is_inline() {
             self.inline_len()
         } else {
-            self.data.len
+            unsafe { (*self.data.get()).len }
         }
     }
 
     #[inline]
+    unsafe fn inline_ptr(&self) -> *mut u8 {
+        (self.data.get() as *mut u8).offset(self.inline_start() as isize)
+    }
+
+    #[inline]
+    fn inline_start(&self) -> usize {
+        (self.arc.get() & INLINE_START_MASK) >> INLINE_START_OFFSET
+    }
+
+    #[inline]
+    fn set_inline_start(&self, start: usize) {
+        debug_assert!(start <= INLINE_START_MASK);
+
+        let v = (self.arc.get() & !INLINE_START_MASK) |
+            (start << INLINE_START_OFFSET);
+
+        self.arc.set(v);
+    }
+
+    #[inline]
     fn inline_len(&self) -> usize {
-        self.arc.get() >> 2
+        (self.arc.get() & INLINE_LEN_MASK) >> INLINE_LEN_OFFSET
+    }
+
+    #[inline]
+    fn set_inline_len(&self, len: usize) {
+        debug_assert!(len <= INLINE_LEN_MASK);
+
+        let v = (self.arc.get() & !INLINE_LEN_MASK) |
+            (len << INLINE_LEN_OFFSET);
+
+        self.arc.set(v);
+    }
+
+    #[inline]
+    fn inline_capacity(&self) -> usize {
+        INLINE_CAP - self.inline_start()
     }
 
     #[inline]
     unsafe fn set_len(&mut self, len: usize) {
         if self.is_inline() {
-            assert!(len <= INLINE_CAP);
-            self.arc.set(len << 2 | KIND_INLINE);
+            assert!(len <= self.inline_capacity());
+            self.set_inline_len(len);
         } else {
-            assert!(len <= self.data.cap);
-            self.data.len = len;
+            let d = &mut *self.data.get();
+            assert!(len <= d.cap);
+            d.len = len;
         }
     }
 
@@ -482,14 +575,14 @@ impl Inner {
     #[inline]
     pub fn capacity(&self) -> usize {
         if self.is_inline() {
-            INLINE_CAP
+            self.inline_capacity()
         } else {
-            self.data.cap
+            unsafe { (*self.data.get()).cap }
         }
     }
 
-    fn split_off(&mut self, at: usize) -> Inner {
-        let mut other = self.shallow_clone();
+    fn split_off(&self, at: usize) -> Inner {
+        let other = self.shallow_clone();
 
         unsafe {
             other.set_start(at);
@@ -499,8 +592,8 @@ impl Inner {
         return other
     }
 
-    fn drain_to(&mut self, at: usize) -> Inner {
-        let mut other = self.shallow_clone();
+    fn drain_to(&self, at: usize) -> Inner {
+        let other = self.shallow_clone();
 
         unsafe {
             other.set_end(at);
@@ -516,46 +609,41 @@ impl Inner {
     ///
     /// This method will panic if `start` is out of bounds for the underlying
     /// slice.
-    unsafe fn set_start(&mut self, start: usize) {
+    unsafe fn set_start(&self, start: usize) {
         debug_assert!(self.is_shared());
 
+        if start == 0 {
+            return;
+        }
+
         if self.is_inline() {
-            if start == 0 {
-                return;
-            }
+            assert!(start <= self.inline_capacity());
 
-            let len = self.inline_len();
+            let old_start = self.inline_start();
+            let old_len = self.inline_len();
 
-            if len <= start {
-                assert!(start <= INLINE_CAP);
+            self.set_inline_start(old_start + start);
 
-                // Set the length to zero
-                self.arc.set(KIND_INLINE);
+            if old_len >= start {
+                self.set_inline_len(old_len - start);
             } else {
-                debug_assert!(start <= INLINE_CAP);
-
-                let new_len = len - start;
-
-                let dst = &self.data as *const Data as *mut Data as *mut u8;
-                let src = (dst as *const u8).offset(start as isize);
-
-                ptr::copy(src, dst, new_len);
-
-                self.arc.set((new_len << 2) | KIND_INLINE);
+                self.set_inline_len(0);
             }
         } else {
-            assert!(start <= self.data.cap);
+            let d = &mut *self.data.get();
 
-            self.data.ptr = self.data.ptr.offset(start as isize);
+            assert!(start <= d.cap);
+
+            d.ptr = d.ptr.offset(start as isize);
 
             // TODO: This could probably be optimized with some bit fiddling
-            if self.data.len >= start {
-                self.data.len -= start;
+            if d.len >= start {
+                d.len -= start;
             } else {
-                self.data.len = 0;
+                d.len = 0;
             }
 
-            self.data.cap -= start;
+            d.cap -= start;
         }
     }
 
@@ -565,20 +653,20 @@ impl Inner {
     ///
     /// This method will panic if `start` is out of bounds for the underlying
     /// slice.
-    unsafe fn set_end(&mut self, end: usize) {
+    unsafe fn set_end(&self, end: usize) {
         debug_assert!(self.is_shared());
 
         if self.is_inline() {
-            assert!(end <= INLINE_CAP);
+            assert!(end <= self.inline_capacity());
             let new_len = cmp::min(self.inline_len(), end);
-
-            self.arc.set((new_len << 2) | KIND_INLINE);
+            self.set_inline_len(new_len);
         } else {
-            assert!(end <= self.data.cap);
-            debug_assert!(self.is_shared());
+            let d = &mut *self.data.get();
 
-            self.data.cap = end;
-            self.data.len = cmp::min(self.data.len, end);
+            assert!(end <= d.cap);
+
+            d.cap = end;
+            d.len = cmp::min(d.len, end);
         }
     }
 
@@ -603,17 +691,16 @@ impl Inner {
         match self.kind() {
             Kind::Vec => {
                 unsafe {
+                    let d = &*self.data.get();
+
                     // Promote this `Bytes` to an arc, and clone it
-                    let v = Vec::from_raw_parts(
-                        self.data.ptr,
-                        self.data.len,
-                        self.data.cap);
+                    let v = Vec::from_raw_parts(d.ptr, d.len, d.cap);
 
                     let a = Arc::new(v);
                     self.arc.set(mem::transmute(a.clone()));
 
                     Inner {
-                        data: self.data,
+                        data: UnsafeCell::new(*d),
                         arc: Cell::new(mem::transmute(a)),
                     }
                 }
@@ -623,14 +710,34 @@ impl Inner {
                     let arc: &Shared = mem::transmute(&self.arc);
 
                     Inner {
-                        data: self.data,
+                        data: UnsafeCell::new(*self.data.get()),
                         arc: Cell::new(mem::transmute(arc.clone())),
                     }
                 }
             }
-            Kind::Inline | Kind::Static => {
+            Kind::Inline => {
+                let len = self.inline_len();
+
+                unsafe {
+                    let mut data: Data = mem::uninitialized();
+
+                    let dst = &mut data as *mut _ as *mut u8;
+                    let src = self.inline_ptr();
+
+                    ptr::copy_nonoverlapping(src, dst, len);
+
+                    let mut a = KIND_INLINE;
+                    a |= len << INLINE_LEN_OFFSET;
+
+                    Inner {
+                        data: UnsafeCell::new(data),
+                        arc: Cell::new(a),
+                    }
+                }
+            }
+            Kind::Static => {
                 Inner {
-                    data: self.data,
+                    data: unsafe { UnsafeCell::new(*self.data.get()) },
                     arc: Cell::new(self.arc.get()),
                 }
             }
@@ -671,11 +778,9 @@ impl Drop for Inner {
         match self.kind() {
             Kind::Vec => {
                 unsafe {
+                    let d = *self.data.get();
                     // Not shared, manually free
-                    let _ = Vec::from_raw_parts(
-                        self.data.ptr,
-                        self.data.len,
-                        self.data.cap);
+                    let _ = Vec::from_raw_parts(d.ptr, d.len, d.cap);
                 }
             }
             Kind::Arc => {
@@ -736,11 +841,11 @@ impl From<Vec<u8>> for BytesMut {
 
         BytesMut {
             inner: Inner {
-                data: Data {
+                data: UnsafeCell::new(Data {
                     ptr: ptr,
                     len: len,
                     cap: cap,
-                },
+                }),
                 arc: Cell::new(0),
             },
         }
