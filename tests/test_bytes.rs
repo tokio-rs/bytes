@@ -102,7 +102,7 @@ fn split_off() {
     assert_eq!(hello, &b"hello"[..]);
     assert_eq!(world, &b"world"[..]);
 
-    let mut hello = BytesMut::from_slice(b"helloworld");
+    let hello = BytesMut::from_slice(b"helloworld");
     let world = hello.split_off(5);
 
     assert_eq!(hello, &b"hello"[..]);
@@ -119,13 +119,13 @@ fn split_off_oob() {
 #[test]
 #[should_panic]
 fn split_off_oob_mut() {
-    let mut hello = BytesMut::from_slice(b"helloworld");
+    let hello = BytesMut::from_slice(b"helloworld");
     hello.split_off(25);
 }
 
 #[test]
 fn split_off_uninitialized() {
-    let mut bytes = BytesMut::with_capacity(1024);
+    let bytes = BytesMut::with_capacity(1024);
     let other = bytes.split_off(128);
 
     assert_eq!(bytes.len(), 0);
@@ -168,13 +168,13 @@ fn drain_to_oob() {
 #[test]
 #[should_panic]
 fn drain_to_oob_mut() {
-    let mut hello = BytesMut::from_slice(b"helloworld");
+    let hello = BytesMut::from_slice(b"helloworld");
     hello.drain_to(30);
 }
 
 #[test]
 fn drain_to_uninitialized() {
-    let mut bytes = BytesMut::with_capacity(1024);
+    let bytes = BytesMut::with_capacity(1024);
     let other = bytes.drain_to(128);
 
     assert_eq!(bytes.len(), 0);
