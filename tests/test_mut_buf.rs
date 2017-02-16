@@ -15,7 +15,7 @@ fn test_vec_as_mut_buf() {
         assert!(buf.bytes_mut().len() >= 64);
     }
 
-    buf.copy_from(&b"zomg"[..]);
+    buf.put(&b"zomg"[..]);
 
     assert_eq!(&buf, b"zomg");
 
@@ -23,7 +23,7 @@ fn test_vec_as_mut_buf() {
     assert_eq!(buf.capacity(), 64);
 
     for _ in 0..16 {
-        buf.copy_from(&b"zomg"[..]);
+        buf.put(&b"zomg"[..]);
     }
 
     assert_eq!(buf.len(), 68);
@@ -32,7 +32,7 @@ fn test_vec_as_mut_buf() {
 #[test]
 fn test_put_u8() {
     let mut buf = Vec::with_capacity(8);
-    buf.put_u8(33);
+    buf.put::<u8>(33);
     assert_eq!(b"\x21", &buf[..]);
 }
 

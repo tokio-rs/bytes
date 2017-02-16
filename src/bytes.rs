@@ -114,9 +114,9 @@ pub struct Bytes {
 ///
 /// let mut buf = BytesMut::with_capacity(64);
 ///
-/// buf.put_u8(b'h');
-/// buf.put_u8(b'e');
-/// buf.put_str("llo");
+/// buf.put(b'h');
+/// buf.put(b'e');
+/// buf.put("llo");
 ///
 /// assert_eq!(&buf[..], b"hello");
 ///
@@ -489,8 +489,20 @@ impl From<Vec<u8>> for Bytes {
     }
 }
 
+impl From<String> for Bytes {
+    fn from(src: String) -> Bytes {
+        BytesMut::from(src).freeze()
+    }
+}
+
 impl<'a> From<&'a [u8]> for Bytes {
     fn from(src: &'a [u8]) -> Bytes {
+        BytesMut::from(src).freeze()
+    }
+}
+
+impl<'a> From<&'a str> for Bytes {
+    fn from(src: &'a str) -> Bytes {
         BytesMut::from(src).freeze()
     }
 }
@@ -538,7 +550,7 @@ impl BytesMut {
     /// // `bytes` contains no data, even though there is capacity
     /// assert_eq!(bytes.len(), 0);
     ///
-    /// bytes.copy_from_slice(b"hello world");
+    /// bytes.put(&b"hello world"[..]);
     ///
     /// assert_eq!(&bytes[..], b"hello world");
     /// ```
@@ -618,7 +630,7 @@ impl BytesMut {
     /// use std::thread;
     ///
     /// let mut b = BytesMut::with_capacity(64);
-    /// b.put_str("hello world");
+    /// b.put("hello world");
     /// let b1 = b.freeze();
     /// let b2 = b1.clone();
     ///
@@ -785,6 +797,63 @@ impl BytesMut {
     pub unsafe fn set_len(&mut self, len: usize) {
         self.inner.set_len(len)
     }
+
+    /// Reserves capacity for at least `additional` more bytes to be inserted
+    /// into the given `BytesMut`.
+    ///
+    /// More than `additional` bytes may be reserved in order to avoid frequent
+    /// reallocations. A call to `reserve` may result in an allocation.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::BytesMut;
+    ///
+    /// let mut b = BytesMut::from(&b"hello"[..]);
+    /// b.reserve(64);
+    /// assert!(b.capacity() >= 69);
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// Panics if the new capacity overflows usize.
+    pub fn reserve(&mut self, additional: usize) {
+        self.inner.reserve(additional)
+    }
+
+    /// Attempts to reclaim ownership of the full buffer.
+    ///
+    /// Returns `true` if the reclaim is successful.
+    ///
+    /// If the `BytesMut` handle is the only outstanding handle pointing to the
+    /// memory slice, the handle's view will be set to the full memory slice,
+    /// enabling reusing buffer space without allocating.
+    ///
+    /// Any data in the `BytesMut` handle will be copied to the start of the
+    /// memory region.
+    ///
+    /// ```rust
+    /// use bytes::BytesMut;
+    ///
+    /// let mut bytes = BytesMut::from(
+    ///     "Lorem ipsum dolor sit amet, consectetur adipiscing elit.");
+    ///
+    /// // Create a new handle to the shared memory region
+    /// let a = bytes.drain_to(5);
+    ///
+    /// // Attempting to reclaim here will fail due to `a` still being in
+    /// // existence.
+    /// assert!(!bytes.try_reclaim());
+    /// assert_eq!(bytes.capacity(), 51);
+    ///
+    /// // Dropping the handle will allow reclaim to succeed.
+    /// drop(a);
+    /// assert!(bytes.try_reclaim());
+    /// assert_eq!(bytes.capacity(), 56);
+    /// ```
+    pub fn try_reclaim(&mut self) -> bool {
+        self.inner.try_reclaim()
+    }
 }
 
 impl BufMut for BytesMut {
@@ -806,7 +875,7 @@ impl BufMut for BytesMut {
     }
 
     #[inline]
-    fn copy_from_slice(&mut self, src: &[u8]) {
+    fn put_slice(&mut self, src: &[u8]) {
         assert!(self.remaining_mut() >= src.len());
 
         let len = src.len();
@@ -875,6 +944,12 @@ impl From<Vec<u8>> for BytesMut {
     }
 }
 
+impl From<String> for BytesMut {
+    fn from(src: String) -> BytesMut {
+        BytesMut::from(src.into_bytes())
+    }
+}
+
 impl<'a> From<&'a [u8]> for BytesMut {
     fn from(src: &'a [u8]) -> BytesMut {
         if src.len() <= INLINE_CAP {
@@ -894,9 +969,15 @@ impl<'a> From<&'a [u8]> for BytesMut {
             }
         } else {
             let mut buf = BytesMut::with_capacity(src.len());
-            buf.copy_from_slice(src.as_ref());
+            buf.put(src.as_ref());
             buf
         }
+    }
+}
+
+impl<'a> From<&'a str> for BytesMut {
+    fn from(src: &'a str) -> BytesMut {
+        BytesMut::from(src.as_bytes())
     }
 }
 
@@ -924,7 +1005,7 @@ impl fmt::Debug for BytesMut {
 
 impl fmt::Write for BytesMut {
     fn write_str(&mut self, s: &str) -> fmt::Result {
-        BufMut::put_str(self, s);
+        BufMut::put(self, s);
         Ok(())
     }
 
@@ -1221,6 +1302,150 @@ impl Inner {
     }
 
     #[inline]
+    fn reserve(&mut self, additional: usize) {
+        let len = self.len();
+        let rem = self.capacity() - len;
+
+        if additional <= rem {
+            // Nothing more to do
+            return;
+        }
+
+        match self.kind() {
+            Kind::Vec => {
+                unsafe {
+                    let d = &mut *self.data.get();
+
+                    // Promote this `Bytes` to an arc, and clone it
+                    let mut v = Vec::from_raw_parts(d.ptr, d.len, d.cap);
+                    v.reserve(additional);
+
+                    // Update the info
+                    d.ptr = v.as_mut_ptr();
+                    d.len = v.len();
+                    d.cap = v.capacity();
+
+                    // Drop the vec reference
+                    mem::forget(v);
+                }
+            }
+            Kind::Arc => {
+                unsafe {
+                    // Compute the new capacity
+                    let new_cap = len + additional;
+
+                    // Create a new vector to store the data
+                    let mut v = Vec::with_capacity(new_cap);
+
+                    // Copy the bytes
+                    v.extend_from_slice(self.as_ref());
+
+                    let d = &mut *self.data.get();
+
+                    d.ptr = v.as_mut_ptr();
+                    d.len = v.len();
+                    d.cap = v.capacity();
+
+                    mem::forget(v);
+
+                    // Drop the arc reference
+                    let _: Arc<UnsafeCell<Vec<u8>>> = mem::transmute(self.arc.get());
+
+                    self.arc.set(0);
+                }
+            }
+            Kind::Inline => {
+                let new_cap = len + additional;
+
+                unsafe {
+                    if new_cap <= INLINE_CAP {
+                        let dst = &mut self.data as *mut _ as *mut u8;
+                        let src = self.inline_ptr();
+
+                        ptr::copy(src, dst, len);
+
+                        let mut a = KIND_INLINE;
+                        a |= len << INLINE_LEN_OFFSET;
+
+                        self.arc.set(a);
+                    } else {
+                        let mut v = Vec::with_capacity(new_cap);
+
+                        // Copy the bytes
+                        v.extend_from_slice(self.as_ref());
+
+                        let d = &mut *self.data.get();
+
+                        d.ptr = v.as_mut_ptr();
+                        d.len = v.len();
+                        d.cap = v.capacity();
+
+                        mem::forget(v);
+
+                        self.arc.set(0);
+                    }
+                }
+            }
+            Kind::Static => unreachable!(),
+        }
+    }
+
+    /// This must take `&mut self` in order to be able to copy memory in the
+    /// inline case.
+    #[inline]
+    fn try_reclaim(&mut self) -> bool {
+        match self.kind() {
+            Kind::Inline => {
+                if self.inline_start() > 0 {
+                    // Shift the data back to the front
+                    unsafe {
+                        let len = self.inline_len();
+                        let dst = &mut self.data as *mut _ as *mut u8;
+                        let src = self.inline_ptr();
+
+                        ptr::copy(src, dst, len);
+
+                        let mut a = KIND_INLINE;
+                        a |= len << INLINE_LEN_OFFSET;
+
+                        self.arc.set(a);
+                    }
+                }
+
+                true
+            }
+            Kind::Arc => {
+                unsafe {
+                    let arc: &mut Shared = mem::transmute(&mut self.arc);
+
+                    // Check if mut safe
+                    if Arc::get_mut(arc).is_none() {
+                        return false;
+                    }
+
+                    let v = &mut *arc.get();
+                    let d = &mut *self.data.get();
+
+                    let len = v.len();
+                    let ptr = v.as_mut_ptr();
+
+                    ptr::copy(d.ptr, ptr, len);
+
+                    d.ptr = ptr;
+                    d.len = len;
+                    d.cap = v.capacity();
+
+                    true
+                }
+            }
+            Kind::Vec => {
+                true
+            }
+            Kind::Static => unreachable!(),
+        }
+    }
+
+    #[inline]
     fn kind(&self) -> Kind {
         let arc = self.arc.get();
 
@@ -1283,6 +1508,12 @@ impl PartialEq<[u8]> for BytesMut {
     }
 }
 
+impl PartialEq<str> for BytesMut {
+    fn eq(&self, other: &str) -> bool {
+        &**self == other.as_bytes()
+    }
+}
+
 impl PartialEq<BytesMut> for [u8] {
     fn eq(&self, other: &BytesMut) -> bool {
         *other == *self
@@ -1295,7 +1526,19 @@ impl PartialEq<Vec<u8>> for BytesMut {
     }
 }
 
+impl PartialEq<String> for BytesMut {
+    fn eq(&self, other: &String) -> bool {
+        *self == &other[..]
+    }
+}
+
 impl PartialEq<BytesMut> for Vec<u8> {
+    fn eq(&self, other: &BytesMut) -> bool {
+        *other == *self
+    }
+}
+
+impl PartialEq<BytesMut> for String {
     fn eq(&self, other: &BytesMut) -> bool {
         *other == *self
     }
@@ -1315,13 +1558,31 @@ impl<'a> PartialEq<BytesMut> for &'a [u8] {
     }
 }
 
+impl<'a> PartialEq<BytesMut> for &'a str {
+    fn eq(&self, other: &BytesMut) -> bool {
+        *other == *self
+    }
+}
+
 impl PartialEq<[u8]> for Bytes {
     fn eq(&self, other: &[u8]) -> bool {
         self.inner.as_ref() == other
     }
 }
 
+impl PartialEq<str> for Bytes {
+    fn eq(&self, other: &str) -> bool {
+        self.inner.as_ref() == other.as_bytes()
+    }
+}
+
 impl PartialEq<Bytes> for [u8] {
+    fn eq(&self, other: &Bytes) -> bool {
+        *other == *self
+    }
+}
+
+impl PartialEq<Bytes> for str {
     fn eq(&self, other: &Bytes) -> bool {
         *other == *self
     }
@@ -1333,13 +1594,31 @@ impl PartialEq<Vec<u8>> for Bytes {
     }
 }
 
+impl PartialEq<String> for Bytes {
+    fn eq(&self, other: &String) -> bool {
+        *self == &other[..]
+    }
+}
+
 impl PartialEq<Bytes> for Vec<u8> {
     fn eq(&self, other: &Bytes) -> bool {
         *other == *self
     }
 }
 
+impl PartialEq<Bytes> for String {
+    fn eq(&self, other: &Bytes) -> bool {
+        *other == *self
+    }
+}
+
 impl<'a> PartialEq<Bytes> for &'a [u8] {
+    fn eq(&self, other: &Bytes) -> bool {
+        *other == *self
+    }
+}
+
+impl<'a> PartialEq<Bytes> for &'a str {
     fn eq(&self, other: &Bytes) -> bool {
         *other == *self
     }

@@ -1,9 +1,15 @@
 extern crate bytes;
 
-use bytes::{Bytes, BytesMut};
+use bytes::{Bytes, BytesMut, BufMut};
 
 const LONG: &'static [u8] = b"mary had a little lamb, little lamb, little lamb";
 const SHORT: &'static [u8] = b"hello world";
+
+#[cfg(target_pointer_width = "64")]
+const INLINE_CAP: usize = 8 * 3;
+
+#[cfg(target_pointer_width = "32")]
+const INNER_CAP: usize = 4 * 3;
 
 fn is_sync<T: Sync>() {}
 fn is_send<T: Send>() {}
@@ -193,5 +199,67 @@ fn fns_defined_for_bytes_mut() {
 
     // Iterator
     let v: Vec<u8> = bytes.iter().map(|b| *b).collect();
-    assert_eq!(&v[..], &bytes[..]);
+    assert_eq!(&v[..], bytes);
+}
+
+#[test]
+fn reserve() {
+    // Inline -> Vec
+    let mut bytes = BytesMut::with_capacity(8);
+    bytes.put("hello");
+    bytes.reserve(40);
+    assert_eq!(bytes.capacity(), 45);
+    assert_eq!(bytes, "hello");
+
+    // Inline -> Inline
+    let mut bytes = BytesMut::with_capacity(INLINE_CAP);
+    bytes.put("abcdefghijkl");
+
+    let a = bytes.drain_to(10);
+    bytes.reserve(INLINE_CAP - 3);
+    assert_eq!(INLINE_CAP, bytes.capacity());
+
+    assert_eq!(bytes, "kl");
+    assert_eq!(a, "abcdefghij");
+
+    // Vec -> Vec
+    let mut bytes = BytesMut::from(LONG);
+    bytes.reserve(64);
+    assert_eq!(bytes.capacity(), LONG.len() + 64);
+
+    // Arc -> Vec
+    let mut bytes = BytesMut::from(LONG);
+    let a = bytes.drain_to(30);
+
+    bytes.reserve(128);
+    assert_eq!(bytes.capacity(), bytes.len() + 128);
+
+    drop(a);
+}
+
+#[test]
+fn try_reclaim() {
+    // Inline w/ start at zero
+    let mut bytes = BytesMut::from(&SHORT[..]);
+    assert!(bytes.try_reclaim());
+    assert_eq!(bytes.capacity(), INLINE_CAP);
+    assert_eq!(bytes, SHORT);
+
+    // Inline w/ start not at zero
+    let mut bytes = BytesMut::from(&SHORT[..]);
+    let _ = bytes.drain_to(2);
+    assert_eq!(bytes.capacity(), INLINE_CAP - 2);
+    assert!(bytes.try_reclaim());
+    assert_eq!(bytes.capacity(), INLINE_CAP);
+    assert_eq!(bytes, &SHORT[2..]);
+
+    // Arc
+    let mut bytes = BytesMut::from(&LONG[..]);
+    let a = bytes.drain_to(2);
+    assert!(!bytes.try_reclaim());
+    assert_eq!(bytes.capacity(), LONG.len() - 2);
+
+    drop(a);
+    assert!(bytes.try_reclaim());
+    assert_eq!(bytes.capacity(), LONG.len());
 }
