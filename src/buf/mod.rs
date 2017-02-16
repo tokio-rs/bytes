@@ -1,6 +1,4 @@
-pub mod take;
-
-use {Bytes, Take, TakeMut};
+use {Bytes};
 use byteorder::ByteOrder;
 use std::{cmp, io, ptr, usize};
 
@@ -171,11 +169,6 @@ pub trait Buf {
     /// Creates a "by reference" adaptor for this instance of Buf
     fn by_ref(&mut self) -> &mut Self where Self: Sized {
         self
-    }
-
-    /// Create an adapter which will limit at most `limit` bytes from it.
-    fn take(self, limit: usize) -> Take<Self> where Self: Sized {
-        take::new(self, limit)
     }
 
     /// Return a `Reader` for the value. Allows using a `Buf` as an `io::Read`
@@ -359,11 +352,6 @@ pub trait BufMut {
     /// Creates a "by reference" adaptor for this instance of BufMut
     fn by_ref(&mut self) -> &mut Self where Self: Sized {
         self
-    }
-
-    /// Create an adapter which will limit at most `limit` bytes from it.
-    fn take_mut(self, limit: usize) -> TakeMut<Self> where Self: Sized {
-        take::new_mut(self, limit)
     }
 
     /// Return a `Write` for the value. Allows using a `BufMut` as an

@@ -16,5 +16,4 @@ pub use buf::{
     Reader,
     Writer,
 };
-pub use buf::take::{Take, TakeMut};
 pub use bytes::{Bytes, BytesMut};
