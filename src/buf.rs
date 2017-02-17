@@ -501,7 +501,9 @@ pub trait Buf {
     /// Creates an adaptor which implements the `Read` trait for `self`.
     ///
     /// This function returns a new value which implements `Read` by adapting
-    /// the `Read` trait functions to the `Buf` trait functions.
+    /// the `Read` trait functions to the `Buf` trait functions. Given that
+    /// `Buf` operations are infallible, none of the `Read` functions will
+    /// return with `Err`.
     ///
     /// # Examples
     ///
@@ -520,7 +522,7 @@ pub trait Buf {
     /// assert_eq!(&dst[..11], b"hello world");
     /// ```
     fn reader(self) -> Reader<Self> where Self: Sized {
-        Reader::new(self)
+        Reader { buf: self }
     }
 }
 
@@ -998,10 +1000,30 @@ pub trait BufMut {
         self
     }
 
-    /// Return a `Write` for the value. Allows using a `BufMut` as an
-    /// `io::Write`
+    /// Creates an adaptor which implements the `Write` trait for `self`.
+    ///
+    /// This function returns a new value which implements `Write` by adapting
+    /// the `Write` trait functions to the `BufMut` trait functions. Given that
+    /// `BufMut` operations are infallible, none of the `Write` functions will
+    /// return with `Err`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::BufMut;
+    /// use std::io::Write;
+    ///
+    /// let mut buf = vec![].writer();
+    ///
+    /// let num = buf.write(&b"hello world"[..]).unwrap();
+    /// assert_eq!(11, num);
+    ///
+    /// let buf = buf.into_inner();
+    ///
+    /// assert_eq!(*buf, b"hello world"[..]);
+    /// ```
     fn writer(self) -> Writer<Self> where Self: Sized {
-        Writer::new(self)
+        Writer { buf: self }
     }
 }
 
@@ -1324,7 +1346,7 @@ impl<T> Take<T> {
 
     /// Gets a reference to the underlying `Buf`.
     ///
-    /// It is inadvisable to directly read from the underlying reader.
+    /// It is inadvisable to directly read from the underlying `Buf`.
     ///
     /// # Examples
     ///
@@ -1342,7 +1364,7 @@ impl<T> Take<T> {
 
     /// Gets a mutable reference to the underlying `Buf`.
     ///
-    /// It is inadvisable to directly read from the underlying reader.
+    /// It is inadvisable to directly read from the underlying `Buf`.
     ///
     /// # Examples
     ///
@@ -1437,28 +1459,72 @@ impl<T: Buf> Buf for Take<T> {
  *
  */
 
-/// Adapts a `Buf` to the `io::Read` trait
+/// A `Buf` adapter which implements `io::Read` for the inner value.
+///
+/// This struct is generally created by calling `reader()` on `Buf`. See
+/// documentation of [`reader()`](trait.Buf.html#method.reader) for more
+/// details.
 pub struct Reader<B> {
     buf: B,
 }
 
 impl<B: Buf> Reader<B> {
-    /// Return a `Reader` for the given `buf`
-    pub fn new(buf: B) -> Reader<B> {
-        Reader { buf: buf }
-    }
-
-    /// Gets a reference to the underlying buf.
+    /// Gets a reference to the underlying `Buf`.
+    ///
+    /// It is inadvisable to directly read from the underlying `Buf`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use bytes::Buf;
+    /// use std::io::{self, Cursor};
+    ///
+    /// let mut buf = Cursor::new(b"hello world").reader();
+    ///
+    /// assert_eq!(0, buf.get_ref().position());
+    /// ```
     pub fn get_ref(&self) -> &B {
         &self.buf
     }
 
-    /// Gets a mutable reference to the underlying buf.
+    /// Gets a mutable reference to the underlying `Buf`.
+    ///
+    /// It is inadvisable to directly read from the underlying `Buf`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use bytes::Buf;
+    /// use std::io::{self, Cursor};
+    ///
+    /// let mut buf = Cursor::new(b"hello world").reader();
+    /// let mut dst = vec![];
+    ///
+    /// buf.get_mut().set_position(2);
+    /// io::copy(&mut buf, &mut dst).unwrap();
+    ///
+    /// assert_eq!(*dst, b"llo world"[..]);
+    /// ```
     pub fn get_mut(&mut self) -> &mut B {
         &mut self.buf
     }
 
-    /// Unwraps this `Reader`, returning the underlying `Buf`
+    /// Consumes this `Reader`, returning the underlying value.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use bytes::Buf;
+    /// use std::io::{self, Cursor};
+    ///
+    /// let mut buf = Cursor::new(b"hello world").reader();
+    /// let mut dst = vec![];
+    ///
+    /// io::copy(&mut buf, &mut dst).unwrap();
+    ///
+    /// let buf = buf.into_inner();
+    /// assert_eq!(0, buf.remaining());
+    /// ```
     pub fn into_inner(self) -> B {
         self.buf
     }
@@ -1473,28 +1539,68 @@ impl<B: Buf + Sized> io::Read for Reader<B> {
     }
 }
 
-/// Adapts a `BufMut` to the `io::Write` trait
+/// A `BufMut` adapter which implements `io::Write` for the inner value.
+///
+/// This struct is generally created by calling `writer()` on `BufMut`. See
+/// documentation of [`writer()`](trait.BufMut.html#method.writer) for more
+/// details.
 pub struct Writer<B> {
     buf: B,
 }
 
 impl<B: BufMut> Writer<B> {
-    /// Return a `Writer` for teh given `buf`
-    pub fn new(buf: B) -> Writer<B> {
-        Writer { buf: buf }
-    }
-
-    /// Gets a reference to the underlying buf.
+    /// Gets a reference to the underlying `BufMut`.
+    ///
+    /// It is inadvisable to directly write to the underlying `BufMut`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use bytes::BufMut;
+    ///
+    /// let mut buf = Vec::with_capacity(1024).writer();
+    ///
+    /// assert_eq!(1024, buf.get_ref().capacity());
+    /// ```
     pub fn get_ref(&self) -> &B {
         &self.buf
     }
 
-    /// Gets a mutable reference to the underlying buf.
+    /// Gets a mutable reference to the underlying `BufMut`.
+    ///
+    /// It is inadvisable to directly write to the underlying `BufMut`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use bytes::BufMut;
+    ///
+    /// let mut buf = vec![].writer();
+    ///
+    /// buf.get_mut().reserve(1024);
+    ///
+    /// assert_eq!(1024, buf.get_ref().capacity());
+    /// ```
     pub fn get_mut(&mut self) -> &mut B {
         &mut self.buf
     }
 
-    /// Unwraps this `Writer`, returning the underlying `BufMut`
+    /// Consumes this `Writer`, returning the underlying value.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use bytes::BufMut;
+    /// use std::io::{self, Cursor};
+    ///
+    /// let mut buf = vec![].writer();
+    /// let mut src = Cursor::new(b"hello world");
+    ///
+    /// io::copy(&mut src, &mut buf).unwrap();
+    ///
+    /// let buf = buf.into_inner();
+    /// assert_eq!(*buf, b"hello world"[..]);
+    /// ```
     pub fn into_inner(self) -> B {
         self.buf
     }
