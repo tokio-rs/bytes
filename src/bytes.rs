@@ -1,6 +1,7 @@
 use {IntoBuf, BufMut};
 
-use std::{cmp, fmt, mem, ops, slice, ptr};
+use std::{cmp, fmt, mem, hash, ops, slice, ptr};
+use std::borrow::Borrow;
 use std::cell::{Cell, UnsafeCell};
 use std::io::Cursor;
 use std::sync::Arc;
@@ -522,6 +523,19 @@ impl fmt::Debug for Bytes {
     }
 }
 
+impl hash::Hash for Bytes {
+    fn hash<H>(&self, state: &mut H) where H: hash::Hasher {
+        let s: &[u8] = self.as_ref();
+        s.hash(state);
+    }
+}
+
+impl Borrow<[u8]> for Bytes {
+    fn borrow(&self) -> &[u8] {
+        self.as_ref()
+    }
+}
+
 unsafe impl Sync for Bytes {}
 
 /*
@@ -1000,6 +1014,19 @@ impl Eq for BytesMut {
 impl fmt::Debug for BytesMut {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt::Debug::fmt(self.inner.as_ref(), fmt)
+    }
+}
+
+impl hash::Hash for BytesMut {
+    fn hash<H>(&self, state: &mut H) where H: hash::Hasher {
+        let s: &[u8] = self.as_ref();
+        s.hash(state);
+    }
+}
+
+impl Borrow<[u8]> for BytesMut {
+    fn borrow(&self) -> &[u8] {
+        self.as_ref()
     }
 }
 
