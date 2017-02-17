@@ -1,7 +1,7 @@
 extern crate bytes;
 extern crate byteorder;
 
-use bytes::{Buf, Sink};
+use bytes::Buf;
 use std::io::Cursor;
 
 #[test]
@@ -45,14 +45,4 @@ fn test_get_u16() {
 fn test_get_u16_buffer_underflow() {
     let mut buf = Cursor::new(b"\x21");
     buf.get_u16::<byteorder::BigEndian>();
-}
-
-#[test]
-fn test_vec_sink_capacity() {
-    let mut sink: Vec<u8> = Vec::new();
-    sink.reserve(16);
-    assert!(sink.capacity() >= 16, "Capacity {} must be at least 16", sink.capacity());
-    let mut source = Cursor::new(b"0123456789abcdef0123456789abcdef");
-    sink.sink(&mut source);
-    assert!(sink.len() <= sink.capacity(), "Length {} must be less than or equal to capacity {}", sink.len(), sink.capacity());
 }

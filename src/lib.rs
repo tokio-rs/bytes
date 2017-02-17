@@ -75,8 +75,9 @@ pub use buf::{
     BufMut,
     IntoBuf,
     Source,
-    Sink,
     Reader,
     Writer,
+    Take,
 };
 pub use bytes::{Bytes, BytesMut};
+pub use byteorder::{ByteOrder, BigEndian, LittleEndian};
