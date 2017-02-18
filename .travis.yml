@@ -1,30 +1,56 @@
 ---
+dist: trusty
 language: rust
-rust:
-  - nightly
-  - stable
-  # Oldest supported Rust version. Do not change this without a Github issue
-  # discussion.
-  - 1.10.0
-
-matrix:
-  allow_failures:
-    - rust: nightly
-
-before_script:
-  - pip install 'travis-cargo<0.2' --user && export PATH=$HOME/.local/bin:$PATH
-
-script:
-  - cargo build
-  - RUST_BACKTRACE=1 cargo test
-  - cargo doc --no-deps
-
-after_success:
-  - travis-cargo --only stable doc-upload
+services: docker
+sudo: required
+rust: stable
 
 env:
   global:
-    secure: "f17G5kb6uAQlAG9+GknFFYAmngGBqy9h+3FtNbp3mXTI0FOLltz00Ul5kGPysE4eagypm/dWOuvBkNjN01jhE6fCbekmInEsobIuanatrk6TvXT6caJqykxhPJC2cUoq8pKnMqEOuucEqPPUH6Qy6Hz4/2cRu5JV22Uv9dtS29Q="
+    - CRATE_NAME=bytes
+    # Default job
+    - TARGET=x86_64-unknown-linux-gnu
+    - secure: "f17G5kb6uAQlAG9+GknFFYAmngGBqy9h+3FtNbp3mXTI0FOLltz00Ul5kGPysE4eagypm/dWOuvBkNjN01jhE6fCbekmInEsobIuanatrk6TvXT6caJqykxhPJC2cUoq8pKnMqEOuucEqPPUH6Qy6Hz4/2cRu5JV22Uv9dtS29Q="
+
+matrix:
+  include:
+    # Run build on oldest supported rust version. Do not change the rust
+    # version without a Github issue first.
+    #
+    # This job will also build and deploy the docs to gh-pages.
+    - env: TARGET=x86_64-unknown-linux-gnu
+      rust: 1.10.0
+      after_success:
+        - |
+            pip install 'travis-cargo<0.2' --user &&
+            export PATH=$HOME/.local/bin:$PATH
+        - travis-cargo --only stable doc
+        - travis-cargo --only stable doc-upload
+
+    # Run tests on some extra platforms
+    - env: TARGET=i686-unknown-linux-gnu
+    - env: TARGET=armv7-unknown-linux-gnueabihf
+    - env: TARGET=powerpc-unknown-linux-gnu
+    - env: TARGET=powerpc64-unknown-linux-gnu
+
+before_install: set -e
+
+install:
+  - sh ci/install.sh
+  - source ~/.cargo/env || true
+
+script:
+  - bash ci/script.sh
+
+after_script: set +e
+
+before_deploy:
+  - sh ci/before_deploy.sh
+
+cache: cargo
+before_cache:
+  # Travis can't cache files that are not readable by "others"
+  - chmod -R a+r $HOME/.cargo
 
 notifications:
   email:
