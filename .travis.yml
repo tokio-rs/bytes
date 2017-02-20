@@ -24,8 +24,8 @@ matrix:
         - |
             pip install 'travis-cargo<0.2' --user &&
             export PATH=$HOME/.local/bin:$PATH
-        - travis-cargo --only stable doc
-        - travis-cargo --only stable doc-upload
+        - travis-cargo doc
+        - travis-cargo doc-upload
 
     # Run tests on some extra platforms
     - env: TARGET=i686-unknown-linux-gnu
