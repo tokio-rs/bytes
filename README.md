@@ -5,7 +5,7 @@ A utility library for working with bytes.
 [![Crates.io](https://img.shields.io/crates/v/bytes.svg?maxAge=2592000)](https://crates.io/crates/bytes)
 [![Build Status](https://travis-ci.org/carllerche/bytes.svg?branch=master)](https://travis-ci.org/carllerche/bytes)
 
-[Documentation](https://docs.rs/bytes)
+[Documentation](https://carllerche.github.io/bytes/bytes/index.html)
 
 ## Usage
 
