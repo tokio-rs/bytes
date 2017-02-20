@@ -2,7 +2,10 @@
 //!
 //! The `bytes` crate provides an efficient byte buffer structure
 //! ([`Bytes`](struct.Bytes.html)) and traits for working with buffer
-//! implementations ([`Buf`](trait.Buf.html), [`BufMut`](trait.BufMut.html)).
+//! implementations ([`Buf`], [`BufMut`]).
+//!
+//! [`Buf`]: trait.Buf.html
+//! [`BufMut`]: trait.BufMut.html
 //!
 //! # `Bytes`
 //!
@@ -15,17 +18,46 @@
 //! using a reference count to track when the memory is no longer needed and can
 //! be freed.
 //!
-//! See the [struct docs](struct.Bytes.html) for more details.
+//! A `Bytes` handle can be created directly from an existing byte store (such as &[u8]
+//! or Vec<u8>), but usually a `BytesMut` is used first and written to. For
+//! example:
+//!
+//! ```rust
+//! use bytes::{BytesMut, BufMut, BigEndian};
+//!
+//! let mut buf = BytesMut::with_capacity(1024);
+//! buf.put(&b"hello world"[..]);
+//! buf.put_u16::<BigEndian>(1234);
+//!
+//! let a = buf.drain();
+//! assert_eq!(a, b"hello world\x04\xD2"[..]);
+//!
+//! buf.put(&b"goodbye world"[..]);
+//!
+//! let b = buf.drain();
+//! assert_eq!(b, b"goodbye world"[..]);
+//!
+//! assert_eq!(buf.capacity(), 998);
+//! ```
+//!
+//! In the above example, only a single buffer of 1024 is allocated. The handles
+//! `a` and `b` will share the underlying buffer and maintain indices tracking
+//! the view into the buffer represented by the handle.
+//!
+//! See the [struct docs] for more details.
+//!
+//! [struct docs]: struct.Bytes.html
 //!
 //! # `Buf`, `BufMut`
 //!
 //! These two traits provide read and write access to buffers. The underlying
 //! storage may or may not be in contiguous memory. For example, `Bytes` is a
-//! buffer that guarantees contiguous memory, but a
-//! [rope](https://en.wikipedia.org/wiki/Rope_(data_structure)) stores the bytes
-//! in disjoint chunks. `Buf` and `BufMut` maintain cursors tracking the current
+//! buffer that guarantees contiguous memory, but a [rope] stores the bytes in
+//! disjoint chunks. `Buf` and `BufMut` maintain cursors tracking the current
 //! position in the underlying byte storage. When bytes are read or written, the
 //! cursor is advanced.
+//!
+//! [rope]: https://en.wikipedia.org/wiki/Rope_(data_structure)
 //!
 //! ## Relation with `Read` and `Write`
 //!
@@ -35,33 +67,6 @@
 //! argument to `Read::read` and `Write::write`. `Read` and `Write` may then
 //! perform a syscall, which has the potential of failing. Operations on `Buf`
 //! and `BufMut` are infallible.
-//!
-//! # Example
-//!
-//! ```
-//! use bytes::{BytesMut, Buf, BufMut};
-//! use std::io::Cursor;
-//! use std::thread;
-//!
-//! // Allocate a buffer capable of holding 1024 bytes.
-//! let mut buf = BytesMut::with_capacity(1024);
-//!
-//! // Write some data
-//! buf.put("Hello world");
-//! buf.put(b'-');
-//! buf.put("goodbye");
-//!
-//! // Freeze the buffer, enabling concurrent access
-//! let b1 = buf.freeze();
-//! let b2 = b1.clone();
-//!
-//! thread::spawn(move || {
-//!     assert_eq!(&b1[..], b"Hello world-goodbye");
-//! });
-//!
-//! let mut buf = Cursor::new(b2);
-//! assert_eq!(b'H', buf.get_u8());
-//! ```
 
 #![deny(warnings, missing_docs)]
 

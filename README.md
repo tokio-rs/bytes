@@ -2,16 +2,32 @@
 
 A utility library for working with bytes.
 
-[![crates.io](http://meritbadge.herokuapp.com/bytes)](https://crates.io/crates/bytes)
+[![Crates.io](https://img.shields.io/crates/v/bytes.svg?maxAge=2592000)](https://crates.io/crates/bytes)
 [![Build Status](https://travis-ci.org/carllerche/bytes.svg?branch=master)](https://travis-ci.org/carllerche/bytes)
 
-- [API documentation](http://carllerche.github.io/bytes/bytes/index.html)
+[Documentation](https://docs.rs/bytes)
 
 ## Usage
 
 To use `bytes`, first add this to your `Cargo.toml`:
 
 ```toml
-[dependencies.bytes]
-git = "https://github.com/carllerche/bytes"
+[dependencies]
+bytes = "0.4"
 ```
+
+Next, add this to your crate:
+
+```rust
+extern crate bytes;
+
+use bytes::{Bytes, BytesMut, Buf, BufMut};
+```
+
+# License
+
+`bytes` is primarily distributed under the terms of both the MIT license and the
+Apache License (Version 2.0), with portions covered by various BSD-like
+licenses.
+
+See LICENSE-APACHE, and LICENSE-MIT for details.

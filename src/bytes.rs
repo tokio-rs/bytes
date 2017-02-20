@@ -884,6 +884,36 @@ impl BytesMut {
         }
     }
 
+    /// Remove the bytes from the current view, returning them in a new
+    /// `BytesMut` handle.
+    ///
+    /// Afterwards, `self` will be empty, but will retain any additional
+    /// capacity that it had before the operation. This is identical to
+    /// `self.drain_to(self.len())`.
+    ///
+    /// This is an `O(1)` operation that just increases the reference count and
+    /// sets a few indexes.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::{BytesMut, BufMut};
+    ///
+    /// let mut buf = BytesMut::with_capacity(1024);
+    /// buf.put(&b"hello world"[..]);
+    ///
+    /// let other = buf.drain();
+    ///
+    /// assert!(buf.is_empty());
+    /// assert_eq!(1013, buf.capacity());
+    ///
+    /// assert_eq!(other, b"hello world"[..]);
+    /// ```
+    pub fn drain(&mut self) -> BytesMut {
+        let len = self.len();
+        self.drain_to(len)
+    }
+
     /// Splits the buffer into two at the given index.
     ///
     /// Afterwards `self` contains elements `[at, len)`, and the returned `BytesMut`
