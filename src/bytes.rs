@@ -1029,14 +1029,44 @@ impl BytesMut {
     /// More than `additional` bytes may be reserved in order to avoid frequent
     /// reallocations. A call to `reserve` may result in an allocation.
     ///
+    /// Before allocating new buffer space, the function will attempt to reclaim
+    /// space in the existing buffer. If the current handle references a small
+    /// view in the original buffer and all other handles have been dropped,
+    /// and the requested capacity is less than or equal to the existing
+    /// buffer's capacity, then the current view will be copied to the front of
+    /// the buffer and the handle will take ownership of the full buffer.
+    ///
     /// # Examples
+    ///
+    /// In the following example, a new buffer is allocated.
     ///
     /// ```
     /// use bytes::BytesMut;
     ///
-    /// let mut b = BytesMut::from(&b"hello"[..]);
-    /// b.reserve(64);
-    /// assert!(b.capacity() >= 69);
+    /// let mut buf = BytesMut::from(&b"hello"[..]);
+    /// buf.reserve(64);
+    /// assert!(buf.capacity() >= 69);
+    /// ```
+    ///
+    /// In the following example, the existing buffer is reclaimed.
+    ///
+    /// ```
+    /// use bytes::{BytesMut, BufMut};
+    ///
+    /// let mut buf = BytesMut::with_capacity(128);
+    /// buf.put(&[0; 64][..]);
+    ///
+    /// let ptr = buf.as_ptr();
+    /// let other = buf.drain();
+    ///
+    /// assert!(buf.is_empty());
+    /// assert_eq!(buf.capacity(), 64);
+    ///
+    /// drop(other);
+    /// buf.reserve(128);
+    ///
+    /// assert_eq!(buf.capacity(), 128);
+    /// assert_eq!(buf.as_ptr(), ptr);
     /// ```
     ///
     /// # Panics
@@ -1044,40 +1074,6 @@ impl BytesMut {
     /// Panics if the new capacity overflows usize.
     pub fn reserve(&mut self, additional: usize) {
         self.inner.reserve(additional)
-    }
-
-    /// Attempts to reclaim ownership of the full buffer.
-    ///
-    /// Returns `true` if the reclaim is successful.
-    ///
-    /// If the `BytesMut` handle is the only outstanding handle pointing to the
-    /// memory slice, the handle's view will be set to the full memory slice,
-    /// enabling reusing buffer space without allocating.
-    ///
-    /// Any data in the `BytesMut` handle will be copied to the start of the
-    /// memory region.
-    ///
-    /// ```rust
-    /// use bytes::BytesMut;
-    ///
-    /// let mut bytes = BytesMut::from(
-    ///     "Lorem ipsum dolor sit amet, consectetur adipiscing elit.");
-    ///
-    /// // Create a new handle to the shared memory region
-    /// let a = bytes.drain_to(5);
-    ///
-    /// // Attempting to reclaim here will fail due to `a` still being in
-    /// // existence.
-    /// assert!(!bytes.try_reclaim());
-    /// assert_eq!(bytes.capacity(), 51);
-    ///
-    /// // Dropping the handle will allow reclaim to succeed.
-    /// drop(a);
-    /// assert!(bytes.try_reclaim());
-    /// assert_eq!(bytes.capacity(), 56);
-    /// ```
-    pub fn try_reclaim(&mut self) -> bool {
-        self.inner.try_reclaim()
     }
 }
 
@@ -1672,7 +1668,36 @@ impl Inner {
         // allocating a new vector with the requested capacity.
         //
         // Compute the new capacity
-        let new_cap = len + additional;
+        let mut new_cap = len + additional;
+
+        unsafe {
+            // First, try to reclaim the buffer. This is possible if the current
+            // handle is the only outstanding handle pointing to the buffer.
+            if (*arc).is_unique() {
+                // This is the only handle to the buffer. It can be reclaimed.
+                // However, before doing the work of copying data, check to make
+                // sure that the vector has enough capacity.
+                let v = &mut (*arc).vec;
+
+                if v.capacity() >= new_cap {
+                    // The capacity is sufficient, reclaim the buffer
+                    let ptr = v.as_mut_ptr();
+
+                    ptr::copy(self.ptr, ptr, len);
+
+                    self.ptr = ptr;
+                    self.cap = v.capacity();
+
+                    return;
+                }
+
+                // The vector capacity is not sufficient. The reserve request is
+                // asking for more than the initial buffer capacity. Allocate more
+                // than requested if `new_cap` is not much bigger than the current
+                // capacity.
+                new_cap = cmp::max(len << 1, new_cap);
+            }
+        }
 
         // Create a new vector to store the data
         let mut v = Vec::with_capacity(new_cap);
@@ -1692,53 +1717,6 @@ impl Inner {
 
         // Forget the vector handle
         mem::forget(v);
-    }
-
-    /// This must take `&mut self` in order to be able to copy memory in the
-    /// inline case.
-    #[inline]
-    fn try_reclaim(&mut self) -> bool {
-        // Always check `inline` first, because if the handle is using inline
-        // data storage, all of the `Inner` struct fields will be gibberish.
-        if self.is_inline() {
-            // No further work to do. Inlined buffers are always "reclaimed".
-            return true;
-        }
-
-        // `Relaxed` is Ok here (and really, no synchronization is necessary)
-        // due to having a `&mut self` pointer. The `&mut self` pointer ensures
-        // that there is no concurrent access on `self`.
-        let arc = self.arc.load(Relaxed);
-
-        if arc.is_null() {
-            // Vec storage is already reclaimed
-            return true;
-        }
-
-        debug_assert!(!self.is_static());
-
-        unsafe {
-            if !(*arc).is_unique() {
-                // Cannot reclaim buffers that are shared.
-                return false;
-            }
-
-            // This is the only handle to the buffer. It can be reclaimed.
-
-            // Get to the shared vector
-            let v = &mut (*arc).vec;
-
-            let len = v.len();
-            let ptr = v.as_mut_ptr();
-
-            ptr::copy(self.ptr, ptr, len);
-
-            self.ptr = ptr;
-            self.len = len;
-            self.cap = v.capacity();
-
-            true
-        }
     }
 
     /// Returns true if the buffer is stored inline

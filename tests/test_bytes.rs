@@ -242,52 +242,6 @@ fn reserve() {
 }
 
 #[test]
-fn try_reclaim_1() {
-    // Inline w/ start at zero
-    let mut bytes = BytesMut::from(&SHORT[..]);
-    assert!(bytes.try_reclaim());
-    assert_eq!(bytes.capacity(), inline_cap());
-    assert_eq!(bytes, SHORT);
-
-    // Inline w/ start not at zero
-    let mut bytes = BytesMut::from(&SHORT[..]);
-    let _ = bytes.drain_to(2);
-    assert_eq!(bytes.capacity(), inline_cap());
-    assert!(bytes.try_reclaim());
-    assert_eq!(bytes.capacity(), inline_cap());
-    assert_eq!(bytes, &SHORT[2..]);
-
-    // Arc
-    let mut bytes = BytesMut::from(&LONG[..]);
-    let a = bytes.drain_to(2);
-    assert!(!bytes.try_reclaim());
-    assert_eq!(bytes.capacity(), LONG.len() - 2);
-
-    drop(a);
-    assert!(bytes.try_reclaim());
-    assert_eq!(bytes.capacity(), LONG.len());
-}
-
-#[test]
-fn try_reclaim_2() {
-    let mut bytes = BytesMut::from(
-        "Lorem ipsum dolor sit amet, consectetur adipiscing elit.");
-
-    // Create a new handle to the shared memory region
-    let a = bytes.drain_to(5);
-
-    // Attempting to reclaim here will fail due to `a` still being in
-    // existence.
-    assert!(!bytes.try_reclaim());
-    assert_eq!(bytes.capacity(), 51);
-
-    // Dropping the handle will allow reclaim to succeed.
-    drop(a);
-    assert!(bytes.try_reclaim());
-    assert_eq!(bytes.capacity(), 56);
-}
-
-#[test]
 fn inline_storage() {
     let mut bytes = BytesMut::with_capacity(inline_cap());
     let zero = [0u8; 64];
