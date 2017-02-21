@@ -1695,12 +1695,12 @@ impl Inner {
                 // asking for more than the initial buffer capacity. Allocate more
                 // than requested if `new_cap` is not much bigger than the current
                 // capacity.
-                new_cap = cmp::max(len << 1, new_cap);
+                new_cap = cmp::max(v.capacity() << 1, new_cap);
             }
         }
 
         // Create a new vector to store the data
-        let mut v = Vec::with_capacity(new_cap);
+        let mut v = Vec::with_capacity(new_cap.next_power_of_two());
 
         // Copy the bytes
         v.extend_from_slice(self.as_ref());

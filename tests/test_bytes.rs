@@ -207,7 +207,7 @@ fn fns_defined_for_bytes_mut() {
 }
 
 #[test]
-fn reserve() {
+fn reserve_convert() {
     // Inline -> Vec
     let mut bytes = BytesMut::with_capacity(8);
     bytes.put("hello");
@@ -236,9 +236,19 @@ fn reserve() {
     let a = bytes.drain_to(30);
 
     bytes.reserve(128);
-    assert_eq!(bytes.capacity(), bytes.len() + 128);
+    assert_eq!(bytes.capacity(), (bytes.len() + 128).next_power_of_two());
 
     drop(a);
+}
+
+#[test]
+fn reserve_growth() {
+    let mut bytes = BytesMut::with_capacity(64);
+    bytes.put("hello world");
+    let _ = bytes.drain();
+
+    bytes.reserve(65);
+    assert_eq!(bytes.capacity(), 128);
 }
 
 #[test]
