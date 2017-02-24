@@ -1,7 +1,7 @@
 [package]
 
 name          = "bytes"
-version       = "0.4.0-dev"
+version       = "0.4.0"
 license       = "MIT"
 authors       = ["Carl Lerche <me@carllerche.com>"]
 description   = "Types and traits for working with bytes"
@@ -9,7 +9,7 @@ documentation = "https://carllerche.github.io/bytes/bytes"
 homepage      = "https://github.com/carllerche/bytes"
 repository    = "https://github.com/carllerche/bytes"
 readme        = "README.md"
-keywords      = ["buffers", "rope", "io"]
+keywords      = ["buffers", "zero-copy", "io"]
 exclude       = [
     ".gitignore",
     ".travis.yml",
@@ -17,6 +17,7 @@ exclude       = [
     "bench/**/*",
     "test/**/*"
 ]
+categories = ["network-programming", "data-structures"]
 
 [dependencies]
 byteorder = "1.0.0"
