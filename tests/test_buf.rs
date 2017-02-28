@@ -1,7 +1,9 @@
 extern crate bytes;
 extern crate byteorder;
+extern crate iovec;
 
 use bytes::Buf;
+use iovec::IoVec;
 use std::io::Cursor;
 
 #[test]
@@ -45,4 +47,12 @@ fn test_get_u16() {
 fn test_get_u16_buffer_underflow() {
     let mut buf = Cursor::new(b"\x21");
     buf.get_u16::<byteorder::BigEndian>();
+}
+
+#[test]
+fn test_bufs_vec() {
+    let buf = Cursor::new(b"hello world");
+    let mut dst: [&IoVec; 2] = Default::default();
+
+    assert_eq!(1, buf.bytes_vec(&mut dst[..]));
 }

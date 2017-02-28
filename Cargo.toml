@@ -21,6 +21,7 @@ categories = ["network-programming", "data-structures"]
 
 [dependencies]
 byteorder = "1.0.0"
+iovec = { git = "https://github.com/carllerche/iovec" }
 
 [dev-dependencies]
 tokio-core = "0.1.0"

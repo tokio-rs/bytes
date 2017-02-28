@@ -72,6 +72,7 @@
 #![doc(html_root_url = "https://docs.rs/bytes/0.4")]
 
 extern crate byteorder;
+extern crate iovec;
 
 pub mod buf;
 pub use buf::{

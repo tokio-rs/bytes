@@ -1,5 +1,6 @@
 use super::{Source, Writer};
 use byteorder::ByteOrder;
+use iovec::IoVec;
 
 use std::{cmp, io, ptr, usize};
 
@@ -136,6 +137,35 @@ pub trait BufMut {
     /// assert_eq!(buf, b"hello");
     /// ```
     unsafe fn bytes_mut(&mut self) -> &mut [u8];
+
+    /// Fills `dst` with potentially multiple mutable slices starting at `self`'s
+    /// current position.
+    ///
+    /// If the `BufMut` is backed by disjoint slices of bytes, `bytes_vec_mut`
+    /// enables fetching more than one slice at once. `dst` is a slice of
+    /// mutable `IoVec` references, enabling the slice to be directly used with
+    /// [`readv`] without any further conversion. The sum of the lengths of all
+    /// the buffers in `dst` will be less than or equal to
+    /// `Buf::remaining_mut()`.
+    ///
+    /// The entries in `dst` will be overwritten, but the data **contained** by
+    /// the slices **will not** be modified. If `bytes_vec_mut` does not fill every
+    /// entry in `dst`, then `dst` is guaranteed to contain all remaining slices
+    /// in `self.
+    ///
+    /// This is a lower level function. Most operations are done with other
+    /// functions.
+    ///
+    /// [`readv`]: http://man7.org/linux/man-pages/man2/readv.2.html
+    unsafe fn bytes_vec_mut<'a>(&'a mut self, dst: &mut [&'a mut IoVec]) -> usize {
+        if dst.is_empty() {
+            return 0;
+        }
+
+        dst[0] = self.bytes_mut().into();
+
+        1
+    }
 
     /// Transfer bytes into `self` from `src` and advance the cursor by the
     /// number of bytes written.
@@ -513,6 +543,10 @@ impl<'a, T: BufMut + ?Sized> BufMut for &'a mut T {
         (**self).bytes_mut()
     }
 
+    unsafe fn bytes_vec_mut<'b>(&'b mut self, dst: &mut [&'b mut IoVec]) -> usize {
+        (**self).bytes_vec_mut(dst)
+    }
+
     unsafe fn advance_mut(&mut self, cnt: usize) {
         (**self).advance_mut(cnt)
     }
@@ -525,6 +559,10 @@ impl<T: BufMut + ?Sized> BufMut for Box<T> {
 
     unsafe fn bytes_mut(&mut self) -> &mut [u8] {
         (**self).bytes_mut()
+    }
+
+    unsafe fn bytes_vec_mut<'b>(&'b mut self, dst: &mut [&'b mut IoVec]) -> usize {
+        (**self).bytes_vec_mut(dst)
     }
 
     unsafe fn advance_mut(&mut self, cnt: usize) {

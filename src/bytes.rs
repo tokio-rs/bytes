@@ -1229,7 +1229,8 @@ impl<'a> From<&'a [u8]> for BytesMut {
             }
         } else {
             let mut buf = BytesMut::with_capacity(src.len());
-            buf.put(src.as_ref());
+            let src: &[u8] = src.as_ref();
+            buf.put(src);
             buf
         }
     }

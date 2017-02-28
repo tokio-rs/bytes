@@ -1,5 +1,6 @@
 use super::{Take, Reader, Iter, FromBuf};
 use byteorder::ByteOrder;
+use iovec::IoVec;
 
 use std::{cmp, io, ptr};
 
@@ -71,6 +72,34 @@ pub trait Buf {
     /// assert_eq!(buf.bytes(), b"world");
     /// ```
     fn bytes(&self) -> &[u8];
+
+    /// Fills `dst` with potentially multiple slices starting at `self`'s
+    /// current position.
+    ///
+    /// If the `Buf` is backed by disjoint slices of bytes, `bytes_vec` enables
+    /// fetching more than one slice at once. `dst` is a slice of `IoVec`
+    /// references, enabling the slice to be directly used with [`writev`]
+    /// without any further conversion. The sum of the lengths of all the
+    /// buffers in `dst` will be less than or equal to `Buf::remaining()`.
+    ///
+    /// The entries in `dst` will be overwritten, but the data **contained** by
+    /// the slices **will not** be modified. If `bytes_vec` does not fill every
+    /// entry in `dst`, then `dst` is guaranteed to contain all remaining slices
+    /// in `self.
+    ///
+    /// This is a lower level function. Most operations are done with other
+    /// functions.
+    ///
+    /// [`writev`]: http://man7.org/linux/man-pages/man2/readv.2.html
+    fn bytes_vec<'a>(&'a self, dst: &mut [&'a IoVec]) -> usize {
+        if dst.is_empty() {
+            return 0;
+        }
+
+        dst[0] = self.bytes().into();
+
+        1
+    }
 
     /// Advance the internal cursor of the Buf
     ///
@@ -576,6 +605,10 @@ impl<'a, T: Buf + ?Sized> Buf for &'a mut T {
         (**self).bytes()
     }
 
+    fn bytes_vec<'b>(&'b self, dst: &mut [&'b IoVec]) -> usize {
+        (**self).bytes_vec(dst)
+    }
+
     fn advance(&mut self, cnt: usize) {
         (**self).advance(cnt)
     }
@@ -588,6 +621,10 @@ impl<T: Buf + ?Sized> Buf for Box<T> {
 
     fn bytes(&self) -> &[u8] {
         (**self).bytes()
+    }
+
+    fn bytes_vec<'b>(&'b self, dst: &mut [&'b IoVec]) -> usize {
+        (**self).bytes_vec(dst)
     }
 
     fn advance(&mut self, cnt: usize) {

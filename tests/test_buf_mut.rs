@@ -1,7 +1,9 @@
 extern crate bytes;
 extern crate byteorder;
+extern crate iovec;
 
 use bytes::{BufMut, BytesMut};
+use iovec::IoVec;
 use std::usize;
 use std::fmt::Write;
 
@@ -55,4 +57,16 @@ fn test_clone() {
 
     buf.write_str(" of our emergecy broadcast system").unwrap();
     assert!(buf != buf2);
+}
+
+#[test]
+fn test_bufs_vec_mut() {
+    use std::mem;
+
+    let mut buf = BytesMut::from(&b"hello world"[..]);
+
+    unsafe {
+        let mut dst: [&mut IoVec; 2] = mem::zeroed();
+        assert_eq!(1, buf.bytes_vec_mut(&mut dst[..]));
+    }
 }
