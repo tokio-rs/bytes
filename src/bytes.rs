@@ -25,7 +25,7 @@ use std::sync::atomic::Ordering::{Relaxed, Acquire, Release, AcqRel};
 ///
 /// assert_eq!(&a[..], b"Hello");
 ///
-/// let b = mem.drain_to(6);
+/// let b = mem.split_to(6);
 ///
 /// assert_eq!(&mem[..], b"world");
 /// assert_eq!(&b[..], b"Hello ");
@@ -161,7 +161,7 @@ pub struct BytesMut {
 // `Arc<Vec<u8>>` requires two allocations, so if the buffer ends up never being
 // shared, that allocation is avoided.
 //
-// When sharing does become necessary (`clone`, `drain_to`, `split_off`), that
+// When sharing does become necessary (`clone`, `split_to`, `split_off`), that
 // is when the buffer is promoted to being shareable. The `Vec<u8>` is moved
 // into an `Arc` and both the original handle and the new handle use the same
 // buffer via the `Arc`.
@@ -563,7 +563,7 @@ impl Bytes {
     /// use bytes::Bytes;
     ///
     /// let mut a = Bytes::from(&b"hello world"[..]);
-    /// let b = a.drain_to(5);
+    /// let b = a.split_to(5);
     ///
     /// assert_eq!(&a[..], b" world");
     /// assert_eq!(&b[..], b"hello");
@@ -572,12 +572,18 @@ impl Bytes {
     /// # Panics
     ///
     /// Panics if `at > len`
-    pub fn drain_to(&mut self, at: usize) -> Bytes {
+    pub fn split_to(&mut self, at: usize) -> Bytes {
         Bytes {
             inner: Inner2 {
-                inner: self.inner.drain_to(at),
+                inner: self.inner.split_to(at),
             }
         }
+    }
+
+    #[deprecated(since = "0.4.1", note = "use split_to instead")]
+    #[doc(hidden)]
+    pub fn drain_to(&mut self, at: usize) -> Bytes {
+        self.split_to(at)
     }
 
     /// Attempt to convert into a `BytesMut` handle.
@@ -889,7 +895,7 @@ impl BytesMut {
     ///
     /// Afterwards, `self` will be empty, but will retain any additional
     /// capacity that it had before the operation. This is identical to
-    /// `self.drain_to(self.len())`.
+    /// `self.split_to(self.len())`.
     ///
     /// This is an `O(1)` operation that just increases the reference count and
     /// sets a few indexes.
@@ -902,16 +908,22 @@ impl BytesMut {
     /// let mut buf = BytesMut::with_capacity(1024);
     /// buf.put(&b"hello world"[..]);
     ///
-    /// let other = buf.drain();
+    /// let other = buf.take();
     ///
     /// assert!(buf.is_empty());
     /// assert_eq!(1013, buf.capacity());
     ///
     /// assert_eq!(other, b"hello world"[..]);
     /// ```
-    pub fn drain(&mut self) -> BytesMut {
+    pub fn take(&mut self) -> BytesMut {
         let len = self.len();
-        self.drain_to(len)
+        self.split_to(len)
+    }
+
+    #[deprecated(since = "0.4.1", note = "use take instead")]
+    #[doc(hidden)]
+    pub fn drain(&mut self) -> BytesMut {
+        self.take()
     }
 
     /// Splits the buffer into two at the given index.
@@ -928,7 +940,7 @@ impl BytesMut {
     /// use bytes::BytesMut;
     ///
     /// let mut a = BytesMut::from(&b"hello world"[..]);
-    /// let mut b = a.drain_to(5);
+    /// let mut b = a.split_to(5);
     ///
     /// a[0] = b'!';
     /// b[0] = b'j';
@@ -940,12 +952,18 @@ impl BytesMut {
     /// # Panics
     ///
     /// Panics if `at > len`
-    pub fn drain_to(&mut self, at: usize) -> BytesMut {
+    pub fn split_to(&mut self, at: usize) -> BytesMut {
         BytesMut {
             inner: Inner2 {
-                inner: self.inner.drain_to(at),
+                inner: self.inner.split_to(at),
             }
         }
+    }
+
+    #[deprecated(since = "0.4.1", note = "use split_to instead")]
+    #[doc(hidden)]
+    pub fn drain_to(&mut self, at: usize) -> BytesMut {
+        self.split_to(at)
     }
 
     /// Shortens the buffer, keeping the first `len` bytes and dropping the
@@ -1382,7 +1400,7 @@ impl Inner {
         return other
     }
 
-    fn drain_to(&mut self, at: usize) -> Inner {
+    fn split_to(&mut self, at: usize) -> Inner {
         let mut other = self.shallow_clone();
 
         unsafe {

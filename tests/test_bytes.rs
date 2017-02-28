@@ -135,34 +135,34 @@ fn split_off_uninitialized() {
 }
 
 #[test]
-fn drain_to_1() {
+fn split_to_1() {
     // Inline
     let mut a = Bytes::from(SHORT);
-    let b = a.drain_to(4);
+    let b = a.split_to(4);
 
     assert_eq!(SHORT[4..], a);
     assert_eq!(SHORT[..4], b);
 
     // Allocated
     let mut a = Bytes::from(LONG);
-    let b = a.drain_to(4);
+    let b = a.split_to(4);
 
     assert_eq!(LONG[4..], a);
     assert_eq!(LONG[..4], b);
 
     let mut a = Bytes::from(LONG);
-    let b = a.drain_to(30);
+    let b = a.split_to(30);
 
     assert_eq!(LONG[30..], a);
     assert_eq!(LONG[..30], b);
 }
 
 #[test]
-fn drain_to_2() {
+fn split_to_2() {
     let mut a = Bytes::from(LONG);
     assert_eq!(LONG, a);
 
-    let b = a.drain_to(1);
+    let b = a.split_to(1);
 
     assert_eq!(LONG[1..], a);
     drop(b);
@@ -170,22 +170,22 @@ fn drain_to_2() {
 
 #[test]
 #[should_panic]
-fn drain_to_oob() {
+fn split_to_oob() {
     let mut hello = Bytes::from(&b"helloworld"[..]);
-    hello.drain_to(inline_cap() + 1);
+    hello.split_to(inline_cap() + 1);
 }
 
 #[test]
 #[should_panic]
-fn drain_to_oob_mut() {
+fn split_to_oob_mut() {
     let mut hello = BytesMut::from(&b"helloworld"[..]);
-    hello.drain_to(inline_cap() + 1);
+    hello.split_to(inline_cap() + 1);
 }
 
 #[test]
-fn drain_to_uninitialized() {
+fn split_to_uninitialized() {
     let mut bytes = BytesMut::with_capacity(1024);
-    let other = bytes.drain_to(128);
+    let other = bytes.split_to(128);
 
     assert_eq!(bytes.len(), 0);
     assert_eq!(bytes.capacity(), 896);
@@ -219,7 +219,7 @@ fn reserve_convert() {
     let mut bytes = BytesMut::with_capacity(inline_cap());
     bytes.put("abcdefghijkl");
 
-    let a = bytes.drain_to(10);
+    let a = bytes.split_to(10);
     bytes.reserve(inline_cap() - 3);
     assert_eq!(inline_cap(), bytes.capacity());
 
@@ -233,7 +233,7 @@ fn reserve_convert() {
 
     // Arc -> Vec
     let mut bytes = BytesMut::from(LONG);
-    let a = bytes.drain_to(30);
+    let a = bytes.split_to(30);
 
     bytes.reserve(128);
     assert_eq!(bytes.capacity(), (bytes.len() + 128).next_power_of_two());
@@ -245,7 +245,7 @@ fn reserve_convert() {
 fn reserve_growth() {
     let mut bytes = BytesMut::with_capacity(64);
     bytes.put("hello world");
-    let _ = bytes.drain();
+    let _ = bytes.take();
 
     bytes.reserve(65);
     assert_eq!(bytes.capacity(), 128);
