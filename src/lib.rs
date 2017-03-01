@@ -73,17 +73,22 @@
 
 extern crate byteorder;
 
-mod buf;
-mod bytes;
-
+pub mod buf;
 pub use buf::{
     Buf,
     BufMut,
     IntoBuf,
+};
+#[deprecated(since = "0.4.1", note = "moved to `buf` module")]
+#[doc(hidden)]
+pub use buf::{
     Source,
     Reader,
     Writer,
     Take,
 };
+
+mod bytes;
 pub use bytes::{Bytes, BytesMut};
+
 pub use byteorder::{ByteOrder, BigEndian, LittleEndian};
