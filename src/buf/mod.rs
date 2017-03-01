@@ -42,7 +42,7 @@ pub use self::writer::Writer;
  *
  */
 
-impl<'a, T: Buf> Buf for &'a mut T {
+impl<'a, T: Buf + ?Sized> Buf for &'a mut T {
     fn remaining(&self) -> usize {
         (**self).remaining()
     }
@@ -56,7 +56,35 @@ impl<'a, T: Buf> Buf for &'a mut T {
     }
 }
 
-impl<'a, T: BufMut> BufMut for &'a mut T {
+impl<'a, T: BufMut + ?Sized> BufMut for &'a mut T {
+    fn remaining_mut(&self) -> usize {
+        (**self).remaining_mut()
+    }
+
+    unsafe fn bytes_mut(&mut self) -> &mut [u8] {
+        (**self).bytes_mut()
+    }
+
+    unsafe fn advance_mut(&mut self, cnt: usize) {
+        (**self).advance_mut(cnt)
+    }
+}
+
+impl<T: Buf + ?Sized> Buf for Box<T> {
+    fn remaining(&self) -> usize {
+        (**self).remaining()
+    }
+
+    fn bytes(&self) -> &[u8] {
+        (**self).bytes()
+    }
+
+    fn advance(&mut self, cnt: usize) {
+        (**self).advance(cnt)
+    }
+}
+
+impl<T: BufMut + ?Sized> BufMut for Box<T> {
     fn remaining_mut(&self) -> usize {
         (**self).remaining_mut()
     }
