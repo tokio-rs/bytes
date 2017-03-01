@@ -1,4 +1,4 @@
-use super::{Take, Reader, FromBuf};
+use super::{Take, Reader, Iter, FromBuf};
 use byteorder::ByteOrder;
 
 use std::{cmp, ptr};
@@ -545,5 +545,24 @@ pub trait Buf {
     /// ```
     fn reader(self) -> Reader<Self> where Self: Sized {
         super::reader::new(self)
+    }
+
+    /// Returns an iterator over the bytes contained by the buffer.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::{Buf, IntoBuf, Bytes};
+    ///
+    /// let buf = Bytes::from(&b"abc"[..]).into_buf();
+    /// let mut iter = buf.iter();
+    ///
+    /// assert_eq!(iter.next(), Some(b'a'));
+    /// assert_eq!(iter.next(), Some(b'b'));
+    /// assert_eq!(iter.next(), Some(b'c'));
+    /// assert_eq!(iter.next(), None);
+    /// ```
+    fn iter(self) -> Iter<Self> where Self: Sized {
+        super::iter::new(self)
     }
 }

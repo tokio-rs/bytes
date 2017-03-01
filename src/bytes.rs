@@ -1,4 +1,5 @@
-use {IntoBuf, BufMut};
+use {IntoBuf, Buf, BufMut};
+use buf::Iter;
 
 use std::{cmp, fmt, mem, hash, ops, slice, ptr, usize};
 use std::borrow::Borrow;
@@ -733,6 +734,24 @@ impl Borrow<[u8]> for Bytes {
     }
 }
 
+impl IntoIterator for Bytes {
+    type Item = u8;
+    type IntoIter = Iter<Cursor<Bytes>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.into_buf().iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a Bytes {
+    type Item = u8;
+    type IntoIter = Iter<Cursor<&'a Bytes>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.into_buf().iter()
+    }
+}
+
 /*
  *
  * ===== BytesMut =====
@@ -1283,6 +1302,24 @@ impl fmt::Write for BytesMut {
 impl Clone for BytesMut {
     fn clone(&self) -> BytesMut {
         BytesMut::from(&self[..])
+    }
+}
+
+impl IntoIterator for BytesMut {
+    type Item = u8;
+    type IntoIter = Iter<Cursor<BytesMut>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.into_buf().iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a BytesMut {
+    type Item = u8;
+    type IntoIter = Iter<Cursor<&'a BytesMut>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.into_buf().iter()
     }
 }
 
