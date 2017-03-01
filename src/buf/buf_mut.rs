@@ -1,7 +1,7 @@
 use super::{Source, Writer};
 use byteorder::ByteOrder;
 
-use std::{cmp, ptr};
+use std::{cmp, io, ptr, usize};
 
 /// A trait for values that provide sequential write access to bytes.
 ///
@@ -501,5 +501,89 @@ pub trait BufMut {
     /// ```
     fn writer(self) -> Writer<Self> where Self: Sized {
         super::writer::new(self)
+    }
+}
+
+impl<'a, T: BufMut + ?Sized> BufMut for &'a mut T {
+    fn remaining_mut(&self) -> usize {
+        (**self).remaining_mut()
+    }
+
+    unsafe fn bytes_mut(&mut self) -> &mut [u8] {
+        (**self).bytes_mut()
+    }
+
+    unsafe fn advance_mut(&mut self, cnt: usize) {
+        (**self).advance_mut(cnt)
+    }
+}
+
+impl<T: BufMut + ?Sized> BufMut for Box<T> {
+    fn remaining_mut(&self) -> usize {
+        (**self).remaining_mut()
+    }
+
+    unsafe fn bytes_mut(&mut self) -> &mut [u8] {
+        (**self).bytes_mut()
+    }
+
+    unsafe fn advance_mut(&mut self, cnt: usize) {
+        (**self).advance_mut(cnt)
+    }
+}
+
+impl<T: AsMut<[u8]> + AsRef<[u8]>> BufMut for io::Cursor<T> {
+    fn remaining_mut(&self) -> usize {
+        use Buf;
+        self.remaining()
+    }
+
+    /// Advance the internal cursor of the BufMut
+    unsafe fn advance_mut(&mut self, cnt: usize) {
+        let pos = self.position() as usize;
+        let pos = cmp::min(self.get_mut().as_mut().len(), pos + cnt);
+        self.set_position(pos as u64);
+    }
+
+    /// Returns a mutable slice starting at the current BufMut position and of
+    /// length between 0 and `BufMut::remaining()`.
+    ///
+    /// The returned byte slice may represent uninitialized memory.
+    unsafe fn bytes_mut(&mut self) -> &mut [u8] {
+        let pos = self.position() as usize;
+        &mut (self.get_mut().as_mut())[pos..]
+    }
+}
+
+impl BufMut for Vec<u8> {
+    fn remaining_mut(&self) -> usize {
+        usize::MAX - self.len()
+    }
+
+    unsafe fn advance_mut(&mut self, cnt: usize) {
+        let len = self.len() + cnt;
+
+        if len > self.capacity() {
+            // Reserve additional
+            // TODO: Should this case panic?
+            let cap = self.capacity();
+            self.reserve(cap - len);
+        }
+
+        self.set_len(len);
+    }
+
+    unsafe fn bytes_mut(&mut self) -> &mut [u8] {
+        use std::slice;
+
+        if self.capacity() == self.len() {
+            self.reserve(64); // Grow the vec
+        }
+
+        let cap = self.capacity();
+        let len = self.len();
+
+        let ptr = self.as_mut_ptr();
+        &mut slice::from_raw_parts_mut(ptr, cap)[len..]
     }
 }

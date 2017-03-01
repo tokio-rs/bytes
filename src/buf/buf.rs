@@ -1,7 +1,7 @@
 use super::{Take, Reader, Iter, FromBuf};
 use byteorder::ByteOrder;
 
-use std::{cmp, ptr};
+use std::{cmp, io, ptr};
 
 /// Read bytes from a buffer.
 ///
@@ -564,5 +564,57 @@ pub trait Buf {
     /// ```
     fn iter(self) -> Iter<Self> where Self: Sized {
         super::iter::new(self)
+    }
+}
+
+impl<'a, T: Buf + ?Sized> Buf for &'a mut T {
+    fn remaining(&self) -> usize {
+        (**self).remaining()
+    }
+
+    fn bytes(&self) -> &[u8] {
+        (**self).bytes()
+    }
+
+    fn advance(&mut self, cnt: usize) {
+        (**self).advance(cnt)
+    }
+}
+
+impl<T: Buf + ?Sized> Buf for Box<T> {
+    fn remaining(&self) -> usize {
+        (**self).remaining()
+    }
+
+    fn bytes(&self) -> &[u8] {
+        (**self).bytes()
+    }
+
+    fn advance(&mut self, cnt: usize) {
+        (**self).advance(cnt)
+    }
+}
+
+impl<T: AsRef<[u8]>> Buf for io::Cursor<T> {
+    fn remaining(&self) -> usize {
+        let len = self.get_ref().as_ref().len();
+        let pos = self.position();
+
+        if pos >= len as u64 {
+            return 0;
+        }
+
+        len - pos as usize
+    }
+
+    fn bytes(&self) -> &[u8] {
+        let pos = self.position() as usize;
+        &(self.get_ref().as_ref())[pos..]
+    }
+
+    fn advance(&mut self, cnt: usize) {
+        let pos = self.position() as usize;
+        let pos = cmp::min(self.get_ref().as_ref().len(), pos + cnt);
+        self.set_position(pos as u64);
     }
 }
