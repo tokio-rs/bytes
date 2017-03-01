@@ -1,4 +1,4 @@
-use super::{Take, Reader, Iter, FromBuf};
+use super::{IntoBuf, Take, Reader, Iter, FromBuf, Chain};
 use byteorder::ByteOrder;
 use iovec::IoVec;
 
@@ -520,6 +520,30 @@ pub trait Buf {
         where Self: Sized
     {
         super::take::new(self, limit)
+    }
+
+    /// Creates an adaptor which will chain this buffer with another.
+    ///
+    /// The returned `Buf` instance will first consume all bytes from `self`.
+    /// Afterwards the output is equivalent to the output of next.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::{Bytes, Buf, IntoBuf};
+    /// use bytes::buf::Chain;
+    ///
+    /// let buf = Bytes::from(&b"hello "[..]).into_buf()
+    ///             .chain(Bytes::from(&b"world"[..]));
+    ///
+    /// let full: Bytes = buf.collect();
+    /// assert_eq!(full[..], b"hello world"[..]);
+    /// ```
+    fn chain<U>(self, next: U) -> Chain<Self, U::Buf>
+        where U: IntoBuf,
+              Self: Sized,
+    {
+        Chain::new(self, next.into_buf())
     }
 
     /// Creates a "by reference" adaptor for this instance of `Buf`.

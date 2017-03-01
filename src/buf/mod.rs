@@ -19,6 +19,7 @@
 mod buf;
 mod buf_mut;
 mod from_buf;
+mod chain;
 mod into_buf;
 mod iter;
 mod reader;
@@ -29,6 +30,7 @@ mod writer;
 pub use self::buf::Buf;
 pub use self::buf_mut::BufMut;
 pub use self::from_buf::FromBuf;
+pub use self::chain::Chain;
 pub use self::into_buf::IntoBuf;
 pub use self::iter::Iter;
 pub use self::reader::Reader;
