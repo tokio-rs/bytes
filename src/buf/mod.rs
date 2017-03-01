@@ -20,6 +20,7 @@ use std::{cmp, io, usize};
 
 mod buf;
 mod buf_mut;
+mod from_buf;
 mod into_buf;
 mod reader;
 mod source;
@@ -28,6 +29,7 @@ mod writer;
 
 pub use self::buf::Buf;
 pub use self::buf_mut::BufMut;
+pub use self::from_buf::FromBuf;
 pub use self::into_buf::IntoBuf;
 pub use self::reader::Reader;
 pub use self::source::Source;

@@ -1,4 +1,4 @@
-use super::{Take, Reader};
+use super::{Take, Reader, FromBuf};
 use byteorder::ByteOrder;
 
 use std::{cmp, ptr};
@@ -439,6 +439,30 @@ pub trait Buf {
         let mut buf = [0; 8];
         self.copy_to_slice(&mut buf);
         T::read_f64(&buf)
+    }
+
+    /// Transforms a `Buf` into a concrete buffer.
+    ///
+    /// `collect()` can operate on any value that implements `Buf`, and turn it
+    /// into the relevent concrete buffer type.
+    ///
+    /// # Examples
+    ///
+    /// Collecting a buffer and loading the contents into a `Vec<u8>`.
+    ///
+    /// ```
+    /// use bytes::{Buf, Bytes, IntoBuf};
+    ///
+    /// let buf = Bytes::from(&b"hello world"[..]).into_buf();
+    /// let vec: Vec<u8> = buf.collect();
+    ///
+    /// assert_eq!(vec, &b"hello world"[..]);
+    /// ```
+    fn collect<B>(self) -> B
+        where Self: Sized,
+              B: FromBuf,
+    {
+        B::from_buf(self)
     }
 
     /// Creates an adaptor which will read at most `limit` bytes from `self`.
