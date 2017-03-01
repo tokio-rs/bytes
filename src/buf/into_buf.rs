@@ -47,6 +47,14 @@ pub trait IntoBuf {
     fn into_buf(self) -> Self::Buf;
 }
 
+impl<T: Buf> IntoBuf for T {
+    type Buf = Self;
+
+    fn into_buf(self) -> Self {
+        self
+    }
+}
+
 impl<'a> IntoBuf for &'a [u8] {
     type Buf = io::Cursor<&'a [u8]>;
 
