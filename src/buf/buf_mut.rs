@@ -45,6 +45,12 @@ pub trait BufMut {
     ///
     /// assert_eq!(5, buf.remaining_mut());
     /// ```
+    ///
+    /// # Implementer notes
+    ///
+    /// Implementations of `remaining_mut` should ensure that the return value
+    /// does not change unless a call is made to `advance_mut` or any other
+    /// function that is documented to change the `BufMut`'s current position.
     fn remaining_mut(&self) -> usize;
 
     /// Advance the internal cursor of the BufMut
@@ -80,7 +86,15 @@ pub trait BufMut {
     ///
     /// # Panics
     ///
-    /// This function can panic if `cnt > self.remaining_mut()`.
+    /// This function **may** panic if `cnt > self.remaining_mut()`.
+    ///
+    /// # Implementer notes
+    ///
+    /// It is recommended for implementations of `advance_mut` to panic if `cnt
+    /// > self.remaining_mut()`. If the implementation does not panic, the call
+    /// must behave as if `cnt == self.remaining_mut()`.
+    ///
+    /// A call with `cnt == 0` should never panic and be a no-op.
     unsafe fn advance_mut(&mut self, cnt: usize);
 
     /// Returns true if there is space in `self` for more bytes.
@@ -136,6 +150,12 @@ pub trait BufMut {
     /// assert_eq!(5, buf.len());
     /// assert_eq!(buf, b"hello");
     /// ```
+    ///
+    /// # Implementer notes
+    ///
+    /// This function should never panic. Once the end of the buffer is reached,
+    /// i.e., `BufMut::remaining_mut` returns 0, calls to `bytes_mut` should
+    /// return an empty slice.
     unsafe fn bytes_mut(&mut self) -> &mut [u8];
 
     /// Fills `dst` with potentially multiple mutable slices starting at `self`'s
@@ -156,15 +176,27 @@ pub trait BufMut {
     /// This is a lower level function. Most operations are done with other
     /// functions.
     ///
+    /// # Implementer notes
+    ///
+    /// This function should never panic. Once the end of the buffer is reached,
+    /// i.e., `BufMut::remaining_mut` returns 0, calls to `bytes_vec_mut` must
+    /// return 0 without mutating `dst`.
+    ///
+    /// Implementations should also take care to properly handle being called
+    /// with `dst` being a zero length slice.
+    ///
     /// [`readv`]: http://man7.org/linux/man-pages/man2/readv.2.html
     unsafe fn bytes_vec_mut<'a>(&'a mut self, dst: &mut [&'a mut IoVec]) -> usize {
         if dst.is_empty() {
             return 0;
         }
 
-        dst[0] = self.bytes_mut().into();
-
-        1
+        if self.has_remaining_mut() {
+            dst[0] = self.bytes_mut().into();
+            1
+        } else {
+            0
+        }
     }
 
     /// Transfer bytes into `self` from `src` and advance the cursor by the
@@ -578,9 +610,8 @@ impl<T: AsMut<[u8]> + AsRef<[u8]>> BufMut for io::Cursor<T> {
 
     /// Advance the internal cursor of the BufMut
     unsafe fn advance_mut(&mut self, cnt: usize) {
-        let pos = self.position() as usize;
-        let pos = cmp::min(self.get_mut().as_mut().len(), pos + cnt);
-        self.set_position(pos as u64);
+        use Buf;
+        self.advance(cnt);
     }
 
     /// Returns a mutable slice starting at the current BufMut position and of
@@ -588,7 +619,13 @@ impl<T: AsMut<[u8]> + AsRef<[u8]>> BufMut for io::Cursor<T> {
     ///
     /// The returned byte slice may represent uninitialized memory.
     unsafe fn bytes_mut(&mut self) -> &mut [u8] {
+        let len = self.get_ref().as_ref().len();
         let pos = self.position() as usize;
+
+        if pos >= len {
+            return Default::default();
+        }
+
         &mut (self.get_mut().as_mut())[pos..]
     }
 }
@@ -599,12 +636,12 @@ impl BufMut for Vec<u8> {
     }
 
     unsafe fn advance_mut(&mut self, cnt: usize) {
-        let len = self.len() + cnt;
+        let cap = self.capacity();
+        let len = self.len().checked_add(cnt)
+            .expect("overflow");
 
-        if len > self.capacity() {
+        if len > cap {
             // Reserve additional
-            // TODO: Should this case panic?
-            let cap = self.capacity();
             self.reserve(cap - len);
         }
 

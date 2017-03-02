@@ -49,6 +49,12 @@ pub trait Buf {
     ///
     /// assert_eq!(buf.remaining(), 10);
     /// ```
+    ///
+    /// # Implementer notes
+    ///
+    /// Implementations of `remaining` should ensure that the return value does
+    /// not change unless a call is made to `advance` or any other function that
+    /// is documented to change the `Buf`'s current position.
     fn remaining(&self) -> usize;
 
     /// Returns a slice starting at the current position and of length between 0
@@ -71,6 +77,12 @@ pub trait Buf {
     ///
     /// assert_eq!(buf.bytes(), b"world");
     /// ```
+    ///
+    /// # Implementer notes
+    ///
+    /// This function should never panic. Once the end of the buffer is reached,
+    /// i.e., `Buf::remaining` returns 0, calls to `bytes` should return an
+    /// empty slice.
     fn bytes(&self) -> &[u8];
 
     /// Fills `dst` with potentially multiple slices starting at `self`'s
@@ -90,15 +102,27 @@ pub trait Buf {
     /// This is a lower level function. Most operations are done with other
     /// functions.
     ///
+    /// # Implementer notes
+    ///
+    /// This function should never panic. Once the end of the buffer is reached,
+    /// i.e., `Buf::remaining` returns 0, calls to `bytes_vec` must return 0
+    /// without mutating `dst`.
+    ///
+    /// Implementations should also take care to properly handle being called
+    /// with `dst` being a zero length slice.
+    ///
     /// [`writev`]: http://man7.org/linux/man-pages/man2/readv.2.html
     fn bytes_vec<'a>(&'a self, dst: &mut [&'a IoVec]) -> usize {
         if dst.is_empty() {
             return 0;
         }
 
-        dst[0] = self.bytes().into();
-
-        1
+        if self.has_remaining() {
+            dst[0] = self.bytes().into();
+            1
+        } else {
+            0
+        }
     }
 
     /// Advance the internal cursor of the Buf
@@ -123,7 +147,15 @@ pub trait Buf {
     ///
     /// # Panics
     ///
-    /// This function can panic if `cnt > self.remaining()`.
+    /// This function **may** panic if `cnt > self.remaining()`.
+    ///
+    /// # Implementer notes
+    ///
+    /// It is recommended for implementations of `advance` to panic if `cnt >
+    /// self.remaining()`. If the implementation does not panic, the call must
+    /// behave as if `cnt == self.remaining()`.
+    ///
+    /// A call with `cnt == 0` should never panic and be a no-op.
     fn advance(&mut self, cnt: usize);
 
     /// Returns true if there are any more bytes to consume
@@ -669,13 +701,22 @@ impl<T: AsRef<[u8]>> Buf for io::Cursor<T> {
     }
 
     fn bytes(&self) -> &[u8] {
+        let len = self.get_ref().as_ref().len();
         let pos = self.position() as usize;
+
+        if pos >= len {
+            return Default::default();
+        }
+
         &(self.get_ref().as_ref())[pos..]
     }
 
     fn advance(&mut self, cnt: usize) {
-        let pos = self.position() as usize;
-        let pos = cmp::min(self.get_ref().as_ref().len(), pos + cnt);
+        let pos = (self.position() as usize)
+            .checked_add(cnt).expect("overflow");
+
+        assert!(pos <= self.get_ref().as_ref().len());
+
         self.set_position(pos as u64);
     }
 }

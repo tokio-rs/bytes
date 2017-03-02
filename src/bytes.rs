@@ -1123,12 +1123,16 @@ impl BufMut for BytesMut {
     #[inline]
     unsafe fn advance_mut(&mut self, cnt: usize) {
         let new_len = self.len() + cnt;
+
+        // This call will panic if `cnt` is too big
         self.inner.set_len(new_len);
     }
 
     #[inline]
     unsafe fn bytes_mut(&mut self) -> &mut [u8] {
         let len = self.len();
+
+        // This will never panic as `len` can never become invalid
         &mut self.inner.as_raw()[len..]
     }
 

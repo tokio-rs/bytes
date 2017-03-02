@@ -22,11 +22,6 @@ fn test_fresh_cursor_vec() {
 
     assert_eq!(buf.remaining(), 0);
     assert_eq!(buf.bytes(), b"");
-
-    buf.advance(1);
-
-    assert_eq!(buf.remaining(), 0);
-    assert_eq!(buf.bytes(), b"");
 }
 
 #[test]

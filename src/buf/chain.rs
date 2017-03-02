@@ -177,17 +177,9 @@ impl<T, U> Buf for Chain<T, U>
     }
 
     fn bytes_vec<'a>(&'a self, dst: &mut [&'a IoVec]) -> usize {
-        if self.a.has_remaining() {
-            let mut n = self.a.bytes_vec(dst);
-
-            if n < dst.len() {
-                n += self.b.bytes_vec(&mut dst[n..]);
-            }
-
-            n
-        } else {
-            self.b.bytes_vec(dst)
-        }
+        let mut n = self.a.bytes_vec(dst);
+        n += self.b.bytes_vec(&mut dst[n..]);
+        n
     }
 }
 
@@ -226,16 +218,8 @@ impl<T, U> BufMut for Chain<T, U>
     }
 
     unsafe fn bytes_vec_mut<'a>(&'a mut self, dst: &mut [&'a mut IoVec]) -> usize {
-        if self.a.has_remaining_mut() {
-            let mut n = self.a.bytes_vec_mut(dst);
-
-            if n < dst.len() {
-                n += self.b.bytes_vec_mut(&mut dst[n..]);
-            }
-
-            n
-        } else {
-            self.b.bytes_vec_mut(dst)
-        }
+        let mut n = self.a.bytes_vec_mut(dst);
+        n += self.b.bytes_vec_mut(&mut dst[n..]);
+        n
     }
 }

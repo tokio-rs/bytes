@@ -146,8 +146,8 @@ impl<T: Buf> Buf for Take<T> {
     }
 
     fn advance(&mut self, cnt: usize) {
-        let cnt = cmp::min(cnt, self.limit);
-        self.limit -= cnt;
+        assert!(cnt <= self.limit);
         self.inner.advance(cnt);
+        self.limit -= cnt;
     }
 }
