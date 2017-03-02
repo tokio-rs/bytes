@@ -244,11 +244,11 @@ pub struct BytesMut {
 // allocated yet and `self` is the only outstanding handle for the underlying
 // buffer.
 //
-// The lower two bits of `arc` are used as flags to track the storage state of
-// `Inner`. `0b01` indicates inline storage and `0b10` indicates static storage.
-// Since pointers to allocated structures are aligned, the lower two bits of a
-// pointer will always be 0. This allows disambiguating between a pointer and
-// the two flags.
+// The lower two bits of `arc` are used to track the storage mode of `Inner`.
+// `0b01` indicates inline storage, `0b10` indicates static storage, and `0b11`
+// indicates vector storage, not yet promoted to Arc.  Since pointers to
+// allocated structures are aligned, the lower two bits of a pointer will always
+// be 0. This allows disambiguating between a pointer and the two flags.
 //
 // When in "inlined" mode, the least significant byte of `arc` is also used to
 // store the length of the buffer view (vs. the capacity, which is a constant).
@@ -315,16 +315,22 @@ struct Inner2 {
 // other shenanigans to make it work.
 struct Shared {
     vec: Vec<u8>,
+    original_capacity: usize,
     ref_count: AtomicUsize,
 }
 
 // Buffer storage strategy flags.
+const KIND_ARC: usize = 0b00;
 const KIND_INLINE: usize = 0b01;
 const KIND_STATIC: usize = 0b10;
+const KIND_VEC: usize = 0b11;
+const KIND_MASK: usize = 0b11;
+
+const MAX_ORIGINAL_CAPACITY: usize = 1 << 16;
 
 // Bit op constants for extracting the inline length value from the `arc` field.
-const INLINE_LEN_MASK: usize = 0b11111110;
-const INLINE_LEN_OFFSET: usize = 1;
+const INLINE_LEN_MASK: usize = 0b11111100;
+const INLINE_LEN_OFFSET: usize = 2;
 
 // Byte offset from the start of `Inner` to where the inline buffer data
 // starts. On little endian platforms, the first byte of the struct is the
@@ -1302,7 +1308,7 @@ impl Inner {
     #[inline]
     fn empty() -> Inner {
         Inner {
-            arc: AtomicPtr::new(ptr::null_mut()),
+            arc: AtomicPtr::new(KIND_VEC as *mut Shared),
             ptr: ptr::null_mut(),
             len: 0,
             cap: 0,
@@ -1332,8 +1338,11 @@ impl Inner {
 
         mem::forget(src);
 
+        let original_capacity = cmp::min(cap, MAX_ORIGINAL_CAPACITY);
+        let arc = (original_capacity & !KIND_MASK) | KIND_VEC;
+
         Inner {
-            arc: AtomicPtr::new(ptr::null_mut()),
+            arc: AtomicPtr::new(arc as *mut Shared),
             ptr: ptr,
             len: len,
             cap: cap,
@@ -1544,37 +1553,28 @@ impl Inner {
 
     /// Checks if it is safe to mutate the memory
     fn is_mut_safe(&mut self) -> bool {
+        let kind = self.kind();
+
         // Always check `inline` first, because if the handle is using inline
         // data storage, all of the `Inner` struct fields will be gibberish.
-        if self.is_inline() {
+        if kind == KIND_INLINE {
             // Inlined buffers can always be mutated as the data is never shared
             // across handles.
             true
+        } else if kind == KIND_VEC {
+            true
+        } else if kind == KIND_STATIC {
+            false
         } else {
             // The function requires `&mut self`, which guarantees a unique
             // reference to the current handle. This means that the `arc` field
             // *cannot* be concurrently mutated. As such, `Relaxed` ordering is
             // fine (since we aren't synchronizing with anything).
-            //
-            // TODO: No ordering?
             let arc = self.arc.load(Relaxed);
-
-            // If the pointer is null, this is a non-shared handle and is mut
-            // safe.
-            if arc.is_null() {
-                return true;
-            }
-
-            // Check if this is a static buffer
-            if KIND_STATIC == arc as usize {
-                return false;
-            }
 
             // Otherwise, the underlying buffer is potentially shared with other
             // handles, so the ref_count needs to be checked.
-            unsafe {
-                return (*arc).is_unique();
-            }
+            unsafe { (*arc).is_unique() }
         }
     }
 
@@ -1607,10 +1607,10 @@ impl Inner {
             // that the current thread acquires the associated memory.
             let mut arc = self.arc.load(Acquire);
 
-            // If `arc` is null, then the buffer is still tracked in a
-            // `Vec<u8>`. It is time to promote the vec to an `Arc`. This could
-            // potentially be called concurrently, so some care must be taken.
-            if arc.is_null() {
+            // If  the buffer is still tracked in a `Vec<u8>`. It is time to
+            // promote the vec to an `Arc`. This could potentially be called
+            // concurrently, so some care must be taken.
+            if arc as usize & KIND_MASK == KIND_VEC {
                 unsafe {
                     // First, allocate a new `Shared` instance containing the
                     // `Vec` fields. It's important to note that `ptr`, `len`,
@@ -1621,6 +1621,7 @@ impl Inner {
                     // vector.
                     let shared = Box::new(Shared {
                         vec: Vec::from_raw_parts(self.ptr, self.len, self.cap),
+                        original_capacity: arc as usize & !KIND_MASK,
                         // Initialize refcount to 2. One for this reference, and one
                         // for the new clone that will be returned from
                         // `shallow_clone`.
@@ -1644,7 +1645,7 @@ impl Inner {
                     // pointed to by `actual` will be visible.
                     let actual = self.arc.compare_and_swap(arc, shared, AcqRel);
 
-                    if actual.is_null() {
+                    if actual == arc {
                         // The upgrade was successful, the new handle can be
                         // returned.
                         return Inner {
@@ -1663,7 +1664,7 @@ impl Inner {
                     // count update
                     arc = actual;
                 }
-            } else if KIND_STATIC == arc as usize {
+            } else if arc as usize & KIND_MASK == KIND_STATIC {
                 // Static buffer
                 return Inner {
                     arc: AtomicPtr::new(arc),
@@ -1701,9 +1702,11 @@ impl Inner {
             return;
         }
 
+        let kind = self.kind();
+
         // Always check `inline` first, because if the handle is using inline
         // data storage, all of the `Inner` struct fields will be gibberish.
-        if self.is_inline() {
+        if kind == KIND_INLINE {
             let new_cap = len + additional;
 
             // Promote to a vector
@@ -1713,18 +1716,16 @@ impl Inner {
             self.ptr = v.as_mut_ptr();
             self.len = v.len();
             self.cap = v.capacity();
-            self.arc = AtomicPtr::new(ptr::null_mut());
+
+            // Since the minimum capacity is `INLINE_CAP`, don't bother encoding
+            // the original capacity as INLINE_CAP
+            self.arc = AtomicPtr::new(KIND_VEC as *mut Shared);
 
             mem::forget(v);
             return;
         }
 
-        // `Relaxed` is Ok here (and really, no synchronization is necessary)
-        // due to having a `&mut self` pointer. The `&mut self` pointer ensures
-        // that there is no concurrent access on `self`.
-        let arc = self.arc.load(Relaxed);
-
-        if arc.is_null() {
+        if kind == KIND_VEC {
             // Currently backed by a vector, so just use `Vector::reserve`.
             unsafe {
                 let mut v = Vec::from_raw_parts(self.ptr, self.len, self.cap);
@@ -1742,15 +1743,23 @@ impl Inner {
             }
         }
 
-        debug_assert!(!self.is_static());
+        // `Relaxed` is Ok here (and really, no synchronization is necessary)
+        // due to having a `&mut self` pointer. The `&mut self` pointer ensures
+        // that there is no concurrent access on `self`.
+        let arc = self.arc.load(Relaxed);
+
+        debug_assert!(kind == KIND_ARC);
 
         // Reserving involves abandoning the currently shared buffer and
         // allocating a new vector with the requested capacity.
         //
         // Compute the new capacity
         let mut new_cap = len + additional;
+        let original_capacity;
 
         unsafe {
+            original_capacity = (*arc).original_capacity;
+
             // First, try to reclaim the buffer. This is possible if the current
             // handle is the only outstanding handle pointing to the buffer.
             if (*arc).is_unique() {
@@ -1775,7 +1784,15 @@ impl Inner {
                 // asking for more than the initial buffer capacity. Allocate more
                 // than requested if `new_cap` is not much bigger than the current
                 // capacity.
-                new_cap = cmp::max(v.capacity() << 1, new_cap);
+                //
+                // There are some situations, using `reserve_exact` that the
+                // buffer capacity could be below `original_capacity`, so do a
+                // check.
+                new_cap = cmp::max(
+                    cmp::max(v.capacity() << 1, new_cap),
+                    original_capacity);
+            } else {
+                new_cap = cmp::max(new_cap, original_capacity);
             }
         }
 
@@ -1793,7 +1810,10 @@ impl Inner {
         self.ptr = v.as_mut_ptr();
         self.len = v.len();
         self.cap = v.capacity();
-        self.arc = AtomicPtr::new(ptr::null_mut());
+
+        let arc = (original_capacity & !KIND_MASK) | KIND_VEC;
+
+        self.arc = AtomicPtr::new(arc as *mut Shared);
 
         // Forget the vector handle
         mem::forget(v);
@@ -1802,6 +1822,30 @@ impl Inner {
     /// Returns true if the buffer is stored inline
     #[inline]
     fn is_inline(&self) -> bool {
+        self.kind() == KIND_INLINE
+    }
+
+    /// Used for `debug_assert` statements. &mut is used to guarantee that it is
+    /// safe to check VEC_KIND
+    #[inline]
+    fn is_shared(&mut self) -> bool {
+        match self.kind() {
+            KIND_INLINE | KIND_ARC => true,
+            _ => false,
+        }
+    }
+
+    /// Used for `debug_assert` statements
+    #[inline]
+    fn is_static(&mut self) -> bool {
+        match self.kind() {
+            KIND_STATIC => true,
+            _ => false,
+        }
+    }
+
+    #[inline]
+    fn kind(&self) -> usize {
         // This function is going to probably raise some eyebrows. The function
         // returns true if the buffer is stored inline. This is done by checking
         // the least significant bit in the `arc` field.
@@ -1822,67 +1866,40 @@ impl Inner {
 
         #[cfg(target_endian = "little")]
         #[inline]
-        fn imp(arc: &AtomicPtr<Shared>) -> bool {
+        fn imp(arc: &AtomicPtr<Shared>) -> usize {
             unsafe {
                 let p: &u8 = mem::transmute(arc);
-                *p & (KIND_INLINE as u8) == (KIND_INLINE as u8)
+                (*p as usize) & KIND_MASK
             }
         }
 
         #[cfg(target_endian = "big")]
         #[inline]
-        fn imp(arc: &AtomicPtr<Shared>) -> bool {
+        fn imp(arc: &AtomicPtr<Shared>) -> usize {
             unsafe {
                 let p: &usize = mem::transmute(arc);
-                *p & KIND_INLINE == KIND_INLINE
+                *p & KIND_MASK
             }
         }
 
         imp(&self.arc)
     }
-
-    /// Used for `debug_assert` statements
-    #[inline]
-    fn is_shared(&self) -> bool {
-        self.is_inline() ||
-            !self.arc.load(Relaxed).is_null()
-    }
-
-    /// Used for `debug_assert` statements
-    #[inline]
-    fn is_static(&self) -> bool {
-        !self.is_inline() &&
-            self.arc.load(Relaxed) as usize == KIND_STATIC
-    }
 }
 
 impl Drop for Inner2 {
     fn drop(&mut self) {
-        // Always check `inline` first, because if the handle is using inline
-        // data storage, all of the `Inner` struct fields will be gibberish.
-        if self.is_inline() {
-            return;
-        }
+        let kind = self.kind();
 
-        // Acquire is needed here to ensure that the `Shared` memory is
-        // visible.
-        let arc = self.arc.load(Acquire);
-
-        if arc as usize == KIND_STATIC {
-            // Static buffer, no work to do
-            return;
-        }
-
-        if arc.is_null() {
+        if kind == KIND_VEC {
             // Vector storage, free the vector
             unsafe {
                 let _ = Vec::from_raw_parts(self.ptr, self.len, self.cap);
             }
-
-            return;
+        } else if kind == KIND_ARC {
+            // &mut self guarantees correct ordering
+            let arc = self.arc.load(Relaxed);
+            release_shared(arc);
         }
-
-        release_shared(arc);
     }
 }
 

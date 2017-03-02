@@ -252,6 +252,36 @@ fn reserve_growth() {
 }
 
 #[test]
+fn reserve_allocates_at_least_original_capacity() {
+    let mut bytes = BytesMut::with_capacity(128);
+
+    for i in 0..120 {
+        bytes.put(i as u8);
+    }
+
+    let _other = bytes.take();
+
+    bytes.reserve(16);
+    assert_eq!(bytes.capacity(), 128);
+}
+
+#[test]
+fn reserve_max_original_capacity_value() {
+    const SIZE: usize = 128 * 1024;
+
+    let mut bytes = BytesMut::with_capacity(SIZE);
+
+    for _ in 0..SIZE {
+        bytes.put(0u8);
+    }
+
+    let _other = bytes.take();
+
+    bytes.reserve(16);
+    assert_eq!(bytes.capacity(), 64 * 1024);
+}
+
+#[test]
 fn inline_storage() {
     let mut bytes = BytesMut::with_capacity(inline_cap());
     let zero = [0u8; 64];
