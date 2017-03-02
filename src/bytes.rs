@@ -365,12 +365,7 @@ impl Bytes {
     pub fn new() -> Bytes {
         Bytes {
             inner: Inner2 {
-                inner: Inner {
-                    arc: AtomicPtr::new(ptr::null_mut()),
-                    ptr: ptr::null_mut(),
-                    len: 0,
-                    cap: 0,
-                }
+                inner: Inner::empty(),
             }
         }
     }
@@ -390,19 +385,9 @@ impl Bytes {
     /// ```
     #[inline]
     pub fn from_static(bytes: &'static [u8]) -> Bytes {
-        let ptr = bytes.as_ptr() as *mut u8;
-
         Bytes {
             inner: Inner2 {
-                inner: Inner {
-                    // `arc` won't ever store a pointer. Instead, use it to
-                    // track the fact that the `Bytes` handle is backed by a
-                    // static buffer.
-                    arc: AtomicPtr::new(KIND_STATIC as *mut Shared),
-                    ptr: ptr,
-                    len: bytes.len(),
-                    cap: bytes.len(),
-                }
+                inner: Inner::from_static(bytes),
             }
         }
     }
@@ -784,20 +769,10 @@ impl BytesMut {
     /// ```
     #[inline]
     pub fn with_capacity(capacity: usize) -> BytesMut {
-        if capacity <= INLINE_CAP {
-            unsafe {
-                // Using uninitialized memory is ~30% faster
-                BytesMut {
-                    inner: Inner2 {
-                        inner: Inner {
-                            arc: AtomicPtr::new(KIND_INLINE as *mut Shared),
-                            .. mem::uninitialized()
-                        },
-                    },
-                }
-            }
-        } else {
-            BytesMut::from(Vec::with_capacity(capacity))
+        BytesMut {
+            inner: Inner2 {
+                inner: Inner::with_capacity(capacity),
+            },
         }
     }
 
@@ -1186,21 +1161,10 @@ impl ops::DerefMut for BytesMut {
 }
 
 impl From<Vec<u8>> for BytesMut {
-    fn from(mut src: Vec<u8>) -> BytesMut {
-        let len = src.len();
-        let cap = src.capacity();
-        let ptr = src.as_mut_ptr();
-
-        mem::forget(src);
-
+    fn from(src: Vec<u8>) -> BytesMut {
         BytesMut {
             inner: Inner2 {
-                inner: Inner {
-                    arc: AtomicPtr::new(ptr::null_mut()),
-                    ptr: ptr,
-                    len: len,
-                    cap: cap,
-                }
+                inner: Inner::from_vec(src),
             },
         }
     }
@@ -1335,6 +1299,62 @@ impl<'a> IntoIterator for &'a BytesMut {
  */
 
 impl Inner {
+    #[inline]
+    fn empty() -> Inner {
+        Inner {
+            arc: AtomicPtr::new(ptr::null_mut()),
+            ptr: ptr::null_mut(),
+            len: 0,
+            cap: 0,
+        }
+    }
+
+    #[inline]
+    fn from_static(bytes: &'static [u8]) -> Inner {
+        let ptr = bytes.as_ptr() as *mut u8;
+
+        Inner {
+            // `arc` won't ever store a pointer. Instead, use it to
+            // track the fact that the `Bytes` handle is backed by a
+            // static buffer.
+            arc: AtomicPtr::new(KIND_STATIC as *mut Shared),
+            ptr: ptr,
+            len: bytes.len(),
+            cap: bytes.len(),
+        }
+    }
+
+    #[inline]
+    fn from_vec(mut src: Vec<u8>) -> Inner {
+        let len = src.len();
+        let cap = src.capacity();
+        let ptr = src.as_mut_ptr();
+
+        mem::forget(src);
+
+        Inner {
+            arc: AtomicPtr::new(ptr::null_mut()),
+            ptr: ptr,
+            len: len,
+            cap: cap,
+        }
+    }
+
+    #[inline]
+    fn with_capacity(capacity: usize) -> Inner {
+        if capacity <= INLINE_CAP {
+            unsafe {
+                // Using uninitialized memory is ~30% faster
+                Inner {
+                    arc: AtomicPtr::new(KIND_INLINE as *mut Shared),
+                    .. mem::uninitialized()
+                }
+            }
+        } else {
+            Inner::from_vec(Vec::with_capacity(capacity))
+        }
+    }
+
     /// Return a slice for the handle's view into the shared buffer
     #[inline]
     fn as_ref(&self) -> &[u8] {
