@@ -1,4 +1,4 @@
-use super::{Source, Writer};
+use super::{IntoBuf, Writer};
 use byteorder::ByteOrder;
 use iovec::IoVec;
 
@@ -219,8 +219,30 @@ pub trait BufMut {
     /// # Panics
     ///
     /// Panics if `self` does not have enough capacity to contain `src`.
-    fn put<S: Source>(&mut self, src: S) where Self: Sized {
-        src.copy_to_buf(self);
+    fn put<T: IntoBuf>(&mut self, src: T) where Self: Sized {
+        use super::Buf;
+
+        let mut src = src.into_buf();
+
+        assert!(self.remaining_mut() >= src.remaining());
+
+        while src.has_remaining() {
+            let l;
+
+            unsafe {
+                let s = src.bytes();
+                let d = self.bytes_mut();
+                l = cmp::min(s.len(), d.len());
+
+                ptr::copy_nonoverlapping(
+                    s.as_ptr(),
+                    d.as_mut_ptr(),
+                    l);
+            }
+
+            src.advance(l);
+            unsafe { self.advance_mut(l); }
+        }
     }
 
     /// Transfer bytes into `self` from `src` and advance the cursor by the
@@ -266,6 +288,52 @@ pub trait BufMut {
 
             unsafe { self.advance_mut(cnt); }
         }
+    }
+
+    /// Writes an unsigned 8 bit integer to `self`.
+    ///
+    /// The current position is advanced by 1.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::BufMut;
+    ///
+    /// let mut buf = vec![];
+    /// buf.put_u8(0x01);
+    /// assert_eq!(buf, b"\x01");
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// This function panics if there is not enough remaining capacity in
+    /// `self`.
+    fn put_u8(&mut self, n: u8) {
+        let src = [n];
+        self.put_slice(&src);
+    }
+
+    /// Writes a signed 8 bit integer to `self`.
+    ///
+    /// The current position is advanced by 1.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::BufMut;
+    ///
+    /// let mut buf = vec![];
+    /// buf.put_i8(0x01);
+    /// assert_eq!(buf, b"\x01");
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// This function panics if there is not enough remaining capacity in
+    /// `self`.
+    fn put_i8(&mut self, n: i8) {
+        let src = [n as u8];
+        self.put_slice(&src)
     }
 
     /// Writes an unsigned 16 bit integer to `self` in the specified byte order.

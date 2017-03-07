@@ -79,6 +79,14 @@ impl IntoBuf for Vec<u8> {
     }
 }
 
+impl<'a> IntoBuf for &'a Vec<u8> {
+    type Buf = io::Cursor<&'a [u8]>;
+
+    fn into_buf(self) -> Self::Buf {
+        io::Cursor::new(&self[..])
+    }
+}
+
 // Kind of annoying... but this impl is required to allow passing `&'static
 // [u8]` where for<'a> &'a T: IntoBuf is required.
 impl<'a> IntoBuf for &'a &'static [u8] {
@@ -97,14 +105,6 @@ impl<'a> IntoBuf for &'a &'static str {
     }
 }
 
-impl<'a> IntoBuf for &'a Vec<u8> {
-    type Buf = io::Cursor<&'a [u8]>;
-
-    fn into_buf(self) -> Self::Buf {
-        io::Cursor::new(&self[..])
-    }
-}
-
 impl IntoBuf for String {
     type Buf = io::Cursor<Vec<u8>>;
 
@@ -118,5 +118,21 @@ impl<'a> IntoBuf for &'a String {
 
     fn into_buf(self) -> Self::Buf {
         self.as_bytes().into_buf()
+    }
+}
+
+impl IntoBuf for u8 {
+    type Buf = Option<[u8; 1]>;
+
+    fn into_buf(self) -> Self::Buf {
+        Some([self])
+    }
+}
+
+impl IntoBuf for i8 {
+    type Buf = Option<[u8; 1]>;
+
+    fn into_buf(self) -> Self::Buf {
+        Some([self as u8; 1])
     }
 }

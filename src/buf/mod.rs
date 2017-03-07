@@ -23,7 +23,6 @@ mod chain;
 mod into_buf;
 mod iter;
 mod reader;
-mod source;
 mod take;
 mod writer;
 
@@ -34,6 +33,5 @@ pub use self::chain::Chain;
 pub use self::into_buf::IntoBuf;
 pub use self::iter::Iter;
 pub use self::reader::Reader;
-pub use self::source::Source;
 pub use self::take::Take;
 pub use self::writer::Writer;

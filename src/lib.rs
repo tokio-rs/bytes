@@ -83,7 +83,6 @@ pub use buf::{
 #[deprecated(since = "0.4.1", note = "moved to `buf` module")]
 #[doc(hidden)]
 pub use buf::{
-    Source,
     Reader,
     Writer,
     Take,
