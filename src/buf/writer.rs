@@ -7,6 +7,7 @@ use std::{cmp, io};
 /// This struct is generally created by calling `writer()` on `BufMut`. See
 /// documentation of [`writer()`](trait.BufMut.html#method.writer) for more
 /// details.
+#[derive(Debug)]
 pub struct Writer<B> {
     buf: B,
 }

@@ -26,6 +26,7 @@ use iovec::IoVec;
 /// [`Buf::chain`]: trait.Buf.html#method.chain
 /// [`Buf`]: trait.Buf.html
 /// [`BufMut`]: trait.BufMut.html
+#[derive(Debug)]
 pub struct Chain<T, U> {
     a: T,
     b: U,

@@ -22,6 +22,7 @@ use Buf;
 ///
 /// [`iter`]: trait.Buf.html#method.iter
 /// [`Buf`]: trait.Buf.html
+#[derive(Debug)]
 pub struct Iter<T> {
     inner: T,
 }

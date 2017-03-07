@@ -7,6 +7,7 @@ use std::{cmp, io};
 /// This struct is generally created by calling `reader()` on `Buf`. See
 /// documentation of [`reader()`](trait.Buf.html#method.reader) for more
 /// details.
+#[derive(Debug)]
 pub struct Reader<B> {
     buf: B,
 }

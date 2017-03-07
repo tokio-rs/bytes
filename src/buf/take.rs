@@ -6,6 +6,7 @@ use std::cmp;
 ///
 /// This struct is generally created by calling `take()` on `Buf`. See
 /// documentation of [`take()`](trait.Buf.html#method.take) for more details.
+#[derive(Debug)]
 pub struct Take<T> {
     inner: T,
     limit: usize,
