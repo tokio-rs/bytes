@@ -1298,6 +1298,28 @@ impl<'a> IntoIterator for &'a BytesMut {
     }
 }
 
+impl Extend<u8> for BytesMut {
+    fn extend<T>(&mut self, iter: T) where T: IntoIterator<Item = u8> {
+        let iter = iter.into_iter();
+
+        let (lower, _) = iter.size_hint();
+        self.reserve(lower);
+
+        for b in iter {
+            unsafe {
+                self.bytes_mut()[0] = b;
+                self.advance_mut(1);
+            }
+        }
+    }
+}
+
+impl<'a> Extend<&'a u8> for BytesMut {
+    fn extend<T>(&mut self, iter: T) where T: IntoIterator<Item = &'a u8> {
+        self.extend(iter.into_iter().map(|b| *b))
+    }
+}
+
 /*
  *
  * ===== Inner =====

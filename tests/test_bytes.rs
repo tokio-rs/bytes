@@ -291,6 +291,13 @@ fn inline_storage() {
 }
 
 #[test]
+fn extend() {
+    let mut bytes = BytesMut::with_capacity(0);
+    bytes.extend(LONG);
+    assert_eq!(*bytes, LONG[..]);
+}
+
+#[test]
 fn stress() {
     // Tests promoting a buffer from a vec -> shared in a concurrent situation
     use std::sync::{Arc, Barrier};
