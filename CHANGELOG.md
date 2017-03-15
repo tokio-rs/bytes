@@ -1,5 +1,5 @@
 
-# 0.4.1 (unreleased)
+# 0.4.1 (March 15, 2017)
 
 * Expose `buf` module and have most types available from there vs. root.
 * Implement `IntoBuf` for `T: Buf`.
