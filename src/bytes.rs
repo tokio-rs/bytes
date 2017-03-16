@@ -107,9 +107,23 @@ pub struct Bytes {
 ///
 /// `BytesMut` represents a unique view into a potentially shared memory region.
 /// Given the uniqueness guarantee, owners of `BytesMut` handles are able to
-/// mutate the memory.
+/// mutate the memory. It is similar to a `Vec<u8>` but with less copies and
+/// allocations.
 ///
 /// For more detail, see [Bytes](struct.Bytes.html).
+///
+/// # Growth
+///
+/// One key difference from `Vec<u8>` is that most operations **do not
+/// implicitly grow the buffer**. This means that calling `my_bytes.put("hello
+/// world");` could panic if `my_bytes` does not have enough capacity. Before
+/// writing to the buffer, ensure that there is enough remaining capacity by
+/// calling `my_bytes.remaining_mut()`. In general, avoiding calls to `reserve`
+/// is preferable.
+///
+/// The only exception is `extend` which implicitly reserves required capacity.
+///
+/// # Examples
 ///
 /// ```
 /// use bytes::{BytesMut, BufMut};
