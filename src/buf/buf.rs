@@ -9,7 +9,8 @@ use std::{cmp, io, ptr};
 /// A buffer stores bytes in memory such that read operations are infallible.
 /// The underlying storage may or may not be in contiguous memory. A `Buf` value
 /// is a cursor into the buffer. Reading from `Buf` advances the cursor
-/// position.
+/// position. It can be thought of as an efficient `Iterator` for collections of
+/// bytes.
 ///
 /// The simplest `Buf` is a `Cursor` wrapping a `[u8]`.
 ///
