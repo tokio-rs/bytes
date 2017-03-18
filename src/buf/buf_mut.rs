@@ -59,7 +59,7 @@ pub trait BufMut {
     /// further into the underlying buffer.
     ///
     /// This function is unsafe because there is no guarantee that the bytes
-    /// being advanced to have been initialized.
+    /// being advanced past have been initialized.
     ///
     /// # Examples
     ///
@@ -90,9 +90,9 @@ pub trait BufMut {
     ///
     /// # Implementer notes
     ///
-    /// It is recommended for implementations of `advance_mut` to panic if `cnt
-    /// > self.remaining_mut()`. If the implementation does not panic, the call
-    /// must behave as if `cnt == self.remaining_mut()`.
+    /// It is recommended for implementations of `advance_mut` to panic if
+    /// `cnt > self.remaining_mut()`. If the implementation does not panic,
+    /// the call must behave as if `cnt == self.remaining_mut()`.
     ///
     /// A call with `cnt == 0` should never panic and be a no-op.
     unsafe fn advance_mut(&mut self, cnt: usize);
