@@ -699,23 +699,25 @@ impl<T: AsMut<[u8]> + AsRef<[u8]>> BufMut for io::Cursor<T> {
 }
 
 impl BufMut for Vec<u8> {
+    #[inline]
     fn remaining_mut(&self) -> usize {
         usize::MAX - self.len()
     }
 
+    #[inline]
     unsafe fn advance_mut(&mut self, cnt: usize) {
-        let cap = self.capacity();
-        let len = self.len().checked_add(cnt)
-            .expect("overflow");
-
-        if len > cap {
-            // Reserve additional
-            self.reserve(cap - len);
+        let len = self.len();
+        let remaining = self.capacity() - len;
+        if cnt > remaining {
+            // Reserve additional capacity, and ensure that the total length
+            // will not overflow usize.
+            self.reserve(cnt - remaining);
         }
 
-        self.set_len(len);
+        self.set_len(len + cnt);
     }
 
+    #[inline]
     unsafe fn bytes_mut(&mut self) -> &mut [u8] {
         use std::slice;
 
