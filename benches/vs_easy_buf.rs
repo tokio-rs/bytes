@@ -85,7 +85,7 @@ mod bench_easy_buf {
 
 mod bench_bytes {
     use test::{self, Bencher};
-    use bytes::{BytesMut, BufMut};
+    use bytes::{Bytes, BytesMut, BufMut};
 
     #[bench]
     fn alloc_small(b: &mut Bencher) {
@@ -107,6 +107,18 @@ mod bench_bytes {
     fn alloc_big(b: &mut Bencher) {
         b.iter(|| {
             test::black_box(BytesMut::with_capacity(4096));
+        })
+    }
+
+    #[bench]
+    fn split_off_and_drop(b: &mut Bencher) {
+        b.iter(|| {
+            for _ in 0..1024 {
+                let v = vec![10, 20, 30, 40];
+                let mut b = Bytes::from(v);
+                test::black_box(b.split_off(3));
+                test::black_box(b);
+            }
         })
     }
 
