@@ -1,5 +1,6 @@
 use {IntoBuf, Buf, BufMut};
 use buf::Iter;
+use debug;
 
 use std::{cmp, fmt, mem, hash, ops, slice, ptr, usize};
 use std::borrow::Borrow;
@@ -722,7 +723,7 @@ impl Eq for Bytes {
 
 impl fmt::Debug for Bytes {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        fmt::Debug::fmt(&self.inner.as_ref(), fmt)
+        fmt::Debug::fmt(&debug::BsDebug(&self.inner.as_ref()), fmt)
     }
 }
 
@@ -1260,7 +1261,7 @@ impl Eq for BytesMut {
 
 impl fmt::Debug for BytesMut {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        fmt::Debug::fmt(self.inner.as_ref(), fmt)
+        fmt::Debug::fmt(&debug::BsDebug(&self.inner.as_ref()), fmt)
     }
 }
 
