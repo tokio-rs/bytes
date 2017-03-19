@@ -135,6 +135,50 @@ fn split_off_uninitialized() {
 }
 
 #[test]
+fn split_off_to_loop() {
+    let s = b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+    for i in 0..(s.len() + 1) {
+        {
+            let mut bytes = Bytes::from(&s[..]);
+            let off = bytes.split_off(i);
+            assert_eq!(i, bytes.len());
+            let mut sum = Vec::new();
+            sum.extend(&bytes);
+            sum.extend(&off);
+            assert_eq!(&s[..], &sum[..]);
+        }
+        {
+            let mut bytes = BytesMut::from(&s[..]);
+            let off = bytes.split_off(i);
+            assert_eq!(i, bytes.len());
+            let mut sum = Vec::new();
+            sum.extend(&bytes);
+            sum.extend(&off);
+            assert_eq!(&s[..], &sum[..]);
+        }
+        {
+            let mut bytes = Bytes::from(&s[..]);
+            let off = bytes.split_to(i);
+            assert_eq!(i, off.len());
+            let mut sum = Vec::new();
+            sum.extend(&off);
+            sum.extend(&bytes);
+            assert_eq!(&s[..], &sum[..]);
+        }
+        {
+            let mut bytes = BytesMut::from(&s[..]);
+            let off = bytes.split_to(i);
+            assert_eq!(i, off.len());
+            let mut sum = Vec::new();
+            sum.extend(&off);
+            sum.extend(&bytes);
+            assert_eq!(&s[..], &sum[..]);
+        }
+    }
+}
+
+#[test]
 fn split_to_1() {
     // Inline
     let mut a = Bytes::from(SHORT);
