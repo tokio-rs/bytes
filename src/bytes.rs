@@ -1117,18 +1117,12 @@ impl BufMut for BytesMut {
 
     #[inline]
     unsafe fn advance_mut(&mut self, cnt: usize) {
-        let new_len = self.len() + cnt;
-
-        // This call will panic if `cnt` is too big
-        self.inner.set_len(new_len);
+        self.inner.advance_mut(cnt);
     }
 
     #[inline]
     unsafe fn bytes_mut(&mut self) -> &mut [u8] {
-        let len = self.len();
-
-        // This will never panic as `len` can never become invalid
-        &mut self.inner.as_raw()[len..]
+        self.inner.bytes_mut()
     }
 
     #[inline]
@@ -1440,6 +1434,19 @@ impl Inner {
     }
 
     #[inline]
+    unsafe fn bytes_mut(&mut self) -> &mut [u8] {
+        if self.is_inline() {
+            let len = self.inline_len();
+            let ptr = self.inline_ptr().offset(len as isize);
+            slice::from_raw_parts_mut(ptr, INLINE_CAP - len)
+        } else {
+            let len = self.len;
+            let ptr = self.ptr.offset(len as isize);
+            slice::from_raw_parts_mut(ptr, self.cap - len)
+        }
+    }
+
+    #[inline]
     fn len(&self) -> usize {
         if self.is_inline() {
             self.inline_len()
@@ -1479,6 +1486,19 @@ impl Inner {
         } else {
             assert!(len <= self.cap);
             self.len = len;
+        }
+    }
+
+    #[inline]
+    unsafe fn advance_mut(&mut self, cnt: usize) {
+        if self.is_inline() {
+            let new_len = self.inline_len() + cnt;
+            assert!(new_len <= INLINE_CAP);
+            self.set_inline_len(new_len);
+        } else {
+            let new_len = self.len + cnt;
+            assert!(new_len <= self.cap);
+            self.len = new_len;
         }
     }
 
