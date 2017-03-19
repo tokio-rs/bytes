@@ -1942,7 +1942,7 @@ impl Drop for Inner2 {
 fn release_shared(ptr: *mut Shared) {
     // `Shared` storage... follow the drop steps from Arc.
     unsafe {
-        if (*ptr).ref_count.fetch_sub(1, Release) != 1 {
+        if (*ptr).ref_count.load(Relaxed) != 1 && (*ptr).ref_count.fetch_sub(1, Release) != 1 {
             return;
         }
 
