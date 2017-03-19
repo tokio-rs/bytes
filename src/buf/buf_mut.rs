@@ -153,8 +153,10 @@ pub trait BufMut {
     ///
     /// # Implementer notes
     ///
-    /// This function should never panic. Once the end of the buffer is reached,
-    /// i.e., `BufMut::remaining_mut` returns 0, calls to `bytes_mut` should
+    /// This function should never panic. `bytes_mut` should return an empty
+    /// slice **if and only if** `remaining_mut` returns 0. In other words,
+    /// `bytes_mut` returning an empty slice implies that `remaining_mut` will
+    /// return 0 and `remaining_mut` returning 0 implies that `bytes_mut` will
     /// return an empty slice.
     unsafe fn bytes_mut(&mut self) -> &mut [u8];
 
