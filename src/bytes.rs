@@ -628,6 +628,40 @@ impl Bytes {
             Err(self)
         }
     }
+
+    /// Attempt to extract the underlying vec.
+    ///
+    /// If this object is backed by `Vec` and `Vec` is not shared
+    /// by other `Bytes` instances, that vec is returned.
+    ///
+    /// Otherwise new `Vec` is allocated and data is copied into it.
+    ///
+    /// Note that this `Bytes` data can start at non-zero offset
+    /// of the vector (e. g. after `split_to` call). In that case data
+    /// will be memmoved to the beginning of the vector before returning.
+    ///
+    /// This operation is `O(N)` in the worst case and `O(1)` in the best.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Bytes;
+    ///
+    /// let vec = vec![17, 19];
+    ///
+    /// // copy pointer for the test
+    /// let ptr = vec.as_slice().as_ptr();
+    ///
+    /// let vec = Bytes::from(vec).into_vec();
+    ///
+    /// assert_eq!(vec![17, 19], vec);
+    ///
+    /// // memory is not allocated for the result, it is the same object
+    /// assert_eq!(ptr, vec.as_slice().as_ptr());
+    /// ```
+    pub fn into_vec(self) -> Vec<u8> {
+        self.inner.into_vec()
+    }
 }
 
 impl IntoBuf for Bytes {
@@ -1995,6 +2029,54 @@ unsafe impl Sync for Inner {}
  * ===== impl Inner2 =====
  *
  */
+
+impl Inner2 {
+
+    fn into_vec(self) -> Vec<u8> {
+        let kind = self.inner.kind();
+        if kind == KIND_VEC {
+            let r = unsafe {
+                Vec::from_raw_parts(self.inner.ptr, self.inner.len, self.inner.cap)
+            };
+
+            // no need to call the destructor, we took the data
+            mem::forget(self);
+
+            return r;
+        }
+
+        if kind == KIND_ARC {
+            let arc = self.arc.load(Relaxed);
+            if unsafe { (*arc).is_unique() } {
+                unsafe {
+                    // copy variables because we forget `self` before we need them
+                    let self_ptr = self.ptr;
+                    let self_len = self.len;
+
+                    let shared: Box<Shared> = mem::transmute(arc);
+
+                    // We took ownership of both `Shared` and `Vec`,
+                    // no need to call destructor.
+                    //
+                    // Call `forget` early to make sure there won't be double free
+                    // in case code below panics (which shouldn't).
+                    mem::forget(self);
+
+                    let shared: Shared = *shared;
+                    let mut r = shared.vec;
+                    // offset of data within vec
+                    let offset = self_ptr as usize - r.as_slice().as_ptr() as usize;
+                    r.truncate(offset + self_len);
+                    r.drain(..offset);
+                    return r;
+                }
+            }
+        }
+
+        // default impl
+        self.as_ref().to_owned()
+    }
+}
 
 impl ops::Deref for Inner2 {
     type Target = Inner;
