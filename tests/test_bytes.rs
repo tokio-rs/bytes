@@ -298,6 +298,9 @@ fn extend() {
 }
 
 #[test]
+// Only run these tests on little endian systems. CI uses qemu for testing
+// little endian... and qemu doesn't really support threading all that well.
+#[cfg(target_endian = "little")]
 fn stress() {
     // Tests promoting a buffer from a vec -> shared in a concurrent situation
     use std::sync::{Arc, Barrier};
@@ -308,7 +311,7 @@ fn stress() {
 
     for i in 0..ITERS {
         let data = [i as u8; 256];
-        let buf = Arc::new(BytesMut::from(&data[..]));
+        let buf = Arc::new(Bytes::from(&data[..]));
 
         let barrier = Arc::new(Barrier::new(THREADS));
         let mut joins = Vec::with_capacity(THREADS);
@@ -319,7 +322,8 @@ fn stress() {
 
             joins.push(thread::spawn(move || {
                 c.wait();
-                let _buf = buf.clone();
+                let buf: Bytes = (*buf).clone();
+                drop(buf);
             }));
         }
 

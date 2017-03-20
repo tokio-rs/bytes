@@ -30,8 +30,8 @@ matrix:
     # Run tests on some extra platforms
     - env: TARGET=i686-unknown-linux-gnu
     - env: TARGET=armv7-unknown-linux-gnueabihf
-    - env: TARGET=powerpc-unknown-linux-gnu
-    - env: TARGET=powerpc64-unknown-linux-gnu
+    - env: RUST_TEST_THREADS=1 TARGET=powerpc-unknown-linux-gnu
+    - env: RUST_TEST_THREADS=1 TARGET=powerpc64-unknown-linux-gnu
 
 before_install: set -e
 
