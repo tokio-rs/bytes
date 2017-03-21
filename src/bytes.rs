@@ -806,7 +806,7 @@ impl<'a> IntoBuf for &'a Bytes {
 impl Clone for Bytes {
     fn clone(&self) -> Bytes {
         Bytes {
-            inner: self.inner.shallow_clone(),
+            inner: self.inner.shallow_clone(false),
         }
     }
 }
@@ -1803,7 +1803,7 @@ impl Inner {
     }
 
     fn split_off(&mut self, at: usize) -> Inner {
-        let mut other = self.shallow_clone();
+        let mut other = self.shallow_clone(true);
 
         unsafe {
             other.set_start(at);
@@ -1814,7 +1814,7 @@ impl Inner {
     }
 
     fn split_to(&mut self, at: usize) -> Inner {
-        let mut other = self.shallow_clone();
+        let mut other = self.shallow_clone(true);
 
         unsafe {
             other.set_end(at);
@@ -1880,7 +1880,7 @@ impl Inner {
                     // on 64 bit systems and will only happen on 32 bit systems
                     // when shifting past 134,217,727 bytes. As such, we don't
                     // worry too much about performance here.
-                    let _ = self.shallow_clone();
+                    let _ = self.shallow_clone(true);
                 }
             }
 
@@ -1940,12 +1940,14 @@ impl Inner {
     /// Increments the ref count. This should only be done if it is known that
     /// it can be done safely. As such, this fn is not public, instead other
     /// fns will use this one while maintaining the guarantees.
+    /// Parameter `mut_self` should only be set to `true` if caller holds
+    /// `&mut self` reference.
     ///
     /// "Safely" is defined as not exposing two `BytesMut` values that point to
     /// the same byte window.
     ///
     /// This function is thread safe.
-    fn shallow_clone(&self) -> Inner {
+    fn shallow_clone(&self, mut_self: bool) -> Inner {
         // Always check `inline` first, because if the handle is using inline
         // data storage, all of the `Inner` struct fields will be gibberish.
         if self.is_inline() {
@@ -2004,6 +2006,16 @@ impl Inner {
                     // The pointer should be aligned, so this assert should
                     // always succeed.
                     debug_assert!(0 == (shared as usize & 0b11));
+
+                    // If there are no references to self in other threads,
+                    // expensive atomic operations can be avoided.
+                    if mut_self {
+                        self.arc.store(shared, Relaxed);
+                        return Inner {
+                            arc: AtomicPtr::new(shared),
+                            .. *self
+                        };
+                    }
 
                     // Try compare & swapping the pointer into the `arc` field.
                     // `Release` is used synchronize with other threads that
