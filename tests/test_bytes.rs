@@ -43,7 +43,7 @@ fn from_slice() {
 #[test]
 fn fmt() {
     let a = format!("{:?}", Bytes::from(&b"abcdefg"[..]));
-    let b = format!("{:?}", b"abcdefg");
+    let b = "b\"abcdefg\"";
 
     assert_eq!(a, b);
 
