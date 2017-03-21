@@ -239,6 +239,28 @@ fn split_to_uninitialized() {
 }
 
 #[test]
+fn split_off_to_at_gt_len() {
+    fn make_bytes() -> Bytes {
+        let mut bytes = BytesMut::with_capacity(100);
+        bytes.put_slice(&[10, 20, 30, 40]);
+        bytes.freeze()
+    }
+
+    use std::panic;
+
+    make_bytes().split_to(4);
+    make_bytes().split_off(4);
+
+    assert!(panic::catch_unwind(move || {
+        make_bytes().split_to(5);
+    }).is_err());
+
+    assert!(panic::catch_unwind(move || {
+        make_bytes().split_off(5);
+    }).is_err());
+}
+
+#[test]
 fn fns_defined_for_bytes_mut() {
     let mut bytes = BytesMut::from(&b"hello world"[..]);
 

@@ -549,6 +549,8 @@ impl Bytes {
     ///
     /// Panics if `at > len`
     pub fn split_off(&mut self, at: usize) -> Bytes {
+        assert!(at <= self.len());
+
         if at == self.len() {
             return Bytes::new();
         }
@@ -588,6 +590,8 @@ impl Bytes {
     ///
     /// Panics if `at > len`
     pub fn split_to(&mut self, at: usize) -> Bytes {
+        assert!(at <= self.len());
+
         if at == self.len() {
             return mem::replace(self, Bytes::new());
         }
