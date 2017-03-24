@@ -665,6 +665,7 @@ impl AsRef<[u8]> for Bytes {
 impl ops::Deref for Bytes {
     type Target = [u8];
 
+    #[inline]
     fn deref(&self) -> &[u8] {
         self.inner.as_ref()
     }
@@ -1170,12 +1171,14 @@ impl AsRef<[u8]> for BytesMut {
 impl ops::Deref for BytesMut {
     type Target = [u8];
 
+    #[inline]
     fn deref(&self) -> &[u8] {
         self.as_ref()
     }
 }
 
 impl ops::DerefMut for BytesMut {
+    #[inline]
     fn deref_mut(&mut self) -> &mut [u8] {
         self.inner.as_mut()
     }
@@ -1999,12 +2002,14 @@ unsafe impl Sync for Inner {}
 impl ops::Deref for Inner2 {
     type Target = Inner;
 
+    #[inline]
     fn deref(&self) -> &Inner {
         &self.inner
     }
 }
 
 impl ops::DerefMut for Inner2 {
+    #[inline]
     fn deref_mut(&mut self) -> &mut Inner {
         &mut self.inner
     }
