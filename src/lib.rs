@@ -93,3 +93,8 @@ mod debug;
 pub use bytes::{Bytes, BytesMut};
 
 pub use byteorder::{ByteOrder, BigEndian, LittleEndian};
+
+// Optional Serde support
+#[cfg(feature = "serde")]
+#[doc(hidden)]
+pub mod serde;

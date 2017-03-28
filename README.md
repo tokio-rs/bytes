@@ -24,6 +24,15 @@ extern crate bytes;
 use bytes::{Bytes, BytesMut, Buf, BufMut};
 ```
 
+## Serde support
+
+Serde support is optional and disabled by default. To enable use the feature `serde`.
+
+```toml
+[dependencies]
+bytes = { version = "0.4", features = ["serde"] }
+```
+
 # License
 
 `bytes` is primarily distributed under the terms of both the MIT license and the
