@@ -364,6 +364,15 @@ fn extend() {
 }
 
 #[test]
+fn from_static() {
+    let mut a = Bytes::from_static(b"ab");
+    let b = a.split_off(1);
+
+    assert_eq!(a, b"a"[..]);
+    assert_eq!(b, b"b"[..]);
+}
+
+#[test]
 // Only run these tests on little endian systems. CI uses qemu for testing
 // little endian... and qemu doesn't really support threading all that well.
 #[cfg(target_endian = "little")]
