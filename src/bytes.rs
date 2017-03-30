@@ -1890,8 +1890,8 @@ impl Inner {
     #[inline]
     fn is_shared(&mut self) -> bool {
         match self.kind() {
-            KIND_INLINE | KIND_ARC => true,
-            _ => false,
+            KIND_VEC => false,
+            _ => true,
         }
     }
 
