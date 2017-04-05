@@ -1164,6 +1164,16 @@ impl BufMut for BytesMut {
             self.advance_mut(len);
         }
     }
+
+    #[inline]
+    fn put_u8(&mut self, n: u8) {
+        self.inner.put_u8(n);
+    }
+
+    #[inline]
+    fn put_i8(&mut self, n: i8) {
+        self.put_u8(n as u8);
+    }
 }
 
 impl IntoBuf for BytesMut {
@@ -1460,6 +1470,25 @@ impl Inner {
             slice::from_raw_parts_mut(self.inline_ptr(), INLINE_CAP)
         } else {
             slice::from_raw_parts_mut(self.ptr, self.cap)
+        }
+    }
+
+    /// Insert a byte into the next slot and advance the len by 1.
+    #[inline]
+    fn put_u8(&mut self, n: u8) {
+        if self.is_inline() {
+            let len = self.inline_len();
+            assert!(len < INLINE_CAP);
+            unsafe {
+                *self.inline_ptr().offset(len as isize) = n;
+            }
+            self.set_inline_len(len + 1);
+        } else {
+            assert!(self.len < self.cap);
+            unsafe {
+                *self.ptr.offset(self.len as isize) = n;
+            }
+            self.len += 1;
         }
     }
 
