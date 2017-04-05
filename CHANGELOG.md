@@ -1,3 +1,8 @@
+# 0.4.2 (April, 5, 2017)
+
+* Misc performance tweaks
+* Improved `Debug` implementation for `Bytes`
+* Avoid some incorrect assert panics
 
 # 0.4.1 (March 15, 2017)
 
