@@ -29,12 +29,12 @@
 //! buf.put(&b"hello world"[..]);
 //! buf.put_u16::<BigEndian>(1234);
 //!
-//! let a = buf.drain();
+//! let a = buf.take();
 //! assert_eq!(a, b"hello world\x04\xD2"[..]);
 //!
 //! buf.put(&b"goodbye world"[..]);
 //!
-//! let b = buf.drain();
+//! let b = buf.take();
 //! assert_eq!(b, b"goodbye world"[..]);
 //!
 //! assert_eq!(buf.capacity(), 998);
