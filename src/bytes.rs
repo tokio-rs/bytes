@@ -1111,7 +1111,7 @@ impl BytesMut {
     /// buf.put(&[0; 64][..]);
     ///
     /// let ptr = buf.as_ptr();
-    /// let other = buf.drain();
+    /// let other = buf.take();
     ///
     /// assert!(buf.is_empty());
     /// assert_eq!(buf.capacity(), 64);
