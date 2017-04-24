@@ -87,13 +87,13 @@ use std::sync::atomic::Ordering::{Relaxed, Acquire, Release, AcqRel};
 /// underlying memory slice and may not be mutated, `BytesMut` handles are
 /// guaranteed to be the only handle able to view that slice of memory. As such,
 /// `BytesMut` handles are able to mutate the underlying memory. Note that
-/// holding a unique view to a region of memory does not mean that there are not
+/// holding a unique view to a region of memory does not mean that there are no
 /// other `Bytes` and `BytesMut` handles with disjoint views of the underlying
 /// memory.
 ///
 /// # Inline bytes.
 ///
-/// As an opitmization, when the slice referenced by a `Bytes` or `BytesMut`
+/// As an optimization, when the slice referenced by a `Bytes` or `BytesMut`
 /// handle is small enough [1], `Bytes` will avoid the allocation by inlining
 /// the slice directly in the handle. In this case, a clone is no longer
 /// "shallow" and the data will be copied.
