@@ -373,6 +373,69 @@ fn from_static() {
 }
 
 #[test]
+fn try_attach_static() {
+    let bytes = Bytes::from_static(b"abcdef");
+    let slice = &bytes[1..3];
+    let attached = bytes.try_attach(slice).unwrap();
+    assert_eq!(Bytes::from_static(b"bc"), attached);
+    assert_eq!(unsafe { (&bytes[..]).as_ptr().offset(1) }, (&attached[..]).as_ptr());
+}
+
+#[test]
+fn try_attach_static_empty() {
+    let bytes = Bytes::from_static(b"abcdef");
+    let attached = bytes.try_attach(&[]).unwrap();
+    assert_eq!(Bytes::from_static(b""), attached);
+}
+
+#[test]
+fn try_attach_vec() {
+    let bytes = Bytes::from(b"abcdef".to_vec());
+    let slice = &bytes[1..3];
+    let attached = bytes.try_attach(slice).unwrap();
+    assert_eq!(Bytes::from_static(b"bc"), attached);
+    assert_eq!(unsafe { (&bytes[..]).as_ptr().offset(1) }, (&attached[..]).as_ptr());
+}
+
+#[test]
+fn try_attach_vec_empty() {
+    let bytes = Bytes::from(b"abcdef".to_vec());
+    let attached = bytes.try_attach(&[]).unwrap();
+    assert_eq!(Bytes::from_static(b""), attached);
+}
+
+#[test]
+fn try_attach_arc() {
+    let bytes = Bytes::from(b"abcdefghijklmnopqrstuvwxyz".to_vec()).clone();
+    let slice = &bytes[1..3];
+    let attached = bytes.try_attach(slice).unwrap();
+    assert_eq!(Bytes::from_static(b"bc"), attached);
+    assert_eq!(unsafe { (&bytes[..]).as_ptr().offset(1) }, (&attached[..]).as_ptr());
+}
+
+#[test]
+fn try_attach_arc_empty() {
+    let bytes = Bytes::from(&b"abcdef"[..]);
+    let attached = bytes.try_attach(&[]).unwrap();
+    assert_eq!(Bytes::from_static(b""), attached);
+}
+
+#[test]
+fn try_attach_inline() {
+    let bytes = Bytes::from(&b"abcdef"[..]);
+    let slice = &bytes[1..3];
+    let attached = bytes.try_attach(slice).unwrap();
+    assert_eq!(Bytes::from_static(b"bc"), attached);
+}
+
+#[test]
+fn try_attach_inline_empty() {
+    let bytes = Bytes::from(&b"abcdef"[..]);
+    let attached = bytes.try_attach(&[]).unwrap();
+    assert_eq!(Bytes::from_static(b""), attached);
+}
+
+#[test]
 // Only run these tests on little endian systems. CI uses qemu for testing
 // little endian... and qemu doesn't really support threading all that well.
 #[cfg(target_endian = "little")]
