@@ -713,7 +713,7 @@ impl BufMut for Vec<u8> {
         if cnt > remaining {
             // Reserve additional capacity, and ensure that the total length
             // will not overflow usize.
-            self.reserve(cnt - remaining);
+            self.reserve(cnt);
         }
 
         self.set_len(len + cnt);
