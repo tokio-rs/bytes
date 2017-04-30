@@ -1,3 +1,9 @@
+# 0.4.3 (April, 30, 2017)
+
+* Fix Vec::advance_mut bug
+* Bump minimum Rust version to 1.15
+* Misc performance tweaks
+
 # 0.4.2 (April, 5, 2017)
 
 * Misc performance tweaks
