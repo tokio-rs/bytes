@@ -1136,6 +1136,27 @@ impl BytesMut {
     pub fn reserve(&mut self, additional: usize) {
         self.inner.reserve(additional)
     }
+
+    /// Append given bytes to this object.
+    ///
+    /// If this `BytesMut` object has not enough capacity, it is resized first.
+    /// So unlike `put_slice` operation, `extend_from_slice` does not panic.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::BytesMut;
+    ///
+    /// let mut buf = BytesMut::with_capacity(0);
+    /// buf.extend_from_slice(b"aaabbb");
+    /// buf.extend_from_slice(b"cccddd");
+    ///
+    /// assert_eq!(b"aaabbbcccddd", &buf[..]);
+    /// ```
+    pub fn extend_from_slice(&mut self, extend: &[u8]) {
+        self.reserve(extend.len());
+        self.put_slice(extend);
+    }
 }
 
 impl BufMut for BytesMut {
