@@ -648,6 +648,29 @@ impl Bytes {
             Err(self)
         }
     }
+
+    /// Convert this object into `BytesMut`.
+    ///
+    /// If `Bytes` contains allocated memory, and memory is shared with another object,
+    /// memory is copied first, so this operation could take linear time.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::{Bytes, BytesMut, BufMut};
+    ///
+    /// let b = Bytes::from(&b"hi"[..]);
+    /// let mut m: BytesMut = b.into_mut();
+    /// m.reserve(10);
+    /// m.put_slice(b" there");
+    /// assert_eq!(b"hi there", &m[..]);
+    /// ```
+    pub fn into_mut(self) -> BytesMut {
+        match self.try_mut() {
+            Ok(bytes_mut) => bytes_mut,
+            Err(bytes) => BytesMut::from(&bytes[..]),
+        }
+    }
 }
 
 impl IntoBuf for Bytes {
