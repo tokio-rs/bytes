@@ -742,6 +742,13 @@ impl Ord for Bytes {
 impl Eq for Bytes {
 }
 
+impl Default for Bytes {
+    #[inline]
+    fn default() -> Bytes {
+        Bytes::new()
+    }
+}
+
 impl fmt::Debug for Bytes {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt::Debug::fmt(&debug::BsDebug(&self.inner.as_ref()), fmt)
@@ -1290,6 +1297,13 @@ impl Ord for BytesMut {
 }
 
 impl Eq for BytesMut {
+}
+
+impl Default for BytesMut {
+    #[inline]
+    fn default() -> BytesMut {
+        BytesMut::with_capacity(0)
+    }
 }
 
 impl fmt::Debug for BytesMut {
