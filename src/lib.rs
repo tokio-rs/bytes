@@ -62,7 +62,7 @@
 //! ## Relation with `Read` and `Write`
 //!
 //! At first glance, it may seem that `Buf` and `BufMut` overlap in
-//! functionality with `std::io::Ready` and `std::io::Write`. However, they
+//! functionality with `std::io::Read` and `std::io::Write`. However, they
 //! serve different purposes. A buffer is the value that is provided as an
 //! argument to `Read::read` and `Write::write`. `Read` and `Write` may then
 //! perform a syscall, which has the potential of failing. Operations on `Buf`
