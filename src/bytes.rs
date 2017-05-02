@@ -648,6 +648,62 @@ impl Bytes {
             Err(self)
         }
     }
+
+    /// When slice is a subslice of data allocated within `self`, return `Bytes` object
+    /// that shares data of self.
+    ///
+    /// This operation is useful with some external API which accepts a slice
+    /// and returns a subslice, and doesn't use bytes crate (e. g. `str::split`).
+    /// `Bytes` object can be converted to `&[u8]` passed to that API, and then resulting
+    /// slice can be converted back to `Bytes` with this function without allocation.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Bytes;
+    ///
+    /// let vec = vec![10, 20, 30, 40, 50];
+    /// let vec_ptr = vec.as_ptr();
+    ///
+    /// let bytes = Bytes::from(vec);
+    /// assert_eq!(vec_ptr, (&bytes[..]).as_ptr());
+    ///
+    /// let slice = &bytes[1..3];
+    ///
+    /// let bytes_copy = bytes.try_attach(slice).unwrap();
+    ///
+    /// assert_eq!(unsafe { vec_ptr.offset(1) }, (&bytes_copy[..]).as_ptr());
+    /// ```
+    pub fn try_attach(&self, slice: &[u8]) -> Option<Bytes> {
+        if slice.is_empty() {
+            // Convenient shortcut, so caller can safely call `unwrap`
+            // even if empty slice is created not as subslice of data
+            // allocated in self.
+            return Some(Bytes::new());
+        }
+
+        let self_slice = self.inner.inner.as_ref();
+
+        unsafe {
+            if slice.as_ptr() >= self_slice.as_ptr()
+                && slice.as_ptr().offset(slice.len() as isize)
+                    <= self_slice.as_ptr().offset(self_slice.len() as isize)
+            {
+                if self.inner.inner.kind() == KIND_INLINE {
+                    Some(BytesMut::from_inline(slice).freeze())
+                } else {
+                    let mut bytes = self.clone();
+                    debug_assert!(bytes.inner.inner.kind() == KIND_ARC
+                        || bytes.inner.inner.kind() == KIND_STATIC);
+                    bytes.inner.inner.ptr = slice.as_ptr() as *mut _;
+                    bytes.inner.inner.len = slice.len();
+                    Some(bytes)
+                }
+            } else {
+                None
+            }
+        }
+    }
 }
 
 impl IntoBuf for Bytes {
@@ -1181,6 +1237,25 @@ impl BytesMut {
         self.reserve(extend.len());
         self.put_slice(extend);
     }
+
+    fn from_inline(src: &[u8]) -> BytesMut {
+        assert!(src.len() <= INLINE_CAP);
+
+        unsafe {
+            let mut inner: Inner = mem::uninitialized();
+
+            // Set inline mask
+            inner.arc = AtomicPtr::new(KIND_INLINE as *mut Shared);
+            inner.set_inline_len(src.len());
+            inner.as_raw()[0..src.len()].copy_from_slice(src);
+
+            BytesMut {
+                inner: Inner2 {
+                    inner: inner,
+                }
+            }
+        }
+    }
 }
 
 impl BufMut for BytesMut {
@@ -1287,20 +1362,7 @@ impl<'a> From<&'a [u8]> for BytesMut {
         let len = src.len();
 
         if len <= INLINE_CAP {
-            unsafe {
-                let mut inner: Inner = mem::uninitialized();
-
-                // Set inline mask
-                inner.arc = AtomicPtr::new(KIND_INLINE as *mut Shared);
-                inner.set_inline_len(len);
-                inner.as_raw()[0..len].copy_from_slice(src);
-
-                BytesMut {
-                    inner: Inner2 {
-                        inner: inner,
-                    }
-                }
-            }
+            BytesMut::from_inline(src)
         } else {
             let mut buf = BytesMut::with_capacity(src.len());
             let src: &[u8] = src.as_ref();
