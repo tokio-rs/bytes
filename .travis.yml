@@ -33,6 +33,9 @@ matrix:
     - env: RUST_TEST_THREADS=1 TARGET=powerpc-unknown-linux-gnu
     - env: RUST_TEST_THREADS=1 TARGET=powerpc64-unknown-linux-gnu
 
+    # Serde implementation
+    - env: EXTRA_ARGS="--features serde"
+
 before_install: set -e
 
 install:
