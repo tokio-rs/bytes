@@ -825,6 +825,30 @@ impl BytesMut {
         }
     }
 
+    /// Create a new `BytesMut` with default capacity.
+    ///
+    /// Resulting object has length 0 and unspecified capacity.
+    /// This function does not allocate.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::{BytesMut, BufMut};
+    ///
+    /// let mut bytes = BytesMut::new();
+    ///
+    /// assert_eq!(0, bytes.len());
+    ///
+    /// bytes.reserve(2);
+    /// bytes.put_slice(b"xy");
+    ///
+    /// assert_eq!(&b"xy"[..], &bytes[..]);
+    /// ```
+    #[inline]
+    pub fn new() -> BytesMut {
+        BytesMut::with_capacity(0)
+    }
+
     /// Returns the number of bytes contained in this `BytesMut`.
     ///
     /// # Examples
@@ -1302,7 +1326,7 @@ impl Eq for BytesMut {
 impl Default for BytesMut {
     #[inline]
     fn default() -> BytesMut {
-        BytesMut::with_capacity(0)
+        BytesMut::new()
     }
 }
 
