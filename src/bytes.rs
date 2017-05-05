@@ -1945,7 +1945,7 @@ impl Inner {
         }
 
         // Create a new vector to store the data
-        let mut v = Vec::with_capacity(new_cap.next_power_of_two());
+        let mut v = Vec::with_capacity(new_cap);
 
         // Copy the bytes
         v.extend_from_slice(self.as_ref());

@@ -302,7 +302,7 @@ fn reserve_convert() {
     let a = bytes.split_to(30);
 
     bytes.reserve(128);
-    assert_eq!(bytes.capacity(), (bytes.len() + 128).next_power_of_two());
+    assert!(bytes.capacity() >= bytes.len() + 128);
 
     drop(a);
 }
@@ -345,6 +345,42 @@ fn reserve_max_original_capacity_value() {
 
     bytes.reserve(16);
     assert_eq!(bytes.capacity(), 64 * 1024);
+}
+
+#[test]
+fn reserve_in_arc_unique_does_not_overallocate() {
+    let mut bytes = BytesMut::with_capacity(1000);
+    bytes.take();
+
+    // now bytes is Arc and refcount == 1
+
+    assert_eq!(1000, bytes.capacity());
+    bytes.reserve(2001);
+    assert_eq!(2001, bytes.capacity());
+}
+
+#[test]
+fn reserve_in_arc_unique_doubles() {
+    let mut bytes = BytesMut::with_capacity(1000);
+    bytes.take();
+
+    // now bytes is Arc and refcount == 1
+
+    assert_eq!(1000, bytes.capacity());
+    bytes.reserve(1001);
+    assert_eq!(2000, bytes.capacity());
+}
+
+#[test]
+fn reserve_in_arc_nonunique_does_not_overallocate() {
+    let mut bytes = BytesMut::with_capacity(1000);
+    let _copy = bytes.take();
+
+    // now bytes is Arc and refcount == 2
+
+    assert_eq!(1000, bytes.capacity());
+    bytes.reserve(2001);
+    assert_eq!(2001, bytes.capacity());
 }
 
 #[test]
