@@ -357,10 +357,37 @@ fn inline_storage() {
 }
 
 #[test]
-fn extend() {
+fn extend_mut() {
     let mut bytes = BytesMut::with_capacity(0);
     bytes.extend(LONG);
     assert_eq!(*bytes, LONG[..]);
+}
+
+#[test]
+fn extend_shr() {
+    let mut bytes = Bytes::new();
+    bytes.extend(LONG);
+    assert_eq!(*bytes, LONG[..]);
+}
+
+#[test]
+fn extend_from_slice_mut() {
+    for &i in &[3, 34] {
+        let mut bytes = BytesMut::new();
+        bytes.extend_from_slice(&LONG[..i]);
+        bytes.extend_from_slice(&LONG[i..]);
+        assert_eq!(LONG[..], *bytes);
+    }
+}
+
+#[test]
+fn extend_from_slice_shr() {
+    for &i in &[3, 34] {
+        let mut bytes = Bytes::new();
+        bytes.extend_from_slice(&LONG[..i]);
+        bytes.extend_from_slice(&LONG[i..]);
+        assert_eq!(LONG[..], *bytes);
+    }
 }
 
 #[test]

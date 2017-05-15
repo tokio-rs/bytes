@@ -648,6 +648,48 @@ impl Bytes {
             Err(self)
         }
     }
+
+    /// Append given bytes to this object.
+    ///
+    /// If this `Bytes` object has not enough capacity, it is resized first.
+    /// It `Bytes` is shared (`refcount > 1`), it is copied first.
+    ///
+    /// This operation can be less effective than similar operation on `BytesMut`,
+    /// especially on small additions.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Bytes;
+    ///
+    /// let mut buf = Bytes::from("aabb");
+    /// buf.extend_from_slice(b"ccdd");
+    /// buf.extend_from_slice(b"eeff");
+    ///
+    /// assert_eq!(b"aabbccddeeff", &buf[..]);
+    /// ```
+    pub fn extend_from_slice(&mut self, extend: &[u8]) {
+        if extend.is_empty() {
+            return;
+        }
+
+        let new_cap = self.len().checked_add(extend.len()).expect("capacity overflow");
+
+        let result = match mem::replace(self, Bytes::new()).try_mut() {
+            Ok(mut bytes_mut) => {
+                bytes_mut.extend_from_slice(extend);
+                bytes_mut
+            },
+            Err(bytes) => {
+                let mut bytes_mut = BytesMut::with_capacity(new_cap);
+                bytes_mut.put_slice(&bytes);
+                bytes_mut.put_slice(extend);
+                bytes_mut
+            }
+        };
+
+        mem::replace(self, result.freeze());
+    }
 }
 
 impl IntoBuf for Bytes {
@@ -783,6 +825,38 @@ impl<'a> IntoIterator for &'a Bytes {
 
     fn into_iter(self) -> Self::IntoIter {
         self.into_buf().iter()
+    }
+}
+
+impl Extend<u8> for Bytes {
+    fn extend<T>(&mut self, iter: T) where T: IntoIterator<Item = u8> {
+        let iter = iter.into_iter();
+
+        let (lower, upper) = iter.size_hint();
+
+        // Avoid possible conversion into mut if there's nothing to add
+        if let Some(0) = upper {
+            return;
+        }
+
+        let mut bytes_mut = match mem::replace(self, Bytes::new()).try_mut() {
+            Ok(bytes_mut) => bytes_mut,
+            Err(bytes) => {
+                let mut bytes_mut = BytesMut::with_capacity(bytes.len() + lower);
+                bytes_mut.put_slice(&bytes);
+                bytes_mut
+            }
+        };
+
+        bytes_mut.extend(iter);
+
+        mem::replace(self, bytes_mut.freeze());
+    }
+}
+
+impl<'a> Extend<&'a u8> for Bytes {
+    fn extend<T>(&mut self, iter: T) where T: IntoIterator<Item = &'a u8> {
+        self.extend(iter.into_iter().map(|b| *b))
     }
 }
 
