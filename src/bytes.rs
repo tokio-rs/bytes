@@ -1479,6 +1479,12 @@ impl hash::Hash for BytesMut {
     }
 }
 
+impl Borrow<Bytes> for BytesMut {
+    fn borrow(&self) -> &Bytes {
+        unsafe { &*(self as *const _ as *const _) }
+    }
+}
+
 impl Borrow<[u8]> for BytesMut {
     fn borrow(&self) -> &[u8] {
         self.as_ref()
