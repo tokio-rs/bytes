@@ -671,6 +671,25 @@ impl Bytes {
         }
     }
 
+    /// Returns a mutable handle of this `Bytes`, cloning the inner data
+    /// if there are any other `Bytes` pointers to it.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Bytes;
+    ///
+    /// let b = Bytes::new();
+    /// let b_mut = b.into_owned();
+    /// ```
+    pub fn into_owned(mut self) -> BytesMut {
+        if self.inner.is_mut_safe() {
+            BytesMut { inner: self.inner }
+        } else {
+            BytesMut::from(&self[..])
+        }
+    }
+
     /// Append given bytes to this object.
     ///
     /// If this `Bytes` object has not enough capacity, it is resized first.
