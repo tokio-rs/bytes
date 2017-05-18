@@ -649,6 +649,28 @@ impl Bytes {
         }
     }
 
+    /// Mutably borrows this `Bytes` as a mutable `BytesMut` reference,
+    /// if there are no other `Bytes` pointers to the same data.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Bytes;
+    ///
+    /// let mut b = Bytes::new();
+    /// assert!(b.get_mut().is_some());
+    ///
+    /// let b2 = b.clone();
+    /// assert!(b.get_mut().is_none());
+    /// ```
+    pub fn get_mut(&mut self) -> Option<&mut BytesMut> {
+        if self.inner.is_mut_safe() {
+            Some(unsafe { &mut *(self as *mut _ as *mut _) })
+        } else {
+            None
+        }
+    }
+
     /// Append given bytes to this object.
     ///
     /// If this `Bytes` object has not enough capacity, it is resized first.
