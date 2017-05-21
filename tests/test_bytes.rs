@@ -79,6 +79,15 @@ fn slice() {
     let b = a.slice(3, 5);
     assert_eq!(b, b"lo"[..]);
 
+    let b = a.slice(0, 0);
+    assert_eq!(b, b""[..]);
+
+    let b = a.slice(3, 3);
+    assert_eq!(b, b""[..]);
+
+    let b = a.slice(a.len(), a.len());
+    assert_eq!(b, b""[..]);
+
     let b = a.slice_to(5);
     assert_eq!(b, b"hello"[..]);
 

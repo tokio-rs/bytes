@@ -464,6 +464,11 @@ impl Bytes {
     /// Requires that `begin <= end` and `end <= self.len()`, otherwise slicing
     /// will panic.
     pub fn slice(&self, begin: usize, end: usize) -> Bytes {
+        if begin == end {
+            assert!(begin <= self.len());
+            return Bytes::new();
+        }
+
         let mut ret = self.clone();
 
         unsafe {
