@@ -4,7 +4,7 @@ extern crate bytes;
 extern crate test;
 
 use test::Bencher;
-use bytes::{BytesMut, BufMut};
+use bytes::{Bytes, BytesMut, BufMut};
 
 #[bench]
 fn alloc_small(b: &mut Bencher) {
@@ -124,5 +124,25 @@ fn drain_write_drain(b: &mut Bencher) {
         }
 
         test::black_box(parts);
+    })
+}
+
+#[bench]
+fn slice_empty(b: &mut Bencher) {
+    b.iter(|| {
+        // Use empty vec to avoid measure of allocation/deallocation
+        let bytes = Bytes::from(Vec::new());
+        (bytes.slice(0, 0), bytes)
+    })
+}
+
+#[bench]
+fn slice_not_empty(b: &mut Bencher) {
+    b.iter(|| {
+        let b = Bytes::from(b"aabbccddeeffgghh".to_vec());
+        for _ in 0..1024 {
+            test::black_box(b.slice(3, 5));
+            test::black_box(&b);
+        }
     })
 }
