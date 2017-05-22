@@ -197,14 +197,14 @@ pub struct BytesMut {
 // itself for storing the buffer, reserving 1 byte for meta data. This means
 // that, on 64 bit systems, 31 byte buffers require no allocation at all.
 //
-// The byte used for metadata stores a 1 bit flag used to indicate that the
-// buffer is stored inline as well as 7 bits for tracking the buffer length (the
+// The byte used for metadata stores a 2 bits flag used to indicate that the
+// buffer is stored inline as well as 6 bits for tracking the buffer length (the
 // return value of `Bytes::len`).
 //
 // ## Static buffers
 //
 // `Bytes` can also represent a static buffer, which is created with
-// `Bytes::from_static`. No copying or allocations are required for trackign
+// `Bytes::from_static`. No copying or allocations are required for tracking
 // static buffers. The pointer to the `&'static [u8]`, the length, and a flag
 // tracking that the `Bytes` instance represents a static buffer is stored in
 // the `Bytes` struct.
