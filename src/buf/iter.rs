@@ -112,3 +112,5 @@ impl<T: Buf> Iterator for Iter<T> {
         (rem, Some(rem))
     }
 }
+
+impl<T: Buf> ExactSizeIterator for Iter<T> { }
