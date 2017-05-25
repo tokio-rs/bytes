@@ -7,6 +7,11 @@ use std::borrow::Borrow;
 use std::io::Cursor;
 use std::sync::atomic::{self, AtomicUsize, AtomicPtr};
 use std::sync::atomic::Ordering::{Relaxed, Acquire, Release, AcqRel};
+use std::ops::RangeFull;
+use std::ops::RangeFrom;
+use std::ops::RangeTo;
+use std::ops::Range;
+
 
 /// A reference counted contiguous slice of memory.
 ///
@@ -307,6 +312,12 @@ struct Inner {
     len: usize,
     cap: usize,
     arc: AtomicPtr<Shared>,
+}
+
+impl fmt::Debug for Inner {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Debug::fmt(&debug::BsDebug(&self.as_ref()), f)
+    }
 }
 
 // This struct is only here to make older versions of Rust happy. In older
@@ -642,6 +653,39 @@ impl Bytes {
         self.inner.truncate(len);
     }
 
+
+    /// Creates a draining iterator that removes the specified range in the vector
+    /// and yields the removed items.
+    ///
+    /// Note 1: The element range is removed even if the iterator is only
+    /// partially consumed or not consumed at all.
+    ///
+    /// Note 2: It is unspecified how many elements are removed from the vector
+    /// if the `Drain` value is leaked.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the starting point is greater than the end point or if
+    /// the end point is greater than the length of the vector.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Bytes;
+    ///
+    /// let mut b = Bytes::from(&[1, 2, 3][..]);
+    /// let v: Vec<_> = b.drain(1..).cloned().collect();
+    /// assert_eq!(&b[..], &[1]);
+    /// assert_eq!(&v[..], &[2, 3]);
+    ///
+    /// // A full range clears the Bytes object
+    /// b.drain(..);
+    /// assert_eq!(&b[..], &[]);
+    /// ```
+    pub fn drain<R: RangeArgument<usize>>(&mut self, range: R) -> Drain {
+        self.inner.drain(range, false)
+    }
+
     /// Clears the buffer, removing all data.
     ///
     /// # Examples
@@ -837,7 +881,7 @@ impl Default for Bytes {
 
 impl fmt::Debug for Bytes {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        fmt::Debug::fmt(&debug::BsDebug(&self.inner.as_ref()), fmt)
+        fmt::Debug::fmt(&self.inner.inner, fmt)
     }
 }
 
@@ -1175,6 +1219,41 @@ impl BytesMut {
         self.inner.truncate(len);
     }
 
+    /// Creates a draining iterator that removes the specified range in the vector
+    /// and yields the removed items.
+    ///
+    /// Note 1: The element range is removed even if the iterator is only
+    /// partially consumed or not consumed at all.
+    ///
+    /// Note 2: It is unspecified how many elements are removed from the vector
+    /// if the `Drain` value is leaked.
+    ///
+    /// This function will be renamed to `drain` in futures `Bytes` releases
+    /// when currently deprecated `drain` function will be removed.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the starting point is greater than the end point or if
+    /// the end point is greater than the length of the vector.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Bytes;
+    ///
+    /// let mut b = Bytes::from(&[1, 2, 3][..]);
+    /// let v: Vec<_> = b.drain(1..).cloned().collect();
+    /// assert_eq!(&b[..], &[1]);
+    /// assert_eq!(&v[..], &[2, 3]);
+    ///
+    /// // A full range clears the Bytes object
+    /// b.drain(..);
+    /// assert_eq!(&b[..], &[]);
+    /// ```
+    pub fn drain_range<R: RangeArgument<usize>>(&mut self, range: R) -> Drain {
+        self.inner.drain(range, true)
+    }
+
     /// Clears the buffer, removing all data.
     ///
     /// # Examples
@@ -1404,16 +1483,9 @@ impl<'a> From<&'a [u8]> for BytesMut {
 
         if len <= INLINE_CAP {
             unsafe {
-                let mut inner: Inner = mem::uninitialized();
-
-                // Set inline mask
-                inner.arc = AtomicPtr::new(KIND_INLINE as *mut Shared);
-                inner.set_inline_len(len);
-                inner.as_raw()[0..len].copy_from_slice(src);
-
                 BytesMut {
                     inner: Inner2 {
-                        inner: inner,
+                        inner: Inner::from_inline(src)
                     }
                 }
             }
@@ -1466,7 +1538,7 @@ impl Default for BytesMut {
 
 impl fmt::Debug for BytesMut {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        fmt::Debug::fmt(&debug::BsDebug(&self.inner.as_ref()), fmt)
+        fmt::Debug::fmt(&self.inner.inner, fmt)
     }
 }
 
@@ -1523,6 +1595,68 @@ impl<'a> IntoIterator for &'a BytesMut {
         self.into_buf().iter()
     }
 }
+
+
+/// A draining iterator for `Bytes<T>` or `BytesMut<T>`.
+///
+/// This `struct` is created by the [`drain`] method on [`Bytes`]
+/// or [`drain_range`] method on [`BytesMut`].
+///
+/// [`drain`]: struct.Bytes.html#method.drain
+/// [`drain_range`]: struct.BytesMut.html#method.drain_range
+/// [`Bytes`]: struct.Bytes.html
+/// [`BytesMut`]: struct.BytesMut.html
+pub struct Drain<'a> {
+    inner: *mut Inner,
+    from: usize,
+    to: usize,
+    iter: slice::Iter<'a, u8>,
+    bytes_mut: bool,
+}
+
+impl<'a> fmt::Debug for Drain<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let inner_field_name = if self.bytes_mut { "bytes_mut" } else { "bytes" };
+        f.debug_struct("Drain")
+            .field(inner_field_name, unsafe { &*self.inner })
+            .field("from", &self.from)
+            .field("to", &self.to)
+            .field("iter", &self.iter)
+            .finish()
+    }
+}
+
+unsafe impl<'a> Sync for Drain<'a> {}
+unsafe impl<'a> Send for Drain<'a> {}
+
+impl<'a> Iterator for Drain<'a> {
+    type Item = &'a u8;
+
+    fn next(&mut self) -> Option<&'a u8> {
+        self.iter.next()
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.size_hint()
+    }
+}
+
+impl<'a> ExactSizeIterator for Drain<'a> {}
+
+impl<'a> Drop for Drain<'a> {
+    fn drop(&mut self) {
+        unsafe {
+            (*self.inner).remove_range(self.from, self.to, self.bytes_mut);
+        }
+    }
+}
+
+impl<'a> DoubleEndedIterator for Drain<'a> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.iter.next_back()
+    }
+}
+
 
 impl Extend<u8> for BytesMut {
     fn extend<T>(&mut self, iter: T) where T: IntoIterator<Item = u8> {
@@ -1594,6 +1728,42 @@ impl Inner {
             ptr: ptr,
             len: len,
             cap: cap,
+        }
+    }
+
+    #[inline]
+    unsafe fn from_inline(src: &[u8]) -> Inner {
+        debug_assert!(src.len() <= INLINE_CAP);
+
+        let mut inner: Inner = mem::uninitialized();
+
+        // Set inline mask
+        inner.arc = AtomicPtr::new(KIND_INLINE as *mut Shared);
+        inner.set_inline_len(src.len());
+        inner.as_raw()[0..src.len()].copy_from_slice(src);
+
+        inner
+    }
+
+    fn concat2(a: &[u8], b: &[u8]) -> Inner {
+        let ab = a.len() + b.len();
+        if ab <= INLINE_CAP {
+            unsafe {
+                let mut inner: Inner = mem::uninitialized();
+
+                // Set inline mask
+                inner.arc = AtomicPtr::new(KIND_INLINE as *mut Shared);
+                inner.set_inline_len(ab);
+                inner.as_raw()[0..a.len()].copy_from_slice(a);
+                inner.as_raw()[a.len()..ab].copy_from_slice(b);
+
+                inner
+            }
+        } else {
+            let mut v = Vec::with_capacity(ab);
+            v.extend_from_slice(a);
+            v.extend_from_slice(b);
+            Inner::from_vec(v)
         }
     }
 
@@ -1682,12 +1852,14 @@ impl Inner {
     /// Pointer to the start of the inline buffer
     #[inline]
     unsafe fn inline_ptr(&self) -> *mut u8 {
+        debug_assert!(self.kind() == KIND_INLINE);
         (self as *const Inner as *mut Inner as *mut u8)
             .offset(INLINE_DATA_OFFSET)
     }
 
     #[inline]
     fn inline_len(&self) -> usize {
+        debug_assert!(self.kind() == KIND_INLINE);
         let p: &usize = unsafe { mem::transmute(&self.arc) };
         (p & INLINE_LEN_MASK) >> INLINE_LEN_OFFSET
     }
@@ -1752,6 +1924,132 @@ impl Inner {
     fn truncate(&mut self, len: usize) {
         if len <= self.len() {
             unsafe { self.set_len(len); }
+        }
+    }
+
+    fn remove_range_naive(&mut self, from: usize, to: usize) {
+        // Convert to either INLINE of VEC
+        let replace = {
+            let slice = self.as_ref();
+            Inner::concat2(&slice[..from], &slice[to..])
+        };
+        mem::replace(self, replace);
+    }
+
+    fn remove_range(&mut self, from: usize, to: usize, bytes_mut: bool) {
+        // |---------|xxxxxx|-----------|
+        // 0        from    to         len
+
+        let len = self.len();
+        assert!(from <= to);
+        assert!(to <= len);
+
+        if from == to {
+            return;
+        }
+
+        let new_len = len - (to - from);
+
+        let kind = self.kind();
+
+        if kind == KIND_INLINE {
+            unsafe {
+                let start = self.inline_ptr();
+                ptr::copy(start.offset(to as isize), start.offset(from as isize), len - to);
+                self.set_inline_len(new_len);
+            }
+        } else if kind == KIND_STATIC || kind == KIND_ARC {
+            if to == len {
+                self.len = from;
+            } else if from == 0 {
+                // truncate front
+                self.ptr = unsafe { self.ptr.offset(to as isize) };
+                self.len -= to - from;
+                self.cap -= to - from;
+            } else {
+                if kind == KIND_STATIC
+                    || {
+                        debug_assert!(kind == KIND_ARC);
+                        if bytes_mut {
+                            // If self is BytesMut, then we can compact in place
+                            // even if refcount is > 0, because range is always unshared.
+                            false
+                        } else {
+                            !unsafe { (*self.arc.load(Relaxed)).is_unique() }
+                        }
+                    }
+                {
+                    self.remove_range_naive(from, to);
+                } else {
+                    let start = self.ptr;
+                    unsafe {
+                        ptr::copy(start.offset(to as isize), start.offset(from as isize), len - to);
+                    }
+                    self.len = new_len;
+                };
+            }
+        } else {
+            debug_assert!(kind == KIND_VEC);
+
+            if from == 0 {
+                // Truncate front.
+                // Do it without copying.
+                //
+                // We need to upgrade to KIND_ARC, because currently there's no place
+                // to store offset in `Bytes`. See also discussion in:
+                // https://github.com/carllerche/bytes/issues/122
+
+                let replace = unsafe {
+                    let shared = Box::new(Shared {
+                        vec: Vec::from_raw_parts(self.ptr, self.len, self.cap),
+                        original_capacity: self.arc.load(Relaxed) as usize & !KIND_MASK,
+                        ref_count: AtomicUsize::new(1),
+                    });
+
+                    let shared = Box::into_raw(shared);
+                    Inner {
+                        arc: AtomicPtr::new(shared),
+                        ptr: self.ptr.offset(to as isize),
+                        len: self.len - to,
+                        cap: self.cap - to,
+                    }
+                };
+                let old = mem::replace(self, replace);
+                mem::forget(old);
+            } else if to == len {
+                unsafe {
+                    self.vec_update(|v| { v.truncate(from); });
+                }
+            } else {
+                unsafe {
+                    self.vec_update(|v| { v.drain(from..to); });
+                }
+            }
+        }
+    }
+
+    fn drain<R: RangeArgument<usize>>(&mut self, range: R, bytes_mut: bool) -> Drain {
+        let len = self.len();
+
+        let from = match range.start() {
+            Bound::Included(&n) => n,
+            Bound::Excluded(&n) => n + 1,
+            Bound::Unbounded    => 0,
+        };
+        let to = match range.end() {
+            Bound::Included(&n) => n + 1,
+            Bound::Excluded(&n) => n,
+            Bound::Unbounded    => len,
+        };
+        assert!(from <= to);
+        assert!(to <= len);
+
+        Drain {
+            inner: self as *mut _,
+            from: from,
+            to: to,
+            iter: self.as_ref()[from..to].into_iter(),
+            bytes_mut: bytes_mut,
         }
     }
 
@@ -1964,6 +2262,25 @@ impl Inner {
         }
     }
 
+    unsafe fn vec_update<R, F : FnOnce(&mut Vec<u8>) -> R>(&mut self, update: F) -> R {
+        debug_assert!(self.kind() == KIND_VEC);
+
+        let mut v = Vec::from_raw_parts(self.ptr, self.len, self.cap);
+
+        // `update` must not panic, otherwise memory will be corrupted
+        let r = update(&mut v);
+
+        // Update the info
+        self.ptr = v.as_mut_ptr();
+        self.len = v.len();
+        self.cap = v.capacity();
+
+        // Drop the vec reference
+        mem::forget(v);
+
+        r
+    }
+
     #[inline]
     fn reserve(&mut self, additional: usize) {
         let len = self.len();
@@ -2001,16 +2318,7 @@ impl Inner {
         if kind == KIND_VEC {
             // Currently backed by a vector, so just use `Vector::reserve`.
             unsafe {
-                let mut v = Vec::from_raw_parts(self.ptr, self.len, self.cap);
-                v.reserve(additional);
-
-                // Update the info
-                self.ptr = v.as_mut_ptr();
-                self.len = v.len();
-                self.cap = v.capacity();
-
-                // Drop the vec reference
-                mem::forget(v);
+                self.vec_update(|v| v.reserve(additional));
 
                 return;
             }
@@ -2225,6 +2533,72 @@ impl Shared {
 
 unsafe impl Send for Inner {}
 unsafe impl Sync for Inner {}
+
+
+/// Copy-paste of `Bound` from Rust standard library.
+///
+/// Will be replaced with standard library trait as soon as it stabilizes.
+#[derive(Debug)]
+pub enum Bound<T> {
+    /// An inclusive bound.
+    Included(T),
+    /// An exclusive bound.
+    Excluded(T),
+    /// An infinite endpoint. Indicates that there is no bound in this direction.
+    Unbounded,
+}
+
+/// Copy-paste of `RangeArgument` from Rust standard library.
+///
+/// Will be replaced with standard library trait as soon as it stabilizes.
+///
+/// `RangeArgument` is implemented by Rust's built-in range types, produced
+/// by range syntax like `..`, `a..`, `..b` or `c..d`.
+pub trait RangeArgument<T: ?Sized> {
+    /// Start index bound.
+    fn start(&self) -> Bound<&T>;
+
+    /// End index bound.
+    fn end(&self) -> Bound<&T>;
+}
+
+impl<T: ?Sized> RangeArgument<T> for RangeFull {
+    fn start(&self) -> Bound<&T> {
+        Bound::Unbounded
+    }
+    fn end(&self) -> Bound<&T> {
+        Bound::Unbounded
+    }
+}
+
+impl<T> RangeArgument<T> for RangeFrom<T> {
+    fn start(&self) -> Bound<&T> {
+        Bound::Included(&self.start)
+    }
+    fn end(&self) -> Bound<&T> {
+        Bound::Unbounded
+    }
+}
+
+impl<T> RangeArgument<T> for RangeTo<T> {
+    fn start(&self) -> Bound<&T> {
+        Bound::Unbounded
+    }
+    fn end(&self) -> Bound<&T> {
+        Bound::Excluded(&self.end)
+    }
+}
+
+impl<T> RangeArgument<T> for Range<T> {
+    fn start(&self) -> Bound<&T> {
+        Bound::Included(&self.start)
+    }
+    fn end(&self) -> Bound<&T> {
+        Bound::Excluded(&self.end)
+    }
+}
+
+
 
 /*
  *
