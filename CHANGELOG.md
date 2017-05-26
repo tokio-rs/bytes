@@ -1,10 +1,18 @@
-# 0.4.3 (April, 30, 2017)
+# 0.4.4 (May 26, 2017)
+
+* Add serde support behind feature flag
+* Add `extend_from_slice` on `Bytes` and `BytesMut`
+* Add `truncate` and `clear` on `Bytes`
+* Misc additional std trait implementations
+* Misc performance improvements
+
+# 0.4.3 (April 30, 2017)
 
 * Fix Vec::advance_mut bug
 * Bump minimum Rust version to 1.15
 * Misc performance tweaks
 
-# 0.4.2 (April, 5, 2017)
+# 0.4.2 (April 5, 2017)
 
 * Misc performance tweaks
 * Improved `Debug` implementation for `Bytes`
