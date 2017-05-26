@@ -618,6 +618,45 @@ impl Bytes {
         self.split_to(at)
     }
 
+    /// Shortens the buffer, keeping the first `len` bytes and dropping the
+    /// rest.
+    ///
+    /// If `len` is greater than the buffer's current length, this has no
+    /// effect.
+    ///
+    /// The [`split_off`] method can emulate `truncate`, but this causes the
+    /// excess bytes to be returned instead of dropped.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Bytes;
+    ///
+    /// let mut buf = Bytes::from(&b"hello world"[..]);
+    /// buf.truncate(5);
+    /// assert_eq!(buf, b"hello"[..]);
+    /// ```
+    ///
+    /// [`split_off`]: #method.split_off
+    pub fn truncate(&mut self, len: usize) {
+        self.inner.truncate(len);
+    }
+
+    /// Clears the buffer, removing all data.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Bytes;
+    ///
+    /// let mut buf = Bytes::from(&b"hello world"[..]);
+    /// buf.clear();
+    /// assert!(buf.is_empty());
+    /// ```
+    pub fn clear(&mut self) {
+        self.truncate(0);
+    }
+
     /// Attempt to convert into a `BytesMut` handle.
     ///
     /// This will only succeed if there are no other outstanding references to
@@ -1133,9 +1172,7 @@ impl BytesMut {
     ///
     /// [`split_off`]: #method.split_off
     pub fn truncate(&mut self, len: usize) {
-        if len <= self.len() {
-            unsafe { self.set_len(len); }
-        }
+        self.inner.truncate(len);
     }
 
     /// Clears the buffer, removing all data.
@@ -1707,6 +1744,12 @@ impl Inner {
         }
 
         return other
+    }
+
+    fn truncate(&mut self, len: usize) {
+        if len <= self.len() {
+            unsafe { self.set_len(len); }
+        }
     }
 
     unsafe fn set_start(&mut self, start: usize) {
