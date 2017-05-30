@@ -30,6 +30,18 @@ fn alloc_big(b: &mut Bencher) {
 }
 
 #[bench]
+fn split_off_and_drop(b: &mut Bencher) {
+    b.iter(|| {
+        for _ in 0..1024 {
+            let v = vec![10; 200];
+            let mut b = Bytes::from(v);
+            test::black_box(b.split_off(100));
+            test::black_box(b);
+        }
+    })
+}
+
+#[bench]
 fn deref_unique(b: &mut Bencher) {
     let mut buf = BytesMut::with_capacity(4096);
     buf.put(&[0u8; 1024][..]);
