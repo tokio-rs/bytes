@@ -128,6 +128,16 @@ fn drain_write_drain(b: &mut Bencher) {
 }
 
 #[bench]
+fn from_long_slice(b: &mut Bencher) {
+    let data = [0u8; 128];
+
+    b.iter(|| {
+        let buf = BytesMut::from(&data[..]);
+        test::black_box(buf);
+    })
+}
+
+#[bench]
 fn slice_empty(b: &mut Bencher) {
     b.iter(|| {
         // Use empty vec to avoid measure of allocation/deallocation

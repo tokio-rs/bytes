@@ -1418,10 +1418,7 @@ impl<'a> From<&'a [u8]> for BytesMut {
                 }
             }
         } else {
-            let mut buf = BytesMut::with_capacity(src.len());
-            let src: &[u8] = src.as_ref();
-            buf.put(src);
-            buf
+            BytesMut::from(src.to_vec())
         }
     }
 }
