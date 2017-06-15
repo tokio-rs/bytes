@@ -128,6 +128,30 @@ fn drain_write_drain(b: &mut Bencher) {
 }
 
 #[bench]
+fn fmt_write(b: &mut Bencher) {
+    use std::fmt::Write;
+    let mut buf = BytesMut::with_capacity(128);
+    let s = "foo bar baz quux lorem ipsum dolor et";
+
+    b.bytes = s.len() as u64;
+    b.iter(|| {
+        let _ = write!(buf, "{}", s);
+        test::black_box(&buf);
+        unsafe { buf.set_len(0); }
+    })
+}
+
+#[bench]
+fn from_long_slice(b: &mut Bencher) {
+    let data = [0u8; 128];
+    b.bytes = data.len() as u64;
+    b.iter(|| {
+        let buf = BytesMut::from(&data[..]);
+        test::black_box(buf);
+    })
+}
+
+#[bench]
 fn slice_empty(b: &mut Bencher) {
     b.iter(|| {
         // Use empty vec to avoid measure of allocation/deallocation

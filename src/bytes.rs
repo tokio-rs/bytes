@@ -1418,10 +1418,7 @@ impl<'a> From<&'a [u8]> for BytesMut {
                 }
             }
         } else {
-            let mut buf = BytesMut::with_capacity(src.len());
-            let src: &[u8] = src.as_ref();
-            buf.put(src);
-            buf
+            BytesMut::from(src.to_vec())
         }
     }
 }
@@ -1487,11 +1484,17 @@ impl Borrow<[u8]> for BytesMut {
 }
 
 impl fmt::Write for BytesMut {
+    #[inline]
     fn write_str(&mut self, s: &str) -> fmt::Result {
-        BufMut::put(self, s);
-        Ok(())
+        if self.remaining_mut() >= s.len() {
+            self.put_slice(s.as_bytes());
+            Ok(())
+        } else {
+            Err(fmt::Error)
+        }
     }
 
+    #[inline]
     fn write_fmt(&mut self, args: fmt::Arguments) -> fmt::Result {
         fmt::write(self, args)
     }
