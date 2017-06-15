@@ -52,6 +52,28 @@ fn fmt() {
 }
 
 #[test]
+fn fmt_write() {
+    use std::fmt::Write;
+    use std::iter::FromIterator;
+    let s = String::from_iter((0..10).map(|_| "abcdefg"));
+
+    let mut a = BytesMut::with_capacity(64);
+    write!(a, "{}", &s[..64]).unwrap();
+    assert_eq!(a, s[..64].as_bytes());
+
+
+    let mut b = BytesMut::with_capacity(64);
+    write!(b, "{}", &s[..32]).unwrap();
+    write!(b, "{}", &s[32..64]).unwrap();
+    assert_eq!(b, s[..64].as_bytes());
+
+
+    let mut c = BytesMut::with_capacity(64);
+    write!(c, "{}", s).unwrap_err();
+    assert!(c.is_empty());
+}
+
+#[test]
 fn len() {
     let a = Bytes::from(&b"abcdefg"[..]);
     assert_eq!(a.len(), 7);

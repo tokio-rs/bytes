@@ -1484,11 +1484,17 @@ impl Borrow<[u8]> for BytesMut {
 }
 
 impl fmt::Write for BytesMut {
+    #[inline]
     fn write_str(&mut self, s: &str) -> fmt::Result {
-        BufMut::put(self, s);
-        Ok(())
+        if self.remaining_mut() >= s.len() {
+            self.put_slice(s.as_bytes());
+            Ok(())
+        } else {
+            Err(fmt::Error)
+        }
     }
 
+    #[inline]
     fn write_fmt(&mut self, args: fmt::Arguments) -> fmt::Result {
         fmt::write(self, args)
     }
