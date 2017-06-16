@@ -1,8 +1,15 @@
-use super::{IntoBuf, Take, Reader, Iter, FromBuf, Chain};
+use super::{IntoBuf, Take, Reader, Iter, Chain};
+#[cfg(feature = "std")]
+use super::FromBuf;
+
 use byteorder::ByteOrder;
+#[cfg(feature = "std")]
 use iovec::IoVec;
 
-use std::{cmp, io, ptr};
+use core::{cmp, ptr};
+
+#[cfg(feature = "std")]
+use std::io;
 
 /// Read bytes from a buffer.
 ///
@@ -12,7 +19,7 @@ use std::{cmp, io, ptr};
 /// position. It can be thought of as an efficient `Iterator` for collections of
 /// bytes.
 ///
-/// The simplest `Buf` is a `Cursor` wrapping a `[u8]`.
+/// The simplest `Buf` is a `io::Cursor` wrapping a `[u8]`.
 ///
 /// ```
 /// use bytes::Buf;
@@ -113,6 +120,7 @@ pub trait Buf {
     /// with `dst` being a zero length slice.
     ///
     /// [`writev`]: http://man7.org/linux/man-pages/man2/readv.2.html
+    #[cfg(feature = "std")]
     fn bytes_vec<'a>(&'a self, dst: &mut [&'a IoVec]) -> usize {
         if dst.is_empty() {
             return 0;
@@ -520,6 +528,7 @@ pub trait Buf {
     ///
     /// assert_eq!(vec, &b"hello world"[..]);
     /// ```
+    #[cfg(feature = "std")]
     fn collect<B>(self) -> B
         where Self: Sized,
               B: FromBuf,
@@ -662,6 +671,7 @@ impl<'a, T: Buf + ?Sized> Buf for &'a mut T {
         (**self).bytes()
     }
 
+    #[cfg(feature = "std")]
     fn bytes_vec<'b>(&'b self, dst: &mut [&'b IoVec]) -> usize {
         (**self).bytes_vec(dst)
     }
@@ -671,6 +681,7 @@ impl<'a, T: Buf + ?Sized> Buf for &'a mut T {
     }
 }
 
+#[cfg(feature = "std")]
 impl<T: Buf + ?Sized> Buf for Box<T> {
     fn remaining(&self) -> usize {
         (**self).remaining()
@@ -680,6 +691,7 @@ impl<T: Buf + ?Sized> Buf for Box<T> {
         (**self).bytes()
     }
 
+    #[cfg(feature = "std")]
     fn bytes_vec<'b>(&'b self, dst: &mut [&'b IoVec]) -> usize {
         (**self).bytes_vec(dst)
     }
@@ -689,6 +701,7 @@ impl<T: Buf + ?Sized> Buf for Box<T> {
     }
 }
 
+#[cfg(feature = "std")]
 impl<T: AsRef<[u8]>> Buf for io::Cursor<T> {
     fn remaining(&self) -> usize {
         let len = self.get_ref().as_ref().len();

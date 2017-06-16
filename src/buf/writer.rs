@@ -1,5 +1,6 @@
 use BufMut;
 
+#[cfg(feature = "std")]
 use std::{cmp, io};
 
 /// A `BufMut` adapter which implements `io::Write` for the inner value.
@@ -74,6 +75,7 @@ impl<B: BufMut> Writer<B> {
     }
 }
 
+#[cfg(feature = "std")]
 impl<B: BufMut + Sized> io::Write for Writer<B> {
     fn write(&mut self, src: &[u8]) -> io::Result<usize> {
         let n = cmp::min(self.buf.remaining_mut(), src.len());
