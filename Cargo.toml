@@ -2,7 +2,7 @@
 
 name          = "bytes"
 version       = "0.4.4"
-license       = "MIT"
+license       = "MIT/Apache-2.0"
 authors       = ["Carl Lerche <me@carllerche.com>"]
 description   = "Types and traits for working with bytes"
 documentation = "https://carllerche.github.io/bytes/bytes"
