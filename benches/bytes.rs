@@ -154,19 +154,52 @@ fn from_long_slice(b: &mut Bencher) {
 #[bench]
 fn slice_empty(b: &mut Bencher) {
     b.iter(|| {
-        // Use empty vec to avoid measure of allocation/deallocation
-        let bytes = Bytes::from(Vec::new());
-        (bytes.slice(0, 0), bytes)
+        let b = Bytes::from(vec![17; 1024]).clone();
+        for i in 0..1000 {
+            test::black_box(b.slice(i % 100, i % 100));
+        }
     })
 }
 
 #[bench]
-fn slice_not_empty(b: &mut Bencher) {
+fn slice_short_from_arc(b: &mut Bencher) {
     b.iter(|| {
-        let b = Bytes::from(b"aabbccddeeffgghh".to_vec());
-        for _ in 0..1024 {
-            test::black_box(b.slice(3, 5));
-            test::black_box(&b);
+        // `clone` is to convert to ARC
+        let b = Bytes::from(vec![17; 1024]).clone();
+        for i in 0..1000 {
+            test::black_box(b.slice(1, 2 + i % 10));
+        }
+    })
+}
+
+// Keep in sync with bytes.rs
+#[cfg(target_pointer_width = "64")]
+const INLINE_CAP: usize = 4 * 8 - 1;
+#[cfg(target_pointer_width = "32")]
+const INLINE_CAP: usize = 4 * 4 - 1;
+
+#[bench]
+fn slice_avg_le_inline_from_arc(b: &mut Bencher) {
+    b.iter(|| {
+        // `clone` is to convert to ARC
+        let b = Bytes::from(vec![17; 1024]).clone();
+        for i in 0..1000 {
+            // [1, INLINE_CAP]
+            let len = 1 + i % (INLINE_CAP - 1);
+            test::black_box(b.slice(i % 10, i % 10 + len));
+        }
+    })
+}
+
+#[bench]
+fn slice_large_le_inline_from_arc(b: &mut Bencher) {
+    b.iter(|| {
+        // `clone` is to convert to ARC
+        let b = Bytes::from(vec![17; 1024]).clone();
+        for i in 0..1000 {
+            // [INLINE_CAP - 10, INLINE_CAP]
+            let len = INLINE_CAP - 9 + i % 10;
+            test::black_box(b.slice(i % 10, i % 10 + len));
         }
     })
 }
