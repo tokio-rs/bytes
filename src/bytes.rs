@@ -370,6 +370,38 @@ const INLINE_CAP: usize = 4 * 4 - 1;
  */
 
 impl Bytes {
+    /// Create a new `Bytes` with the specified capacity.
+    ///
+    /// The returned `Bytes` will be able to hold at least `capacity` bytes
+    /// without reallocating. If `capacity` is under `3 * size:of::<usize>()`,
+    /// then `BytesMut` will not allocate.
+    ///
+    /// It is important to note that this function does not specify the length
+    /// of the returned `Bytes`, but only the capacity.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Bytes;
+    ///
+    /// let mut bytes = Bytes::with_capacity(64);
+    ///
+    /// // `bytes` contains no data, even though there is capacity
+    /// assert_eq!(bytes.len(), 0);
+    ///
+    /// bytes.extend_from_slice(&b"hello world"[..]);
+    ///
+    /// assert_eq!(&bytes[..], b"hello world");
+    /// ```
+    #[inline]
+    pub fn with_capacity(capacity: usize) -> Bytes {
+        Bytes {
+            inner: Inner2 {
+                inner: Inner::with_capacity(capacity),
+            },
+        }
+    }
+
     /// Creates a new empty `Bytes`
     ///
     /// This will not allocate and the returned `Bytes` handle will be empty.
@@ -384,11 +416,7 @@ impl Bytes {
     /// ```
     #[inline]
     pub fn new() -> Bytes {
-        Bytes {
-            inner: Inner2 {
-                inner: Inner::empty(),
-            }
-        }
+        Bytes::with_capacity(0)
     }
 
     /// Creates a new `Bytes` from a static slice.
@@ -1553,16 +1581,6 @@ impl<'a> Extend<&'a u8> for BytesMut {
  */
 
 impl Inner {
-    #[inline]
-    fn empty() -> Inner {
-        Inner {
-            arc: AtomicPtr::new(KIND_VEC as *mut Shared),
-            ptr: ptr::null_mut(),
-            len: 0,
-            cap: 0,
-        }
-    }
-
     #[inline]
     fn from_static(bytes: &'static [u8]) -> Inner {
         let ptr = bytes.as_ptr() as *mut u8;
