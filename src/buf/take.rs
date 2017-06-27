@@ -143,7 +143,8 @@ impl<T: Buf> Buf for Take<T> {
     }
 
     fn bytes(&self) -> &[u8] {
-        &self.inner.bytes()[..self.limit]
+        let bytes = self.inner.bytes();
+        &bytes[..cmp::min(bytes.len(), self.limit)]
     }
 
     fn advance(&mut self, cnt: usize) {
