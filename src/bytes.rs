@@ -2525,3 +2525,17 @@ impl<'a, T: ?Sized> PartialOrd<&'a T> for Bytes
         self.partial_cmp(&**other)
     }
 }
+
+impl PartialEq<BytesMut> for Bytes
+{
+    fn eq(&self, other: &BytesMut) -> bool {
+        &other[..] == &self[..]
+    }
+}
+
+impl PartialEq<Bytes> for BytesMut
+{
+    fn eq(&self, other: &Bytes) -> bool {
+        &other[..] == &self[..]
+    }
+}
