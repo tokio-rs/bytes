@@ -492,9 +492,11 @@ impl Bytes {
     /// Requires that `begin <= end` and `end <= self.len()`, otherwise slicing
     /// will panic.
     pub fn slice(&self, begin: usize, end: usize) -> Bytes {
-        if begin == end {
-            assert!(begin <= self.len());
-            return Bytes::new();
+        assert!(begin <= end);
+        assert!(end <= self.len());
+
+        if end - begin <= INLINE_CAP {
+            return Bytes::from(&self[begin..end]);
         }
 
         let mut ret = self.clone();
@@ -1430,7 +1432,9 @@ impl<'a> From<&'a [u8]> for BytesMut {
     fn from(src: &'a [u8]) -> BytesMut {
         let len = src.len();
 
-        if len <= INLINE_CAP {
+        if len == 0 {
+            BytesMut::new()
+        } else if len <= INLINE_CAP {
             unsafe {
                 let mut inner: Inner = mem::uninitialized();
 
