@@ -721,6 +721,47 @@ impl Bytes {
         }
     }
 
+    /// Mutably borrows this `Bytes` as a mutable `BytesMut` reference,
+    /// if there are no other `Bytes` pointers to the same data.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Bytes;
+    ///
+    /// let mut b = Bytes::new();
+    /// assert!(b.get_mut().is_some());
+    ///
+    /// let b2 = b.clone();
+    /// assert!(b.get_mut().is_none());
+    /// ```
+    pub fn get_mut(&mut self) -> Option<&mut BytesMut> {
+        if self.inner.is_mut_safe() {
+            Some(unsafe { &mut *(self as *mut _ as *mut _) })
+        } else {
+            None
+        }
+    }
+
+    /// Returns a mutable handle of this `Bytes`, cloning the inner data
+    /// if there are any other `Bytes` pointers to it.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Bytes;
+    ///
+    /// let b = Bytes::new();
+    /// let b_mut = b.into_owned();
+    /// ```
+    pub fn into_owned(mut self) -> BytesMut {
+        if self.inner.is_mut_safe() {
+            BytesMut { inner: self.inner }
+        } else {
+            BytesMut::from(&self[..])
+        }
+    }
+
     /// Append given bytes to this object.
     ///
     /// If this `Bytes` object has not enough capacity, it is resized first.
@@ -1502,6 +1543,12 @@ impl hash::Hash for BytesMut {
     fn hash<H>(&self, state: &mut H) where H: hash::Hasher {
         let s: &[u8] = self.as_ref();
         s.hash(state);
+    }
+}
+
+impl Borrow<Bytes> for BytesMut {
+    fn borrow(&self) -> &Bytes {
+        unsafe { &*(self as *const _ as *const _) }
     }
 }
 
