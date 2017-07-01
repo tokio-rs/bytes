@@ -503,3 +503,14 @@ fn stress() {
         assert_eq!(*buf, data[..]);
     }
 }
+
+#[test]
+fn partial_eq_bytesmut() {
+    let bytes = Bytes::from(&b"The quick red fox"[..]);
+    let bytesmut = BytesMut::from(&b"The quick red fox"[..]);
+    assert!(bytes == bytesmut);
+    assert!(bytesmut == bytes);
+    let bytes2 = Bytes::from(&b"Jumped over the lazy brown dog"[..]);
+    assert!(bytes2 != bytesmut);
+    assert!(bytesmut != bytes2);
+}
