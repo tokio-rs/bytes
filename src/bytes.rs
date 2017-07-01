@@ -10,7 +10,7 @@ use std::sync::atomic::Ordering::{Relaxed, Acquire, Release, AcqRel};
 
 /// A reference counted contiguous slice of memory.
 ///
-/// `Bytes` is an efficient container for storing and operating on continguous
+/// `Bytes` is an efficient container for storing and operating on contiguous
 /// slices of memory. It is intended for use primarily in networking code, but
 /// could have applications elsewhere as well.
 ///
@@ -91,7 +91,7 @@ use std::sync::atomic::Ordering::{Relaxed, Acquire, Release, AcqRel};
 /// other `Bytes` and `BytesMut` handles with disjoint views of the underlying
 /// memory.
 ///
-/// # Inline bytes.
+/// # Inline bytes
 ///
 /// As an optimization, when the slice referenced by a `Bytes` or `BytesMut`
 /// handle is small enough [1], `Bytes` will avoid the allocation by inlining
@@ -104,7 +104,7 @@ pub struct Bytes {
     inner: Inner2,
 }
 
-/// A unique reference to a continuous slice of memory.
+/// A unique reference to a contiguous slice of memory.
 ///
 /// `BytesMut` represents a unique view into a potentially shared memory region.
 /// Given the uniqueness guarantee, owners of `BytesMut` handles are able to
@@ -370,10 +370,10 @@ const INLINE_CAP: usize = 4 * 4 - 1;
  */
 
 impl Bytes {
-    /// Create a new `Bytes` with the specified capacity.
+    /// Creates a new `Bytes` with the specified capacity.
     ///
     /// The returned `Bytes` will be able to hold at least `capacity` bytes
-    /// without reallocating. If `capacity` is under `3 * size:of::<usize>()`,
+    /// without reallocating. If `capacity` is under `3 * size_of::<usize>()`,
     /// then `BytesMut` will not allocate.
     ///
     /// It is important to note that this function does not specify the length
@@ -402,7 +402,7 @@ impl Bytes {
         }
     }
 
-    /// Creates a new empty `Bytes`
+    /// Creates a new empty `Bytes`.
     ///
     /// This will not allocate and the returned `Bytes` handle will be empty.
     ///
@@ -563,8 +563,8 @@ impl Bytes {
     /// Afterwards `self` contains elements `[0, at)`, and the returned `Bytes`
     /// contains elements `[at, len)`.
     ///
-    /// This is an O(1) operation that just increases the reference count and
-    /// sets a few indexes.
+    /// This is an `O(1)` operation that just increases the reference count and
+    /// sets a few indices.
     ///
     /// # Examples
     ///
@@ -580,7 +580,7 @@ impl Bytes {
     ///
     /// # Panics
     ///
-    /// Panics if `at > len`
+    /// Panics if `at > len`.
     pub fn split_off(&mut self, at: usize) -> Bytes {
         assert!(at <= self.len());
 
@@ -604,8 +604,8 @@ impl Bytes {
     /// Afterwards `self` contains elements `[at, len)`, and the returned
     /// `Bytes` contains elements `[0, at)`.
     ///
-    /// This is an O(1) operation that just increases the reference count and
-    /// sets a few indexes.
+    /// This is an `O(1)` operation that just increases the reference count and
+    /// sets a few indices.
     ///
     /// # Examples
     ///
@@ -621,7 +621,7 @@ impl Bytes {
     ///
     /// # Panics
     ///
-    /// Panics if `at > len`
+    /// Panics if `at > len`.
     pub fn split_to(&mut self, at: usize) -> Bytes {
         assert!(at <= self.len());
 
@@ -685,7 +685,7 @@ impl Bytes {
         self.truncate(0);
     }
 
-    /// Attempt to convert into a `BytesMut` handle.
+    /// Attempts to convert into a `BytesMut` handle.
     ///
     /// This will only succeed if there are no other outstanding references to
     /// the underlying chunk of memory. `Bytes` handles that contain inlined
@@ -721,13 +721,13 @@ impl Bytes {
         }
     }
 
-    /// Append given bytes to this object.
+    /// Appends given bytes to this object.
     ///
     /// If this `Bytes` object has not enough capacity, it is resized first.
-    /// It `Bytes` is shared (`refcount > 1`), it is copied first.
+    /// If it is shared (`refcount > 1`), it is copied first.
     ///
-    /// This operation can be less effective than similar operation on `BytesMut`,
-    /// especially on small additions.
+    /// This operation can be less effective than the similar operation on
+    /// `BytesMut`, especially on small additions.
     ///
     /// # Examples
     ///
@@ -939,10 +939,10 @@ impl<'a> Extend<&'a u8> for Bytes {
  */
 
 impl BytesMut {
-    /// Create a new `BytesMut` with the specified capacity.
+    /// Creates a new `BytesMut` with the specified capacity.
     ///
     /// The returned `BytesMut` will be able to hold at least `capacity` bytes
-    /// without reallocating. If `capacity` is under `3 * size:of::<usize>()`,
+    /// without reallocating. If `capacity` is under `3 * size_of::<usize>()`,
     /// then `BytesMut` will not allocate.
     ///
     /// It is important to note that this function does not specify the length
@@ -971,7 +971,7 @@ impl BytesMut {
         }
     }
 
-    /// Create a new `BytesMut` with default capacity.
+    /// Creates a new `BytesMut` with default capacity.
     ///
     /// Resulting object has length 0 and unspecified capacity.
     /// This function does not allocate.
@@ -1040,7 +1040,7 @@ impl BytesMut {
         self.inner.capacity()
     }
 
-    /// Convert `self` into an immutable `Bytes`
+    /// Converts `self` into an immutable `Bytes`.
     ///
     /// The conversion is zero cost and is used to indicate that the slice
     /// referenced by the handle will no longer be mutated. Once the conversion
@@ -1074,8 +1074,8 @@ impl BytesMut {
     /// Afterwards `self` contains elements `[0, at)`, and the returned
     /// `BytesMut` contains elements `[at, capacity)`.
     ///
-    /// This is an O(1) operation that just increases the reference count
-    /// and sets a few indexes.
+    /// This is an `O(1)` operation that just increases the reference count
+    /// and sets a few indices.
     ///
     /// # Examples
     ///
@@ -1094,7 +1094,7 @@ impl BytesMut {
     ///
     /// # Panics
     ///
-    /// Panics if `at > capacity`
+    /// Panics if `at > capacity`.
     pub fn split_off(&mut self, at: usize) -> BytesMut {
         BytesMut {
             inner: Inner2 {
@@ -1103,7 +1103,7 @@ impl BytesMut {
         }
     }
 
-    /// Remove the bytes from the current view, returning them in a new
+    /// Removes the bytes from the current view, returning them in a new
     /// `BytesMut` handle.
     ///
     /// Afterwards, `self` will be empty, but will retain any additional
@@ -1111,7 +1111,7 @@ impl BytesMut {
     /// `self.split_to(self.len())`.
     ///
     /// This is an `O(1)` operation that just increases the reference count and
-    /// sets a few indexes.
+    /// sets a few indices.
     ///
     /// # Examples
     ///
@@ -1144,8 +1144,8 @@ impl BytesMut {
     /// Afterwards `self` contains elements `[at, len)`, and the returned `BytesMut`
     /// contains elements `[0, at)`.
     ///
-    /// This is an O(1) operation that just increases the reference count and
-    /// sets a few indexes.
+    /// This is an `O(1)` operation that just increases the reference count and
+    /// sets a few indices.
     ///
     /// # Examples
     ///
@@ -1164,7 +1164,7 @@ impl BytesMut {
     ///
     /// # Panics
     ///
-    /// Panics if `at > len`
+    /// Panics if `at > len`.
     pub fn split_to(&mut self, at: usize) -> BytesMut {
         BytesMut {
             inner: Inner2 {
@@ -1218,7 +1218,7 @@ impl BytesMut {
         self.truncate(0);
     }
 
-    /// Sets the length of the buffer
+    /// Sets the length of the buffer.
     ///
     /// This will explicitly set the size of the buffer without actually
     /// modifying the data, so it is up to the caller to ensure that the data
@@ -1300,12 +1300,12 @@ impl BytesMut {
     ///
     /// # Panics
     ///
-    /// Panics if the new capacity overflows usize.
+    /// Panics if the new capacity overflows `usize`.
     pub fn reserve(&mut self, additional: usize) {
         self.inner.reserve(additional)
     }
 
-    /// Append given bytes to this object.
+    /// Appends given bytes to this object.
     ///
     /// If this `BytesMut` object has not enough capacity, it is resized first.
     /// So unlike `put_slice` operation, `extend_from_slice` does not panic.
