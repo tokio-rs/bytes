@@ -1403,6 +1403,12 @@ impl ops::Deref for BytesMut {
     }
 }
 
+impl AsMut<[u8]> for BytesMut {
+    fn as_mut(&mut self) -> &mut [u8] {
+        self.inner.as_mut()
+    }
+}
+
 impl ops::DerefMut for BytesMut {
     #[inline]
     fn deref_mut(&mut self) -> &mut [u8] {
