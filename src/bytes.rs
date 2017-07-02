@@ -101,7 +101,7 @@ use std::sync::atomic::Ordering::{Relaxed, Acquire, Release, AcqRel};
 /// [1] Small enough: 31 bytes on 64 bit systems, 15 on 32 bit systems.
 ///
 pub struct Bytes {
-    inner: Inner2,
+    inner: Inner,
 }
 
 /// A unique reference to a contiguous slice of memory.
@@ -147,7 +147,7 @@ pub struct Bytes {
 /// assert_eq!(&b[..], b"hello");
 /// ```
 pub struct BytesMut {
-    inner: Inner2,
+    inner: Inner,
 }
 
 // Both `Bytes` and `BytesMut` are backed by `Inner` and functions are delegated
@@ -309,16 +309,6 @@ struct Inner {
     arc: AtomicPtr<Shared>,
 }
 
-// This struct is only here to make older versions of Rust happy. In older
-// versions of `Rust`, `repr(C)` structs could not have drop functions. While
-// this is no longer the case for newer rust versions, a number of major Rust
-// libraries still support older versions of Rust for which it is the case. To
-// get around this, `Inner` (the actual struct) is wrapped by `Inner2` which has
-// the drop fn implementation.
-struct Inner2 {
-    inner: Inner,
-}
-
 // Thread-safe reference-counted container for the shared storage. This mostly
 // the same as `std::sync::Arc` but without the weak counter. The ref counting
 // fns are based on the ones found in `std`.
@@ -396,9 +386,7 @@ impl Bytes {
     #[inline]
     pub fn with_capacity(capacity: usize) -> Bytes {
         Bytes {
-            inner: Inner2 {
-                inner: Inner::with_capacity(capacity),
-            },
+            inner: Inner::with_capacity(capacity),
         }
     }
 
@@ -435,9 +423,7 @@ impl Bytes {
     #[inline]
     pub fn from_static(bytes: &'static [u8]) -> Bytes {
         Bytes {
-            inner: Inner2 {
-                inner: Inner::from_static(bytes),
-            }
+            inner: Inner::from_static(bytes),
         }
     }
 
@@ -595,9 +581,7 @@ impl Bytes {
         }
 
         Bytes {
-            inner: Inner2 {
-                inner: self.inner.split_off(at),
-            }
+            inner: self.inner.split_off(at),
         }
     }
 
@@ -636,9 +620,7 @@ impl Bytes {
         }
 
         Bytes {
-            inner: Inner2 {
-                inner: self.inner.split_to(at),
-            }
+            inner: self.inner.split_to(at),
         }
     }
 
@@ -785,9 +767,7 @@ impl<'a> IntoBuf for &'a Bytes {
 impl Clone for Bytes {
     fn clone(&self) -> Bytes {
         Bytes {
-            inner: Inner2 {
-                inner: self.inner.shallow_clone(),
-            }
+            inner: self.inner.shallow_clone(),
         }
     }
 }
@@ -967,9 +947,7 @@ impl BytesMut {
     #[inline]
     pub fn with_capacity(capacity: usize) -> BytesMut {
         BytesMut {
-            inner: Inner2 {
-                inner: Inner::with_capacity(capacity),
-            },
+            inner: Inner::with_capacity(capacity),
         }
     }
 
@@ -1099,9 +1077,7 @@ impl BytesMut {
     /// Panics if `at > capacity`.
     pub fn split_off(&mut self, at: usize) -> BytesMut {
         BytesMut {
-            inner: Inner2 {
-                inner: self.inner.split_off(at),
-            }
+            inner: self.inner.split_off(at),
         }
     }
 
@@ -1169,9 +1145,7 @@ impl BytesMut {
     /// Panics if `at > len`.
     pub fn split_to(&mut self, at: usize) -> BytesMut {
         BytesMut {
-            inner: Inner2 {
-                inner: self.inner.split_to(at),
-            }
+            inner: self.inner.split_to(at),
         }
     }
 
@@ -1421,9 +1395,7 @@ impl ops::DerefMut for BytesMut {
 impl From<Vec<u8>> for BytesMut {
     fn from(src: Vec<u8>) -> BytesMut {
         BytesMut {
-            inner: Inner2 {
-                inner: Inner::from_vec(src),
-            },
+            inner: Inner::from_vec(src),
         }
     }
 }
@@ -1450,9 +1422,7 @@ impl<'a> From<&'a [u8]> for BytesMut {
                 inner.as_raw()[0..len].copy_from_slice(src);
 
                 BytesMut {
-                    inner: Inner2 {
-                        inner: inner,
-                    }
+                    inner: inner,
                 }
             }
         } else {
@@ -2186,7 +2156,7 @@ impl Inner {
     }
 }
 
-impl Drop for Inner2 {
+impl Drop for Inner {
     fn drop(&mut self) {
         let kind = self.kind();
 
@@ -2252,28 +2222,6 @@ impl Shared {
 
 unsafe impl Send for Inner {}
 unsafe impl Sync for Inner {}
-
-/*
- *
- * ===== impl Inner2 =====
- *
- */
-
-impl ops::Deref for Inner2 {
-    type Target = Inner;
-
-    #[inline]
-    fn deref(&self) -> &Inner {
-        &self.inner
-    }
-}
-
-impl ops::DerefMut for Inner2 {
-    #[inline]
-    fn deref_mut(&mut self) -> &mut Inner {
-        &mut self.inner
-    }
-}
 
 /*
  *
