@@ -1630,10 +1630,9 @@ impl Inner {
         if capacity <= INLINE_CAP {
             unsafe {
                 // Using uninitialized memory is ~30% faster
-                Inner {
-                    arc: AtomicPtr::new(KIND_INLINE as *mut Shared),
-                    .. mem::uninitialized()
-                }
+                let mut inner: Inner = mem::uninitialized();
+                inner.arc = AtomicPtr::new(KIND_INLINE as *mut Shared);
+                inner
             }
         } else {
             Inner::from_vec(Vec::with_capacity(capacity))
