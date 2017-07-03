@@ -1,7 +1,6 @@
 extern crate bytes;
 
-use bytes::{Buf, Bytes, BytesMut};
-use std::io::Cursor;
+use bytes::{Buf, Bytes, BytesMut, Cursor};
 
 const LONG: &'static [u8] = b"mary had a little lamb, little lamb, little lamb";
 const SHORT: &'static [u8] = b"hello world";

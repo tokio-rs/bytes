@@ -1,10 +1,9 @@
 extern crate bytes;
 extern crate iovec;
 
-use bytes::{Buf, BufMut, Bytes, BytesMut};
+use bytes::{Buf, BufMut, Bytes, BytesMut, Cursor};
 use bytes::buf::Chain;
 use iovec::IoVec;
-use std::io::Cursor;
 
 #[test]
 fn collect_two_bufs() {

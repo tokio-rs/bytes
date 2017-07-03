@@ -1,6 +1,4 @@
-use super::{Buf};
-
-use std::io;
+use super::{Buf, Cursor};
 
 /// Conversion into a `Buf`
 ///
@@ -56,15 +54,15 @@ impl<T: Buf> IntoBuf for T {
 }
 
 impl<'a> IntoBuf for &'a [u8] {
-    type Buf = io::Cursor<&'a [u8]>;
+    type Buf = Cursor<&'a [u8]>;
 
     fn into_buf(self) -> Self::Buf {
-        io::Cursor::new(self)
+        Cursor::new(self)
     }
 }
 
 impl<'a> IntoBuf for &'a str {
-    type Buf = io::Cursor<&'a [u8]>;
+    type Buf = Cursor<&'a [u8]>;
 
     fn into_buf(self) -> Self::Buf {
         self.as_bytes().into_buf()
@@ -72,33 +70,33 @@ impl<'a> IntoBuf for &'a str {
 }
 
 impl IntoBuf for Vec<u8> {
-    type Buf = io::Cursor<Vec<u8>>;
+    type Buf = Cursor<Vec<u8>>;
 
     fn into_buf(self) -> Self::Buf {
-        io::Cursor::new(self)
+        Cursor::new(self)
     }
 }
 
 impl<'a> IntoBuf for &'a Vec<u8> {
-    type Buf = io::Cursor<&'a [u8]>;
+    type Buf = Cursor<&'a [u8]>;
 
     fn into_buf(self) -> Self::Buf {
-        io::Cursor::new(&self[..])
+        Cursor::new(&self[..])
     }
 }
 
 // Kind of annoying... but this impl is required to allow passing `&'static
 // [u8]` where for<'a> &'a T: IntoBuf is required.
 impl<'a> IntoBuf for &'a &'static [u8] {
-    type Buf = io::Cursor<&'static [u8]>;
+    type Buf = Cursor<&'static [u8]>;
 
     fn into_buf(self) -> Self::Buf {
-        io::Cursor::new(self)
+        Cursor::new(self)
     }
 }
 
 impl<'a> IntoBuf for &'a &'static str {
-    type Buf = io::Cursor<&'static [u8]>;
+    type Buf = Cursor<&'static [u8]>;
 
     fn into_buf(self) -> Self::Buf {
         self.as_bytes().into_buf()
@@ -106,7 +104,7 @@ impl<'a> IntoBuf for &'a &'static str {
 }
 
 impl IntoBuf for String {
-    type Buf = io::Cursor<Vec<u8>>;
+    type Buf = Cursor<Vec<u8>>;
 
     fn into_buf(self) -> Self::Buf {
         self.into_bytes().into_buf()
@@ -114,7 +112,7 @@ impl IntoBuf for String {
 }
 
 impl<'a> IntoBuf for &'a String {
-    type Buf = io::Cursor<&'a [u8]>;
+    type Buf = Cursor<&'a [u8]>;
 
     fn into_buf(self) -> Self::Buf {
         self.as_bytes().into_buf()

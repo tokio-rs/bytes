@@ -1,8 +1,8 @@
-use super::{IntoBuf, Take, Reader, Iter, FromBuf, Chain};
+use super::{IntoBuf, Take, Reader, Iter, FromBuf, Chain, Cursor};
 use byteorder::ByteOrder;
 use iovec::IoVec;
 
-use std::{cmp, io, ptr};
+use std::{cmp, ptr};
 
 /// Read bytes from a buffer.
 ///
@@ -15,8 +15,7 @@ use std::{cmp, io, ptr};
 /// The simplest `Buf` is a `Cursor` wrapping a `[u8]`.
 ///
 /// ```
-/// use bytes::Buf;
-/// use std::io::Cursor;
+/// use bytes::{Buf, Cursor};
 ///
 /// let mut buf = Cursor::new(b"hello world");
 ///
@@ -39,8 +38,7 @@ pub trait Buf {
     /// # Examples
     ///
     /// ```
-    /// use bytes::Buf;
-    /// use std::io::Cursor;
+    /// use bytes::{Buf, Cursor};
     ///
     /// let mut buf = Cursor::new(b"hello world");
     ///
@@ -67,8 +65,7 @@ pub trait Buf {
     /// # Examples
     ///
     /// ```
-    /// use bytes::Buf;
-    /// use std::io::Cursor;
+    /// use bytes::{Buf, Cursor};
     ///
     /// let mut buf = Cursor::new(b"hello world");
     ///
@@ -134,8 +131,7 @@ pub trait Buf {
     /// # Examples
     ///
     /// ```
-    /// use bytes::Buf;
-    /// use std::io::Cursor;
+    /// use bytes::{Buf, Cursor};
     ///
     /// let mut buf = Cursor::new(b"hello world");
     ///
@@ -166,8 +162,7 @@ pub trait Buf {
     /// # Examples
     ///
     /// ```
-    /// use bytes::Buf;
-    /// use std::io::Cursor;
+    /// use bytes::{Buf, Cursor};
     ///
     /// let mut buf = Cursor::new(b"a");
     ///
@@ -189,8 +184,7 @@ pub trait Buf {
     /// # Examples
     ///
     /// ```
-    /// use bytes::Buf;
-    /// use std::io::Cursor;
+    /// use bytes::{Buf, Cursor};
     ///
     /// let mut buf = Cursor::new(b"hello world");
     /// let mut dst = [0; 5];
@@ -232,8 +226,7 @@ pub trait Buf {
     /// # Examples
     ///
     /// ```
-    /// use bytes::Buf;
-    /// use std::io::Cursor;
+    /// use bytes::{Buf, Cursor};
     ///
     /// let mut buf = Cursor::new(b"\x08 hello");
     /// assert_eq!(8, buf.get_u8());
@@ -255,8 +248,7 @@ pub trait Buf {
     /// # Examples
     ///
     /// ```
-    /// use bytes::Buf;
-    /// use std::io::Cursor;
+    /// use bytes::{Buf, Cursor};
     ///
     /// let mut buf = Cursor::new(b"\x08 hello");
     /// assert_eq!(8, buf.get_i8());
@@ -278,8 +270,7 @@ pub trait Buf {
     /// # Examples
     ///
     /// ```
-    /// use bytes::{Buf, BigEndian};
-    /// use std::io::Cursor;
+    /// use bytes::{Buf, BigEndian, Cursor};
     ///
     /// let mut buf = Cursor::new(b"\x08\x09 hello");
     /// assert_eq!(0x0809, buf.get_u16::<BigEndian>());
@@ -301,8 +292,7 @@ pub trait Buf {
     /// # Examples
     ///
     /// ```
-    /// use bytes::{Buf, BigEndian};
-    /// use std::io::Cursor;
+    /// use bytes::{Buf, BigEndian, Cursor};
     ///
     /// let mut buf = Cursor::new(b"\x08\x09 hello");
     /// assert_eq!(0x0809, buf.get_i16::<BigEndian>());
@@ -324,8 +314,7 @@ pub trait Buf {
     /// # Examples
     ///
     /// ```
-    /// use bytes::{Buf, BigEndian};
-    /// use std::io::Cursor;
+    /// use bytes::{Buf, BigEndian, Cursor};
     ///
     /// let mut buf = Cursor::new(b"\x08\x09\xA0\xA1 hello");
     /// assert_eq!(0x0809A0A1, buf.get_u32::<BigEndian>());
@@ -347,8 +336,7 @@ pub trait Buf {
     /// # Examples
     ///
     /// ```
-    /// use bytes::{Buf, BigEndian};
-    /// use std::io::Cursor;
+    /// use bytes::{Buf, BigEndian, Cursor};
     ///
     /// let mut buf = Cursor::new(b"\x08\x09\xA0\xA1 hello");
     /// assert_eq!(0x0809A0A1, buf.get_i32::<BigEndian>());
@@ -370,8 +358,7 @@ pub trait Buf {
     /// # Examples
     ///
     /// ```
-    /// use bytes::{Buf, BigEndian};
-    /// use std::io::Cursor;
+    /// use bytes::{Buf, BigEndian, Cursor};
     ///
     /// let mut buf = Cursor::new(b"\x01\x02\x03\x04\x05\x06\x07\x08 hello");
     /// assert_eq!(0x0102030405060708, buf.get_u64::<BigEndian>());
@@ -393,8 +380,7 @@ pub trait Buf {
     /// # Examples
     ///
     /// ```
-    /// use bytes::{Buf, BigEndian};
-    /// use std::io::Cursor;
+    /// use bytes::{Buf, BigEndian, Cursor};
     ///
     /// let mut buf = Cursor::new(b"\x01\x02\x03\x04\x05\x06\x07\x08 hello");
     /// assert_eq!(0x0102030405060708, buf.get_i64::<BigEndian>());
@@ -416,8 +402,7 @@ pub trait Buf {
     /// # Examples
     ///
     /// ```
-    /// use bytes::{Buf, BigEndian};
-    /// use std::io::Cursor;
+    /// use bytes::{Buf, BigEndian, Cursor};
     ///
     /// let mut buf = Cursor::new(b"\x01\x02\x03 hello");
     /// assert_eq!(0x010203, buf.get_uint::<BigEndian>(3));
@@ -439,8 +424,7 @@ pub trait Buf {
     /// # Examples
     ///
     /// ```
-    /// use bytes::{Buf, BigEndian};
-    /// use std::io::Cursor;
+    /// use bytes::{Buf, BigEndian, Cursor};
     ///
     /// let mut buf = Cursor::new(b"\x01\x02\x03 hello");
     /// assert_eq!(0x010203, buf.get_int::<BigEndian>(3));
@@ -463,8 +447,7 @@ pub trait Buf {
     /// # Examples
     ///
     /// ```
-    /// use bytes::{Buf, BigEndian};
-    /// use std::io::Cursor;
+    /// use bytes::{Buf, BigEndian, Cursor};
     ///
     /// let mut buf = Cursor::new(b"\x3F\x99\x99\x9A hello");
     /// assert_eq!(1.2f32, buf.get_f32::<BigEndian>());
@@ -487,8 +470,7 @@ pub trait Buf {
     /// # Examples
     ///
     /// ```
-    /// use bytes::{Buf, BigEndian};
-    /// use std::io::Cursor;
+    /// use bytes::{Buf, BigEndian, Cursor};
     ///
     /// let mut buf = Cursor::new(b"\x3F\xF3\x33\x33\x33\x33\x33\x33 hello");
     /// assert_eq!(1.2f64, buf.get_f64::<BigEndian>());
@@ -535,8 +517,7 @@ pub trait Buf {
     /// # Examples
     ///
     /// ```
-    /// use bytes::{Buf, BufMut};
-    /// use std::io::Cursor;
+    /// use bytes::{Buf, BufMut, Cursor};
     ///
     /// let mut buf = Cursor::new("hello world").take(5);
     /// let mut dst = vec![];
@@ -586,8 +567,7 @@ pub trait Buf {
     /// # Examples
     ///
     /// ```
-    /// use bytes::{Buf, BufMut};
-    /// use std::io::Cursor;
+    /// use bytes::{Buf, BufMut, Cursor};
     ///
     /// let mut buf = Cursor::new("hello world");
     /// let mut dst = vec![];
@@ -689,12 +669,12 @@ impl<T: Buf + ?Sized> Buf for Box<T> {
     }
 }
 
-impl<T: AsRef<[u8]>> Buf for io::Cursor<T> {
+impl<T: AsRef<[u8]>> Buf for Cursor<T> {
     fn remaining(&self) -> usize {
         let len = self.get_ref().as_ref().len();
         let pos = self.position();
 
-        if pos >= len as u64 {
+        if pos >= len as u32 {
             return 0;
         }
 
@@ -718,7 +698,7 @@ impl<T: AsRef<[u8]>> Buf for io::Cursor<T> {
 
         assert!(pos <= self.get_ref().as_ref().len());
 
-        self.set_position(pos as u64);
+        self.set_position(pos as u32);
     }
 }
 

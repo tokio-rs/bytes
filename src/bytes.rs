@@ -1,10 +1,9 @@
-use {IntoBuf, Buf, BufMut};
+use {IntoBuf, Buf, BufMut, Cursor};
 use buf::Iter;
 use debug;
 
 use std::{cmp, fmt, mem, hash, ops, slice, ptr, usize};
 use std::borrow::Borrow;
-use std::io::Cursor;
 use std::sync::atomic::{self, AtomicUsize, AtomicPtr};
 use std::sync::atomic::Ordering::{Relaxed, Acquire, Release, AcqRel};
 

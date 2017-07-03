@@ -58,8 +58,8 @@ impl<B: BufMut> Writer<B> {
     /// # Examples
     ///
     /// ```rust
-    /// use bytes::BufMut;
-    /// use std::io::{self, Cursor};
+    /// use bytes::{BufMut, Cursor};
+    /// use std::io;
     ///
     /// let mut buf = vec![].writer();
     /// let mut src = Cursor::new(b"hello world");

@@ -2,9 +2,8 @@ extern crate bytes;
 extern crate byteorder;
 extern crate iovec;
 
-use bytes::Buf;
+use bytes::{Buf, Cursor};
 use iovec::IoVec;
-use std::io::Cursor;
 
 #[test]
 fn test_fresh_cursor_vec() {

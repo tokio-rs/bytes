@@ -78,6 +78,7 @@ pub mod buf;
 pub use buf::{
     Buf,
     BufMut,
+    Cursor,
     IntoBuf,
 };
 #[deprecated(since = "0.4.1", note = "moved to `buf` module")]

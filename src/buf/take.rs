@@ -25,8 +25,7 @@ impl<T> Take<T> {
     /// # Examples
     ///
     /// ```rust
-    /// use bytes::{Buf, BufMut};
-    /// use std::io::Cursor;
+    /// use bytes::{Buf, BufMut, Cursor};
     ///
     /// let mut buf = Cursor::new(b"hello world").take(2);
     /// let mut dst = vec![];
@@ -51,8 +50,7 @@ impl<T> Take<T> {
     /// # Examples
     ///
     /// ```rust
-    /// use bytes::{Buf, BufMut};
-    /// use std::io::Cursor;
+    /// use bytes::{Buf, BufMut, Cursor};
     ///
     /// let mut buf = Cursor::new(b"hello world").take(2);
     ///
@@ -69,8 +67,7 @@ impl<T> Take<T> {
     /// # Examples
     ///
     /// ```rust
-    /// use bytes::{Buf, BufMut};
-    /// use std::io::Cursor;
+    /// use bytes::{Buf, BufMut, Cursor};
     ///
     /// let mut buf = Cursor::new(b"hello world").take(2);
     /// let mut dst = vec![];
@@ -94,8 +91,7 @@ impl<T> Take<T> {
     /// # Examples
     ///
     /// ```rust
-    /// use bytes::Buf;
-    /// use std::io::Cursor;
+    /// use bytes::{Buf, Cursor};
     ///
     /// let mut buf = Cursor::new(b"hello world").take(2);
     ///
@@ -117,8 +113,7 @@ impl<T> Take<T> {
     /// # Examples
     ///
     /// ```rust
-    /// use bytes::{Buf, BufMut};
-    /// use std::io::Cursor;
+    /// use bytes::{Buf, BufMut, Cursor};
     ///
     /// let mut buf = Cursor::new(b"hello world").take(2);
     /// let mut dst = vec![];
