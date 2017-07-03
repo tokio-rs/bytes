@@ -1,8 +1,8 @@
-use super::{IntoBuf, Writer};
+use super::{Cursor, IntoBuf, Writer};
 use byteorder::ByteOrder;
 use iovec::IoVec;
 
-use std::{cmp, io, ptr, usize};
+use std::{cmp, ptr, usize};
 
 /// A trait for values that provide sequential write access to bytes.
 ///
@@ -34,8 +34,7 @@ pub trait BufMut {
     /// # Examples
     ///
     /// ```
-    /// use bytes::BufMut;
-    /// use std::io::Cursor;
+    /// use bytes::{BufMut, Cursor};
     ///
     /// let mut dst = [0; 10];
     /// let mut buf = Cursor::new(&mut dst[..]);
@@ -104,8 +103,7 @@ pub trait BufMut {
     /// # Examples
     ///
     /// ```
-    /// use bytes::BufMut;
-    /// use std::io::Cursor;
+    /// use bytes::{BufMut, Cursor};
     ///
     /// let mut dst = [0; 5];
     /// let mut buf = Cursor::new(&mut dst);
@@ -253,8 +251,7 @@ pub trait BufMut {
     /// `self` must have enough remaining capacity to contain all of `src`.
     ///
     /// ```
-    /// use bytes::BufMut;
-    /// use std::io::Cursor;
+    /// use bytes::{BufMut, Cursor};
     ///
     /// let mut dst = [0; 6];
     ///
@@ -672,7 +669,7 @@ impl<T: BufMut + ?Sized> BufMut for Box<T> {
     }
 }
 
-impl<T: AsMut<[u8]> + AsRef<[u8]>> BufMut for io::Cursor<T> {
+impl<T: AsMut<[u8]> + AsRef<[u8]>> BufMut for Cursor<T> {
     fn remaining_mut(&self) -> usize {
         use Buf;
         self.remaining()

@@ -1,7 +1,6 @@
 extern crate bytes;
 
-use bytes::Buf;
-use std::io::Cursor;
+use bytes::{Buf, Cursor};
 
 #[test]
 fn long_take() {

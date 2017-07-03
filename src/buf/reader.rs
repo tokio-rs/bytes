@@ -24,8 +24,7 @@ impl<B: Buf> Reader<B> {
     /// # Examples
     ///
     /// ```rust
-    /// use bytes::Buf;
-    /// use std::io::{self, Cursor};
+    /// use bytes::{Buf, Cursor};
     ///
     /// let mut buf = Cursor::new(b"hello world").reader();
     ///
@@ -42,8 +41,8 @@ impl<B: Buf> Reader<B> {
     /// # Examples
     ///
     /// ```rust
-    /// use bytes::Buf;
-    /// use std::io::{self, Cursor};
+    /// use bytes::{Buf, Cursor};
+    /// use std::io;
     ///
     /// let mut buf = Cursor::new(b"hello world").reader();
     /// let mut dst = vec![];
@@ -62,8 +61,8 @@ impl<B: Buf> Reader<B> {
     /// # Examples
     ///
     /// ```rust
-    /// use bytes::Buf;
-    /// use std::io::{self, Cursor};
+    /// use bytes::{Buf, Cursor};
+    /// use std::io;
     ///
     /// let mut buf = Cursor::new(b"hello world").reader();
     /// let mut dst = vec![];
