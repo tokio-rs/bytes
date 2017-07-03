@@ -1836,15 +1836,9 @@ impl Inner {
         } else if kind == KIND_STATIC {
             false
         } else {
-            // The function requires `&mut self`, which guarantees a unique
-            // reference to the current handle. This means that the `arc` field
-            // *cannot* be concurrently mutated. As such, `Relaxed` ordering is
-            // fine (since we aren't synchronizing with anything).
-            let arc = self.arc.load(Relaxed);
-
             // Otherwise, the underlying buffer is potentially shared with other
             // handles, so the ref_count needs to be checked.
-            unsafe { (*arc).is_unique() }
+            unsafe { (&**self.arc.get_mut()).is_unique() }
         }
     }
 
@@ -2013,10 +2007,7 @@ impl Inner {
             }
         }
 
-        // `Relaxed` is Ok here (and really, no synchronization is necessary)
-        // due to having a `&mut self` pointer. The `&mut self` pointer ensures
-        // that there is no concurrent access on `self`.
-        let arc = self.arc.load(Relaxed);
+        let arc: *mut Shared = *self.arc.get_mut();
 
         debug_assert!(kind == KIND_ARC);
 
@@ -2166,9 +2157,7 @@ impl Drop for Inner {
                 let _ = Vec::from_raw_parts(self.ptr, self.len, self.cap);
             }
         } else if kind == KIND_ARC {
-            // &mut self guarantees correct ordering
-            let arc = self.arc.load(Relaxed);
-            release_shared(arc);
+            release_shared(*self.arc.get_mut());
         }
     }
 }
