@@ -1694,8 +1694,8 @@ impl Inner {
     #[inline]
     fn set_inline_len(&mut self, len: usize) {
         debug_assert!(len <= INLINE_CAP);
-        let p: &mut usize = unsafe { mem::transmute(&mut self.arc) };
-        *p = (*p & !INLINE_LEN_MASK) | (len << INLINE_LEN_OFFSET);
+        let p: &mut _ = self.arc.get_mut();
+        *p = ((*p as usize & !INLINE_LEN_MASK) | (len << INLINE_LEN_OFFSET)) as _;
     }
 
     /// slice.
@@ -1927,7 +1927,7 @@ impl Inner {
                     // The upgrade failed, a concurrent clone happened. Release
                     // the allocation that was made in this thread, it will not
                     // be needed.
-                    let shared: Box<Shared> = mem::transmute(shared);
+                    let shared = Box::from_raw(shared);
                     mem::forget(*shared);
 
                     // Update the `arc` local variable and fall through to a ref
@@ -2200,7 +2200,7 @@ fn release_shared(ptr: *mut Shared) {
         atomic::fence(Acquire);
 
         // Drop the data
-        let _: Box<Shared> = mem::transmute(ptr);
+        Box::from_raw(ptr);
     }
 }
 
