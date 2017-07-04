@@ -363,6 +363,40 @@ const INLINE_CAP: usize = 4 * 8 - 1;
 #[cfg(target_pointer_width = "32")]
 const INLINE_CAP: usize = 4 * 4 - 1;
 
+// Optional Serde support
+#[cfg(feature = "heapsize")]
+mod heapsizeimpl {
+    extern crate heapsize;
+
+    use self::heapsize::HeapSizeOf;
+    use super::{Bytes, KIND_INLINE, KIND_VEC, KIND_STATIC};
+    use std::sync::atomic::Ordering::Acquire;
+
+    impl HeapSizeOf for Bytes {
+        fn heap_size_of_children(&self) -> usize {
+            let inner = &self.inner.inner;
+            let kind = inner.kind();
+
+            // Always check `inline` first, because if the handle is using inline
+            // data storage, all of the `Inner` struct fields will be gibberish.
+            if kind == KIND_INLINE || kind == KIND_STATIC {
+                // If we're inline there's nothing allocated by definition
+                // TODO: Do we consider static buffers allocated?
+                0
+            } else if kind == KIND_VEC {
+                inner.capacity()
+            } else {
+                // We only have `&self` so we must acquire
+                let arc = inner.arc.load(Acquire);
+
+                // Otherwise, the underlying buffer is potentially shared with other
+                // handles, so the ref_count needs to be checked.
+                unsafe { (*arc).ref_count.load(Acquire) }
+            }
+        }
+    }
+}
+
 /*
  *
  * ===== Bytes =====
