@@ -473,7 +473,7 @@ fn into_vec_kind_vec() {
 
     let bytes = Bytes::from(vec);
 
-    let vec = bytes.into_vec();
+    let vec: Vec<_> = bytes.into();
     assert_eq!(vec![10, 20, 30], vec);
     assert_eq!(ptr, vec.as_slice().as_ptr())
 }
@@ -486,7 +486,7 @@ fn into_vec_kind_arc_unique() {
     let mut bytes = Bytes::from(vec);
     bytes.split_off(3); // and immediately drop that bytes
 
-    let vec = bytes.into_vec();
+    let vec: Vec<_> = bytes.into();
     assert_eq!(vec![10, 20, 30], vec);
     assert_eq!(ptr, vec.as_slice().as_ptr())
 }
@@ -499,20 +499,64 @@ fn into_vec_kind_arc_unique_move() {
     let mut bytes = Bytes::from(vec);
     bytes.split_to(1); // and immediately drop that bytes
 
-    let vec = bytes.into_vec();
+    let vec: Vec<_> = bytes.into();
     assert_eq!(vec![20, 30, 40], vec);
     assert_eq!(ptr, vec.as_slice().as_ptr())
 }
 
 #[test]
 fn into_vec_kind_static() {
-    let vec = Bytes::from_static(b"abcde").into_vec();
+    let vec: Vec<_> = Bytes::from_static(b"abcde").into();
     assert_eq!(b"abcde", &vec[..]);
 }
 
 #[test]
 fn into_vec_kind_inline() {
-    let vec = Bytes::from(&b"abcde"[..]).into_vec();
+    let vec: Vec<_> = Bytes::from(&b"abcde"[..]).into();
+    assert_eq!(b"abcde", &vec[..]);
+}
+
+#[test]
+fn into_vec_kind_vec_mut() {
+    let vec = vec![10, 20, 30];
+    let ptr = vec.as_slice().as_ptr();
+
+    let bytes = BytesMut::from(vec);
+
+    let vec: Vec<_> = bytes.into();
+    assert_eq!(vec![10, 20, 30], vec);
+    assert_eq!(ptr, vec.as_slice().as_ptr())
+}
+
+#[test]
+fn into_vec_kind_arc_unique_mut() {
+    let vec = vec![10, 20, 30, 40];
+    let ptr = vec.as_slice().as_ptr();
+
+    let mut bytes = BytesMut::from(vec);
+    bytes.split_off(3); // and immediately drop that bytes
+
+    let vec: Vec<_> = bytes.into();
+    assert_eq!(vec![10, 20, 30], vec);
+    assert_eq!(ptr, vec.as_slice().as_ptr())
+}
+
+#[test]
+fn into_vec_kind_arc_unique_move_mut() {
+    let vec = vec![10, 20, 30, 40];
+    let ptr = vec.as_slice().as_ptr();
+
+    let mut bytes = BytesMut::from(vec);
+    bytes.split_to(1); // and immediately drop that bytes
+
+    let vec: Vec<_> = bytes.into();
+    assert_eq!(vec![20, 30, 40], vec);
+    assert_eq!(ptr, vec.as_slice().as_ptr())
+}
+
+#[test]
+fn into_vec_kind_inline_mut() {
+    let vec: Vec<_> = BytesMut::from(&b"abcde"[..]).into();
     assert_eq!(b"abcde", &vec[..]);
 }
 
