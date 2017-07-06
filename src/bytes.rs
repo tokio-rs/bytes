@@ -1474,6 +1474,33 @@ impl From<Bytes> for BytesMut {
     }
 }
 
+impl From<Bytes> for Vec<u8> {
+    fn from(src: Bytes) -> Vec<u8> {
+        let inner = &src.inner.inner;
+        match inner.kind() {
+            KIND_VEC => {
+                let Inner {
+                    arc: _,
+                    ptr,
+                    len,
+                    cap,
+                } = *inner;
+                unsafe { Vec::from_raw_parts(ptr, len, cap) }
+            }
+            _ => {
+                let src_slice: &[u8] = &src[..];
+                src_slice.to_vec()
+            }
+        }
+    }
+}
+
+impl From<BytesMut> for Vec<u8> {
+    fn from(src: BytesMut) -> Vec<u8> {
+        src.freeze().into()
+    }
+}
+
 impl PartialEq for BytesMut {
     fn eq(&self, other: &BytesMut) -> bool {
         self.inner.as_ref() == other.inner.as_ref()
