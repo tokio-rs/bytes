@@ -22,6 +22,37 @@ fn test_bounds() {
 }
 
 #[test]
+fn into_vec() {
+    // Inline
+    let small = vec![1, 2, 3u8];
+    let bytes: Bytes = (&small[..]).into();
+    assert_eq!(bytes.into_vec(), small);
+
+    // Backed by vec directly
+    let vec = vec![0u8; 100];
+    let bytes: Bytes = vec.clone().into();
+    assert_eq!(bytes.into_vec(), vec);
+
+    // Backed by arc
+    let vec = vec![0u8; 100];
+    let bytes: Bytes = Bytes::clone(&vec.clone().into());
+    assert_eq!(&bytes.into_vec(), &vec);
+
+    // Backed by arc (more than one reference)
+    let vec = vec![0u8; 100];
+    let first_bytes: Bytes = Bytes::clone(&vec.clone().into());
+    let second_bytes: Bytes = first_bytes.clone();
+
+    let mut first_vec = first_bytes.into_vec();
+    assert_eq!(&first_vec, &vec);
+
+    // Ensure that it's referring to a different slice of memory
+    first_vec[0] = 1;
+
+    assert_eq!(second_bytes.into_vec(), vec);
+}
+
+#[test]
 fn from_slice() {
     let a = Bytes::from(&b"abcdefgh"[..]);
     assert_eq!(a, b"abcdefgh"[..]);

@@ -419,6 +419,17 @@ impl Bytes {
         Bytes::with_capacity(0)
     }
 
+    /// Converts a `Bytes` to a `Vec<u8>`, only allocating and copying data if necessary.
+    ///
+    /// Specifically, it will reuse the allocation if the buffer is backed by a `Vec` or is shared
+    /// and has only a single reference.
+    #[inline]
+    pub fn into_vec(self) -> Vec<u8> {
+        self.try_mut()
+            .map(BytesMut::into_vec)
+            .unwrap_or_else(|bytes| bytes.to_vec())
+    }
+
     /// Creates a new `Bytes` from a static slice.
     ///
     /// The returned `Bytes` will point directly to the static slice. There is
@@ -973,6 +984,43 @@ impl BytesMut {
         }
     }
 
+    /// Converts a `Bytes` to a `Vec<u8>`, only allocating and copying data if necessary.
+    ///
+    /// Specifically, it will reuse the allocation if the buffer is backed by a `Vec` or is shared
+    /// and has only a single reference.
+    #[inline]
+    pub fn into_vec(self) -> Vec<u8> {
+        match self.inner.inner.kind() {
+            KIND_VEC => {
+                let Inner {
+                    arc: _,
+                    ptr,
+                    len,
+                    cap,
+                } = self.inner.inner;
+
+                mem::forget(self);
+                unsafe { Vec::from_raw_parts(ptr, len, cap) }
+            }
+            KIND_ARC => {
+                // The function requires `self`, which guarantees a unique reference to the current
+                // handle. See the documentation for `is_mut_safe`.
+                let arc = self.inner.inner.arc.load(Relaxed);
+
+                // The `Shared` must be unique
+                // Replace with empty vec. This means that when we drop `self` we won't end up with
+                // uninitialized memory backing our `Vec`.
+                let vec_ref = unsafe { &mut (*arc).vec };
+                let out = mem::replace(vec_ref, vec![]);
+                out
+            }
+            _ => {
+                let src_slice: &[u8] = &self[..];
+                src_slice.to_vec()
+            }
+        }
+    }
+
     /// Creates a new `BytesMut` with default capacity.
     ///
     /// Resulting object has length 0 and unspecified capacity.
@@ -1471,6 +1519,18 @@ impl From<Bytes> for BytesMut {
     fn from(src: Bytes) -> BytesMut {
         src.try_mut()
             .unwrap_or_else(|src| BytesMut::from(&src[..]))
+    }
+}
+
+impl From<Bytes> for Vec<u8> {
+    fn from(src: Bytes) -> Vec<u8> {
+        src.into_vec()
+    }
+}
+
+impl From<BytesMut> for Vec<u8> {
+    fn from(src: BytesMut) -> Vec<u8> {
+        src.into_vec()
     }
 }
 
