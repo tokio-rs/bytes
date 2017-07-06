@@ -467,6 +467,56 @@ fn from_static() {
 }
 
 #[test]
+fn into_vec_kind_vec() {
+    let vec = vec![10, 20, 30];
+    let ptr = vec.as_slice().as_ptr();
+
+    let bytes = Bytes::from(vec);
+
+    let vec = bytes.into_vec();
+    assert_eq!(vec![10, 20, 30], vec);
+    assert_eq!(ptr, vec.as_slice().as_ptr())
+}
+
+#[test]
+fn into_vec_kind_arc_unique() {
+    let vec = vec![10, 20, 30, 40];
+    let ptr = vec.as_slice().as_ptr();
+
+    let mut bytes = Bytes::from(vec);
+    bytes.split_off(3); // and immediately drop that bytes
+
+    let vec = bytes.into_vec();
+    assert_eq!(vec![10, 20, 30], vec);
+    assert_eq!(ptr, vec.as_slice().as_ptr())
+}
+
+#[test]
+fn into_vec_kind_arc_unique_move() {
+    let vec = vec![10, 20, 30, 40];
+    let ptr = vec.as_slice().as_ptr();
+
+    let mut bytes = Bytes::from(vec);
+    bytes.split_to(1); // and immediately drop that bytes
+
+    let vec = bytes.into_vec();
+    assert_eq!(vec![20, 30, 40], vec);
+    assert_eq!(ptr, vec.as_slice().as_ptr())
+}
+
+#[test]
+fn into_vec_kind_static() {
+    let vec = Bytes::from_static(b"abcde").into_vec();
+    assert_eq!(b"abcde", &vec[..]);
+}
+
+#[test]
+fn into_vec_kind_inline() {
+    let vec = Bytes::from(&b"abcde"[..]).into_vec();
+    assert_eq!(b"abcde", &vec[..]);
+}
+
+#[test]
 // Only run these tests on little endian systems. CI uses qemu for testing
 // little endian... and qemu doesn't really support threading all that well.
 #[cfg(target_endian = "little")]
