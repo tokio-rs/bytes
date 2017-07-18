@@ -1,5 +1,6 @@
 use super::{IntoBuf, Writer};
 use byteorder::ByteOrder;
+
 #[cfg(feature = "std")]
 use iovec::IoVec;
 
@@ -7,6 +8,9 @@ use core::{cmp, ptr, usize};
 
 #[cfg(feature = "std")]
 use std::io;
+
+#[allow(unused_imports)]
+use prelude::*;
 
 /// A trait for values that provide sequential write access to bytes.
 ///
@@ -660,7 +664,7 @@ impl<'a, T: BufMut + ?Sized> BufMut for &'a mut T {
     }
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "allocator")]
 impl<T: BufMut + ?Sized> BufMut for Box<T> {
     fn remaining_mut(&self) -> usize {
         (**self).remaining_mut()
@@ -709,7 +713,7 @@ impl<T: AsMut<[u8]> + AsRef<[u8]>> BufMut for io::Cursor<T> {
     }
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "allocator")]
 impl BufMut for Vec<u8> {
     #[inline]
     fn remaining_mut(&self) -> usize {

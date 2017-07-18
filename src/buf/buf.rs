@@ -1,5 +1,5 @@
 use super::{IntoBuf, Take, Reader, Iter, Chain};
-#[cfg(feature = "std")]
+#[cfg(feature = "allocator")]
 use super::FromBuf;
 
 use byteorder::ByteOrder;
@@ -10,6 +10,9 @@ use core::{cmp, ptr};
 
 #[cfg(feature = "std")]
 use std::io;
+
+#[allow(unused_imports)]
+use prelude::*;
 
 /// Read bytes from a buffer.
 ///
@@ -528,7 +531,7 @@ pub trait Buf {
     ///
     /// assert_eq!(vec, &b"hello world"[..]);
     /// ```
-    #[cfg(feature = "std")]
+    #[cfg(feature = "allocator")]
     fn collect<B>(self) -> B
         where Self: Sized,
               B: FromBuf,
@@ -681,7 +684,7 @@ impl<'a, T: Buf + ?Sized> Buf for &'a mut T {
     }
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "allocator")]
 impl<T: Buf + ?Sized> Buf for Box<T> {
     fn remaining(&self) -> usize {
         (**self).remaining()

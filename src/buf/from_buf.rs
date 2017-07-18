@@ -1,5 +1,8 @@
 use {Buf, BufMut, IntoBuf, Bytes, BytesMut};
 
+#[allow(unused_imports)]
+use prelude::*;
+
 /// Conversion from a [`Buf`]
 ///
 /// Implementing `FromBuf` for a type defines how it is created from a buffer.

@@ -40,6 +40,25 @@ matrix:
     - env: EXTRA_ARGS="--no-default-features"
       script: cargo build $EXTRA_ARGS
 
+    # Ensure crate compiles with "nightly" feature (i.e. for allocation w\ no_std)
+    - env: EXTRA_ARGS="--no-default-features --features nightly"
+      script: cargo build $EXTRA_ARGS
+      rust: nightly
+
+    # Ensure crate compiles with both "std" and "nightly" features
+    - env: EXTRA_ARGS="--no-default-features --features std,nightly"
+      script: cargo build $EXTRA_ARGS
+      rust: nightly
+
+  # Allow "nightly" feature to fail (so we aren't blocked on upstream nightly changes)
+  allow_failures:
+    - env: EXTRA_ARGS="--no-default-features --features nightly"
+      script: cargo build $EXTRA_ARGS
+      rust: nightly
+    - env: EXTRA_ARGS="--no-default-features --features std,nightly"
+      script: cargo build $EXTRA_ARGS
+      rust: nightly
+
 before_install: set -e
 
 install:

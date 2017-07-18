@@ -1,4 +1,7 @@
-use {IntoBuf, Buf, BufMut};
+#[cfg(feature = "std")]
+use {IntoBuf, Buf};
+use BufMut;
+#[cfg(feature = "std")]
 use buf::Iter;
 use debug;
 
@@ -10,6 +13,9 @@ use core::iter::{FromIterator, Iterator};
 
 #[cfg(feature = "std")]
 use std::io;
+
+#[allow(unused_imports)]
+use prelude::*;
 
 /// A reference counted contiguous slice of memory.
 ///
@@ -751,6 +757,7 @@ impl Bytes {
     }
 }
 
+#[cfg(feature = "std")]
 impl IntoBuf for Bytes {
     type Buf = io::Cursor<Self>;
 
@@ -759,6 +766,7 @@ impl IntoBuf for Bytes {
     }
 }
 
+#[cfg(feature = "std")]
 impl<'a> IntoBuf for &'a Bytes {
     type Buf = io::Cursor<Self>;
 
@@ -889,6 +897,7 @@ impl Borrow<[u8]> for Bytes {
     }
 }
 
+#[cfg(feature = "std")]
 impl IntoIterator for Bytes {
     type Item = u8;
     type IntoIter = Iter<io::Cursor<Bytes>>;
@@ -898,6 +907,7 @@ impl IntoIterator for Bytes {
     }
 }
 
+#[cfg(feature = "std")]
 impl<'a> IntoIterator for &'a Bytes {
     type Item = u8;
     type IntoIter = Iter<io::Cursor<&'a Bytes>>;
@@ -1373,6 +1383,7 @@ impl BufMut for BytesMut {
     }
 }
 
+#[cfg(feature = "std")]
 impl IntoBuf for BytesMut {
     type Buf = io::Cursor<Self>;
 
@@ -1381,6 +1392,7 @@ impl IntoBuf for BytesMut {
     }
 }
 
+#[cfg(feature = "std")]
 impl<'a> IntoBuf for &'a BytesMut {
     type Buf = io::Cursor<&'a BytesMut>;
 
@@ -1540,6 +1552,7 @@ impl Clone for BytesMut {
     }
 }
 
+#[cfg(feature = "std")]
 impl IntoIterator for BytesMut {
     type Item = u8;
     type IntoIter = Iter<io::Cursor<BytesMut>>;
@@ -1549,6 +1562,7 @@ impl IntoIterator for BytesMut {
     }
 }
 
+#[cfg(feature = "std")]
 impl<'a> IntoIterator for &'a BytesMut {
     type Item = u8;
     type IntoIter = Iter<io::Cursor<&'a BytesMut>>;

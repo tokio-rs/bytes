@@ -9,7 +9,6 @@ documentation = "https://carllerche.github.io/bytes/bytes"
 homepage      = "https://github.com/carllerche/bytes"
 repository    = "https://github.com/carllerche/bytes"
 readme        = "README.md"
-categories    = ["no-std"]
 keywords      = ["buffers", "zero-copy", "io"]
 exclude       = [
     ".gitignore",
@@ -18,7 +17,7 @@ exclude       = [
     "bench/**/*",
     "test/**/*"
 ]
-categories = ["network-programming", "data-structures"]
+categories = ["network-programming", "data-structures", "no-std"]
 
 [dependencies]
 byteorder = "1.0.0"
@@ -32,5 +31,7 @@ optional = true
 serde_test = "1.0"
 
 [features]
+allocator = []
 default = ["std"]
-std = ["iovec"]
+nightly = ["allocator"]
+std = ["allocator", "iovec"]
