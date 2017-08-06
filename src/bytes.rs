@@ -793,6 +793,7 @@ impl Clone for Bytes {
 }
 
 impl AsRef<[u8]> for Bytes {
+    #[inline]
     fn as_ref(&self) -> &[u8] {
         self.inner.as_ref()
     }
@@ -1391,6 +1392,7 @@ impl<'a> IntoBuf for &'a BytesMut {
 }
 
 impl AsRef<[u8]> for BytesMut {
+    #[inline]
     fn as_ref(&self) -> &[u8] {
         self.inner.as_ref()
     }
