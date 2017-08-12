@@ -1,3 +1,11 @@
+# 0.4.5 (August 12, 2017)
+
+* Fix range bug in `Take::bytes`
+* Misc performance improvements
+* Add extra `PartialEq` implementations.
+* Add `Bytes::with_capacity`
+* Implement `AsMut[u8]` for `BytesMut`
+
 # 0.4.4 (May 26, 2017)
 
 * Add serde support behind feature flag
