@@ -36,6 +36,10 @@ matrix:
     # Serde implementation
     - env: EXTRA_ARGS="--features serde"
 
+    # Ensure crate compiles without default features (i.e. for no_std)
+    - env: EXTRA_ARGS="--no-default-features"
+      script: cargo build $EXTRA_ARGS
+
 before_install: set -e
 
 install:
