@@ -90,7 +90,7 @@ pub use buf::{
 
 mod bytes;
 mod debug;
-pub use bytes::{Bytes, BytesMut};
+pub use bytes::{Bytes, BytesMut, Drain, RangeArgument};
 
 pub use byteorder::{ByteOrder, BigEndian, LittleEndian};
 

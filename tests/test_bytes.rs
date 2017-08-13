@@ -1,6 +1,8 @@
 extern crate bytes;
 
-use bytes::{Bytes, BytesMut, BufMut};
+use std::ops::Deref;
+
+use bytes::{Bytes, BytesMut, BufMut, Drain, RangeArgument};
 
 const LONG: &'static [u8] = b"mary had a little lamb, little lamb, little lamb";
 const SHORT: &'static [u8] = b"hello world";
@@ -464,6 +466,159 @@ fn from_static() {
 
     assert_eq!(a, b"a"[..]);
     assert_eq!(b, b"b"[..]);
+}
+
+trait BytesOrMut : Clone {
+    fn from_static(b: &'static [u8]) -> Self;
+
+    fn from_slice(b: &[u8]) -> Self;
+
+    fn from_vec(v: Vec<u8>) -> Self;
+
+    fn drain<R: RangeArgument<usize>>(&mut self, range: R) -> Drain;
+
+    fn as_ref(&self) -> &[u8];
+
+    fn len(&self) -> usize;
+}
+
+impl BytesOrMut for Bytes {
+    fn from_static(b: &'static [u8]) -> Self {
+        Bytes::from_static(b)
+    }
+
+    fn from_slice(b: &[u8]) -> Self {
+        Bytes::from(b)
+    }
+
+    fn from_vec(v: Vec<u8>) -> Self {
+        Bytes::from(v)
+    }
+
+    fn drain<R: RangeArgument<usize>>(&mut self, range: R) -> Drain {
+        Bytes::drain(self, range)
+    }
+
+    fn as_ref(&self) -> &[u8] {
+        Bytes::deref(self)
+    }
+
+    fn len(&self) -> usize {
+        Bytes::len(self)
+    }
+}
+
+impl BytesOrMut for BytesMut {
+    fn from_static(b: &'static [u8]) -> Self {
+        // There's no `from_static` for `BytesMut`
+        BytesMut::from(b)
+    }
+
+    fn from_slice(b: &[u8]) -> Self {
+        BytesMut::from(b)
+    }
+
+    fn from_vec(v: Vec<u8>) -> Self {
+        BytesMut::from(v)
+    }
+
+    fn drain<R: RangeArgument<usize>>(&mut self, range: R) -> Drain {
+        BytesMut::drain_range(self, range)
+    }
+
+
+    fn as_ref(&self) -> &[u8] {
+        BytesMut::deref(self)
+    }
+
+    fn len(&self) -> usize {
+        BytesMut::len(self)
+    }
+}
+
+
+/// Make `Bytes` object of all possible kinds
+fn make_bytes<B : BytesOrMut>(b: &'static [u8]) -> Vec<B> {
+    vec![
+        B::from_static(b),                 // KIND_STATIC
+        B::from_slice(b),                  // KIND_INLINE
+        B::from_vec(b.to_owned()),         // KIND_VEC
+        B::from_vec(b.to_owned()).clone(), // KIND_ARC
+    ]
+}
+
+
+fn test_drain<B : BytesOrMut>() {
+    // truncate front
+
+    for mut b in make_bytes::<B>(b"987abcdefg") {
+        b.drain(..3);
+        assert_eq!(&b"abcdefg"[..], b.as_ref());
+    }
+    for mut b in make_bytes::<B>(b"aabbccddeeff") {
+        b.drain(..0);
+        assert_eq!(&b"aabbccddeeff"[..], b.as_ref());
+    }
+    for mut b in make_bytes::<B>(b"aabbccddeeff") {
+        let len = b.len();
+        b.drain(..len);
+        assert_eq!(&b""[..], b.as_ref());
+    }
+
+    // truncate back
+
+    for mut b in make_bytes::<B>(b"012abcdef") {
+        b.drain(3..);
+        assert_eq!(&b"012"[..], b.as_ref());
+    }
+    for mut b in make_bytes::<B>(b"abcdefg") {
+        b.drain(0..);
+        assert_eq!(&b""[..], b.as_ref());
+    }
+    for mut b in make_bytes::<B>(b"abcdefg") {
+        let len = b.len();
+        b.drain(len..);
+        assert_eq!(&b"abcdefg"[..], b.as_ref());
+    }
+
+    // remove range in the middle
+
+    for mut b in make_bytes::<B>(b"abcde5678+=") {
+        b.drain(5..9);
+        assert_eq!(&b"abcde+="[..], b.as_ref());
+    }
+    for mut b in make_bytes::<B>(b"abcde+=") {
+        b.drain(5..5);
+        assert_eq!(&b"abcde+="[..], b.as_ref());
+    }
+}
+
+
+#[test]
+fn imm_drain() {
+    test_drain::<Bytes>();
+}
+
+#[test]
+fn mut_drain() {
+    test_drain::<BytesMut>();
+
+    {
+        // KIND_VEC
+        let mut b = BytesMut::from(b"987abcdefg".to_vec());
+        let cap = b.capacity();
+        b.drain_range(..3);
+        assert_eq!(&b"abcdefg"[..], &b);
+        assert_eq!(cap - 3, b.capacity());
+    }
+    {
+        // KIND_ARC
+        let mut b = BytesMut::from(b"+++987abcdefg".to_vec()).split_off(3);
+        let cap = b.capacity();
+        b.drain_range(..3);
+        assert_eq!(&b"abcdefg"[..], &b);
+        assert_eq!(cap - 3, b.capacity());
+    }
 }
 
 #[test]
