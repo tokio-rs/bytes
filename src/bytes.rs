@@ -7,6 +7,7 @@ use std::borrow::Borrow;
 use std::io::Cursor;
 use std::sync::atomic::{self, AtomicUsize, AtomicPtr};
 use std::sync::atomic::Ordering::{Relaxed, Acquire, Release, AcqRel};
+use std::iter::{FromIterator, Iterator};
 
 /// A reference counted contiguous slice of memory.
 ///
@@ -835,6 +836,27 @@ impl<'a> From<&'a [u8]> for Bytes {
 impl<'a> From<&'a str> for Bytes {
     fn from(src: &'a str) -> Bytes {
         BytesMut::from(src).freeze()
+    }
+}
+
+impl FromIterator<u8> for BytesMut {
+    fn from_iter<T: IntoIterator<Item = u8>>(into_iter: T) -> Self {
+        let iter = into_iter.into_iter();
+        let (min, maybe_max) = iter.size_hint();
+
+        let mut out = BytesMut::with_capacity(maybe_max.unwrap_or(min));
+
+        for i in iter {
+            out.put(i);
+        }
+
+        out
+    }
+}
+
+impl FromIterator<u8> for Bytes {
+    fn from_iter<T: IntoIterator<Item = u8>>(into_iter: T) -> Self {
+        BytesMut::from_iter(into_iter).freeze()
     }
 }
 
