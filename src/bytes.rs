@@ -1694,7 +1694,7 @@ impl Inner {
     #[inline]
     fn set_inline_len(&mut self, len: usize) {
         debug_assert!(len <= INLINE_CAP);
-        let p: &mut _ = self.arc.get_mut();
+        let p = self.arc.get_mut();
         *p = ((*p as usize & !INLINE_LEN_MASK) | (len << INLINE_LEN_OFFSET)) as _;
     }
 
@@ -1838,7 +1838,7 @@ impl Inner {
         } else {
             // Otherwise, the underlying buffer is potentially shared with other
             // handles, so the ref_count needs to be checked.
-            unsafe { (&**self.arc.get_mut()).is_unique() }
+            unsafe { (**self.arc.get_mut()).is_unique() }
         }
     }
 
@@ -2007,7 +2007,7 @@ impl Inner {
             }
         }
 
-        let arc: *mut Shared = *self.arc.get_mut();
+        let arc = *self.arc.get_mut();
 
         debug_assert!(kind == KIND_ARC);
 
