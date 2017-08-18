@@ -102,7 +102,7 @@ use std::iter::{FromIterator, Iterator};
 /// [1] Small enough: 31 bytes on 64 bit systems, 15 on 32 bit systems.
 ///
 pub struct Bytes {
-    inner: Inner2,
+    inner: Inner,
 }
 
 /// A unique reference to a contiguous slice of memory.
@@ -148,7 +148,7 @@ pub struct Bytes {
 /// assert_eq!(&b[..], b"hello");
 /// ```
 pub struct BytesMut {
-    inner: Inner2,
+    inner: Inner,
 }
 
 // Both `Bytes` and `BytesMut` are backed by `Inner` and functions are delegated
@@ -310,16 +310,6 @@ struct Inner {
     arc: AtomicPtr<Shared>,
 }
 
-// This struct is only here to make older versions of Rust happy. In older
-// versions of `Rust`, `repr(C)` structs could not have drop functions. While
-// this is no longer the case for newer rust versions, a number of major Rust
-// libraries still support older versions of Rust for which it is the case. To
-// get around this, `Inner` (the actual struct) is wrapped by `Inner2` which has
-// the drop fn implementation.
-struct Inner2 {
-    inner: Inner,
-}
-
 // Thread-safe reference-counted container for the shared storage. This mostly
 // the same as `std::sync::Arc` but without the weak counter. The ref counting
 // fns are based on the ones found in `std`.
@@ -397,9 +387,7 @@ impl Bytes {
     #[inline]
     pub fn with_capacity(capacity: usize) -> Bytes {
         Bytes {
-            inner: Inner2 {
-                inner: Inner::with_capacity(capacity),
-            },
+            inner: Inner::with_capacity(capacity),
         }
     }
 
@@ -436,9 +424,7 @@ impl Bytes {
     #[inline]
     pub fn from_static(bytes: &'static [u8]) -> Bytes {
         Bytes {
-            inner: Inner2 {
-                inner: Inner::from_static(bytes),
-            }
+            inner: Inner::from_static(bytes),
         }
     }
 
@@ -596,9 +582,7 @@ impl Bytes {
         }
 
         Bytes {
-            inner: Inner2 {
-                inner: self.inner.split_off(at),
-            }
+            inner: self.inner.split_off(at),
         }
     }
 
@@ -637,9 +621,7 @@ impl Bytes {
         }
 
         Bytes {
-            inner: Inner2 {
-                inner: self.inner.split_to(at),
-            }
+            inner: self.inner.split_to(at),
         }
     }
 
@@ -786,9 +768,7 @@ impl<'a> IntoBuf for &'a Bytes {
 impl Clone for Bytes {
     fn clone(&self) -> Bytes {
         Bytes {
-            inner: Inner2 {
-                inner: self.inner.shallow_clone(),
-            }
+            inner: self.inner.shallow_clone(),
         }
     }
 }
@@ -990,9 +970,7 @@ impl BytesMut {
     #[inline]
     pub fn with_capacity(capacity: usize) -> BytesMut {
         BytesMut {
-            inner: Inner2 {
-                inner: Inner::with_capacity(capacity),
-            },
+            inner: Inner::with_capacity(capacity),
         }
     }
 
@@ -1122,9 +1100,7 @@ impl BytesMut {
     /// Panics if `at > capacity`.
     pub fn split_off(&mut self, at: usize) -> BytesMut {
         BytesMut {
-            inner: Inner2 {
-                inner: self.inner.split_off(at),
-            }
+            inner: self.inner.split_off(at),
         }
     }
 
@@ -1192,9 +1168,7 @@ impl BytesMut {
     /// Panics if `at > len`.
     pub fn split_to(&mut self, at: usize) -> BytesMut {
         BytesMut {
-            inner: Inner2 {
-                inner: self.inner.split_to(at),
-            }
+            inner: self.inner.split_to(at),
         }
     }
 
@@ -1445,9 +1419,7 @@ impl ops::DerefMut for BytesMut {
 impl From<Vec<u8>> for BytesMut {
     fn from(src: Vec<u8>) -> BytesMut {
         BytesMut {
-            inner: Inner2 {
-                inner: Inner::from_vec(src),
-            },
+            inner: Inner::from_vec(src),
         }
     }
 }
@@ -1474,9 +1446,7 @@ impl<'a> From<&'a [u8]> for BytesMut {
                 inner.as_raw()[0..len].copy_from_slice(src);
 
                 BytesMut {
-                    inner: Inner2 {
-                        inner: inner,
-                    }
+                    inner: inner,
                 }
             }
         } else {
@@ -1654,10 +1624,9 @@ impl Inner {
         if capacity <= INLINE_CAP {
             unsafe {
                 // Using uninitialized memory is ~30% faster
-                Inner {
-                    arc: AtomicPtr::new(KIND_INLINE as *mut Shared),
-                    .. mem::uninitialized()
-                }
+                let mut inner: Inner = mem::uninitialized();
+                inner.arc = AtomicPtr::new(KIND_INLINE as *mut Shared);
+                inner
             }
         } else {
             Inner::from_vec(Vec::with_capacity(capacity))
@@ -1749,8 +1718,8 @@ impl Inner {
     #[inline]
     fn set_inline_len(&mut self, len: usize) {
         debug_assert!(len <= INLINE_CAP);
-        let p: &mut usize = unsafe { mem::transmute(&mut self.arc) };
-        *p = (*p & !INLINE_LEN_MASK) | (len << INLINE_LEN_OFFSET);
+        let p = self.arc.get_mut();
+        *p = ((*p as usize & !INLINE_LEN_MASK) | (len << INLINE_LEN_OFFSET)) as _;
     }
 
     /// slice.
@@ -1891,15 +1860,9 @@ impl Inner {
         } else if kind == KIND_STATIC {
             false
         } else {
-            // The function requires `&mut self`, which guarantees a unique
-            // reference to the current handle. This means that the `arc` field
-            // *cannot* be concurrently mutated. As such, `Relaxed` ordering is
-            // fine (since we aren't synchronizing with anything).
-            let arc = self.arc.load(Relaxed);
-
             // Otherwise, the underlying buffer is potentially shared with other
             // handles, so the ref_count needs to be checked.
-            unsafe { (*arc).is_unique() }
+            unsafe { (**self.arc.get_mut()).is_unique() }
         }
     }
 
@@ -1982,7 +1945,7 @@ impl Inner {
                     // The upgrade failed, a concurrent clone happened. Release
                     // the allocation that was made in this thread, it will not
                     // be needed.
-                    let shared: Box<Shared> = mem::transmute(shared);
+                    let shared = Box::from_raw(shared);
                     mem::forget(*shared);
 
                     // Update the `arc` local variable and fall through to a ref
@@ -2068,10 +2031,7 @@ impl Inner {
             }
         }
 
-        // `Relaxed` is Ok here (and really, no synchronization is necessary)
-        // due to having a `&mut self` pointer. The `&mut self` pointer ensures
-        // that there is no concurrent access on `self`.
-        let arc = self.arc.load(Relaxed);
+        let arc = *self.arc.get_mut();
 
         debug_assert!(kind == KIND_ARC);
 
@@ -2211,7 +2171,7 @@ impl Inner {
     }
 }
 
-impl Drop for Inner2 {
+impl Drop for Inner {
     fn drop(&mut self) {
         let kind = self.kind();
 
@@ -2221,9 +2181,7 @@ impl Drop for Inner2 {
                 let _ = Vec::from_raw_parts(self.ptr, self.len, self.cap);
             }
         } else if kind == KIND_ARC {
-            // &mut self guarantees correct ordering
-            let arc = self.arc.load(Relaxed);
-            release_shared(arc);
+            release_shared(*self.arc.get_mut());
         }
     }
 }
@@ -2255,7 +2213,7 @@ fn release_shared(ptr: *mut Shared) {
         atomic::fence(Acquire);
 
         // Drop the data
-        let _: Box<Shared> = mem::transmute(ptr);
+        Box::from_raw(ptr);
     }
 }
 
@@ -2277,28 +2235,6 @@ impl Shared {
 
 unsafe impl Send for Inner {}
 unsafe impl Sync for Inner {}
-
-/*
- *
- * ===== impl Inner2 =====
- *
- */
-
-impl ops::Deref for Inner2 {
-    type Target = Inner;
-
-    #[inline]
-    fn deref(&self) -> &Inner {
-        &self.inner
-    }
-}
-
-impl ops::DerefMut for Inner2 {
-    #[inline]
-    fn deref_mut(&mut self) -> &mut Inner {
-        &mut self.inner
-    }
-}
 
 /*
  *
