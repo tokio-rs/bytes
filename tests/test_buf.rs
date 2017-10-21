@@ -47,7 +47,12 @@ fn test_get_u16_buffer_underflow() {
 #[test]
 fn test_bufs_vec() {
     let buf = Cursor::new(b"hello world");
-    let mut dst: [&IoVec; 2] = Default::default();
+
+    let b1: &[u8] = &mut [0];
+    let b2: &[u8] = &mut [0];
+
+    let mut dst: [&IoVec; 2] =
+        [b1.into(), b2.into()];
 
     assert_eq!(1, buf.bytes_vec(&mut dst[..]));
 }
