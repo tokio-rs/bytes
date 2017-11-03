@@ -1353,6 +1353,7 @@ impl BytesMut {
         if ptr == other.inner.ptr { 
             // Contiguous blocks, just combine directly
             self.inner.len += other.inner.len;
+            self.inner.cap += other.inner.cap;
             drop(other);
         }
         else {
