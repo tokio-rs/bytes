@@ -1324,6 +1324,41 @@ impl BytesMut {
         self.reserve(extend.len());
         self.put_slice(extend);
     }
+
+    /// Combine splitted BytesMut objects back as contiguous.
+    ///
+    /// If `BytesMut` objects were not contiguous originally, they will be extended.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::BytesMut;
+    ///
+    /// let mut buf = BytesMut::with_capacity(0);
+    /// buf.extend_from_slice(b"aaabbbcccddd");
+    ///
+    /// let splitted = buf.split_off(6);
+    /// assert_eq!(b"aaabbb", &buf[..]);
+    /// assert_eq!(b"cccddd", &splitted[..]);
+    ///
+    /// buf.unsplit(splitted);
+    /// assert_eq!(b"aaabbbcccddd", &buf[..]);
+    /// ```
+    pub fn unsplit(&mut self, other: BytesMut) {
+        let ptr;
+
+        unsafe {
+            ptr = self.as_ptr().offset(self.inner.len as isize); 
+        }
+        if ptr == other.as_ptr() { 
+            // Contiguous blocks, just combine directly
+            self.inner.len += other.inner.len;
+            drop(other);
+        }
+        else {
+            self.extend(other);
+        }
+    }
 }
 
 impl BufMut for BytesMut {
