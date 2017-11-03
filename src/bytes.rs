@@ -1334,7 +1334,7 @@ impl BytesMut {
     /// ```
     /// use bytes::BytesMut;
     ///
-    /// let mut buf = BytesMut::with_capacity(0);
+    /// let mut buf = BytesMut::with_capacity(64);
     /// buf.extend_from_slice(b"aaabbbcccddd");
     ///
     /// let splitted = buf.split_off(6);
@@ -1348,9 +1348,9 @@ impl BytesMut {
         let ptr;
 
         unsafe {
-            ptr = self.as_ptr().offset(self.inner.len as isize); 
+            ptr = self.inner.ptr.offset(self.inner.len as isize); 
         }
-        if ptr == other.as_ptr() { 
+        if ptr == other.inner.ptr { 
             // Contiguous blocks, just combine directly
             self.inner.len += other.inner.len;
             drop(other);
