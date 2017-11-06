@@ -1350,7 +1350,10 @@ impl BytesMut {
         unsafe {
             ptr = self.inner.ptr.offset(self.inner.len as isize); 
         }
-        if ptr == other.inner.ptr { 
+        if ptr == other.inner.ptr &&
+           self.inner.kind() == KIND_ARC &&
+           other.inner.kind() == KIND_ARC
+        {
             // Contiguous blocks, just combine directly
             self.inner.len += other.inner.len;
             self.inner.cap += other.inner.cap;
