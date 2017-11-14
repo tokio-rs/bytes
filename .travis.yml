@@ -36,6 +36,9 @@ matrix:
     # Serde implementation
     - env: EXTRA_ARGS="--features serde"
 
+    # QuickCheck implementation
+    - env: EXTRA_ARGS="--features quickcheck"
+
 before_install: set -e
 
 install:

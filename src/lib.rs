@@ -94,6 +94,11 @@ pub use bytes::{Bytes, BytesMut};
 
 pub use byteorder::{ByteOrder, BigEndian, LittleEndian};
 
+// Optional QuickCheck support
+#[cfg(feature = "quickcheck")]
+#[doc(hidden)]
+pub mod quickcheck;
+
 // Optional Serde support
 #[cfg(feature = "serde")]
 #[doc(hidden)]
