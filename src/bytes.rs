@@ -1354,10 +1354,11 @@ impl BytesMut {
            self.inner.kind() == KIND_ARC &&
            other.inner.kind() == KIND_ARC
         {
+            debug_assert_eq!(self.inner.arc.load(Acquire), 
+                             other.inner.arc.load(Acquire));
             // Contiguous blocks, just combine directly
             self.inner.len += other.inner.len;
             self.inner.cap += other.inner.cap;
-            drop(other);
         }
         else {
             self.extend(other);
