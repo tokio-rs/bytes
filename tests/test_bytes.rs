@@ -350,16 +350,16 @@ fn reserve_growth() {
 
 #[test]
 fn reserve_allocates_at_least_original_capacity() {
-    let mut bytes = BytesMut::with_capacity(128);
+    let mut bytes = BytesMut::with_capacity(1024);
 
-    for i in 0..120 {
+    for i in 0..1020 {
         bytes.put(i as u8);
     }
 
     let _other = bytes.take();
 
     bytes.reserve(16);
-    assert_eq!(bytes.capacity(), 128);
+    assert_eq!(bytes.capacity(), 1024);
 }
 
 #[test]

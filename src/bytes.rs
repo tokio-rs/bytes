@@ -321,7 +321,7 @@ struct Inner {
 // other shenanigans to make it work.
 struct Shared {
     vec: Vec<u8>,
-    original_capacity: usize,
+    original_capacity_repr: usize,
     ref_count: AtomicUsize,
 }
 
@@ -332,7 +332,16 @@ const KIND_STATIC: usize = 0b10;
 const KIND_VEC: usize = 0b11;
 const KIND_MASK: usize = 0b11;
 
-const MAX_ORIGINAL_CAPACITY: usize = 1 << 16;
+// The max original capacity value. Any `Bytes` allocated with a greater initial
+// capacity will default to this.
+const MAX_ORIGINAL_CAPACITY_WIDTH: usize = 17;
+// The original capacity algorithm will not take effect unless the originally
+// allocated capacity was at least 1kb in size.
+const MIN_ORIGINAL_CAPACITY_WIDTH: usize = 10;
+// The original capacity is stored in powers of 2 starting at 1kb to a max of
+// 64kb. Representing it as such requires only 3 bits of storage.
+const ORIGINAL_CAPACITY_MASK: usize = 0b11100;
+const ORIGINAL_CAPACITY_OFFSET: usize = 2;
 
 // Bit op constants for extracting the inline length value from the `arc` field.
 const INLINE_LEN_MASK: usize = 0b11111100;
@@ -346,6 +355,11 @@ const INLINE_LEN_OFFSET: usize = 2;
 const INLINE_DATA_OFFSET: isize = 1;
 #[cfg(target_endian = "big")]
 const INLINE_DATA_OFFSET: isize = 0;
+
+#[cfg(target_pointer_width = "64")]
+const PTR_WIDTH: usize = 64;
+#[cfg(target_pointer_width = "32")]
+const PTR_WIDTH: usize = 32;
 
 // Inline buffer capacity. This is the size of `Inner` minus 1 byte for the
 // metadata.
@@ -1608,8 +1622,8 @@ impl Inner {
 
         mem::forget(src);
 
-        let original_capacity = cmp::min(cap, MAX_ORIGINAL_CAPACITY);
-        let arc = (original_capacity & !KIND_MASK) | KIND_VEC;
+        let original_capacity_repr = original_capacity_to_repr(cap);
+        let arc = (original_capacity_repr << ORIGINAL_CAPACITY_OFFSET) | KIND_VEC;
 
         Inner {
             arc: AtomicPtr::new(arc as *mut Shared),
@@ -1899,6 +1913,9 @@ impl Inner {
             // promote the vec to an `Arc`. This could potentially be called
             // concurrently, so some care must be taken.
             if arc as usize & KIND_MASK == KIND_VEC {
+                let original_capacity_repr =
+                    (arc as usize & ORIGINAL_CAPACITY_MASK) >> ORIGINAL_CAPACITY_OFFSET;
+
                 unsafe {
                     // First, allocate a new `Shared` instance containing the
                     // `Vec` fields. It's important to note that `ptr`, `len`,
@@ -1909,7 +1926,7 @@ impl Inner {
                     // vector.
                     let shared = Box::new(Shared {
                         vec: Vec::from_raw_parts(self.ptr, self.len, self.cap),
-                        original_capacity: arc as usize & !KIND_MASK,
+                        original_capacity_repr: original_capacity_repr,
                         // Initialize refcount to 2. One for this reference, and one
                         // for the new clone that will be returned from
                         // `shallow_clone`.
@@ -2041,9 +2058,11 @@ impl Inner {
         // Compute the new capacity
         let mut new_cap = len + additional;
         let original_capacity;
+        let original_capacity_repr;
 
         unsafe {
-            original_capacity = (*arc).original_capacity;
+            original_capacity_repr = (*arc).original_capacity_repr;
+            original_capacity = original_capacity_from_repr(original_capacity_repr);
 
             // First, try to reclaim the buffer. This is possible if the current
             // handle is the only outstanding handle pointing to the buffer.
@@ -2096,7 +2115,7 @@ impl Inner {
         self.len = v.len();
         self.cap = v.capacity();
 
-        let arc = (original_capacity & !KIND_MASK) | KIND_VEC;
+        let arc = (original_capacity_repr << ORIGINAL_CAPACITY_OFFSET) | KIND_VEC;
 
         self.arc = AtomicPtr::new(arc as *mut Shared);
 
@@ -2231,6 +2250,52 @@ impl Shared {
         // visible to the current thread.
         self.ref_count.load(Acquire) == 1
     }
+}
+
+fn original_capacity_to_repr(cap: usize) -> usize {
+    let width = PTR_WIDTH - ((cap >> MIN_ORIGINAL_CAPACITY_WIDTH).leading_zeros() as usize);
+    cmp::min(width, MAX_ORIGINAL_CAPACITY_WIDTH - MIN_ORIGINAL_CAPACITY_WIDTH)
+}
+
+fn original_capacity_from_repr(repr: usize) -> usize {
+    if repr == 0 {
+        return 0;
+    }
+
+    1 << (repr + (MIN_ORIGINAL_CAPACITY_WIDTH - 1))
+}
+
+#[test]
+fn test_original_capacity_to_repr() {
+    for &cap in &[0, 1, 16, 1000] {
+        assert_eq!(0, original_capacity_to_repr(cap));
+    }
+
+    for &cap in &[1024, 1025, 1100, 2000, 2047] {
+        assert_eq!(1, original_capacity_to_repr(cap));
+    }
+
+    for &cap in &[2048, 2049] {
+        assert_eq!(2, original_capacity_to_repr(cap));
+    }
+
+    // TODO: more
+
+    for &cap in &[65536, 65537, 68000, 1 << 17, 1 << 18, 1 << 20, 1 << 30] {
+        assert_eq!(7, original_capacity_to_repr(cap), "cap={}", cap);
+    }
+}
+
+#[test]
+fn test_original_capacity_from_repr() {
+    assert_eq!(0, original_capacity_from_repr(0));
+    assert_eq!(1024, original_capacity_from_repr(1));
+    assert_eq!(1024 * 2, original_capacity_from_repr(2));
+    assert_eq!(1024 * 4, original_capacity_from_repr(3));
+    assert_eq!(1024 * 8, original_capacity_from_repr(4));
+    assert_eq!(1024 * 16, original_capacity_from_repr(5));
+    assert_eq!(1024 * 32, original_capacity_from_repr(6));
+    assert_eq!(1024 * 64, original_capacity_from_repr(7));
 }
 
 unsafe impl Send for Inner {}
