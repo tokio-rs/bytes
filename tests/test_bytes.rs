@@ -467,6 +467,44 @@ fn from_static() {
 }
 
 #[test]
+fn advance_inline() {
+    let mut a = Bytes::from(&b"hello world"[..]);
+    a.advance(6);
+    assert_eq!(a, &b"world"[..]);
+}
+
+#[test]
+fn advance_static() {
+    let mut a = Bytes::from_static(b"hello world");
+    a.advance(6);
+    assert_eq!(a, &b"world"[..]);
+}
+
+#[test]
+fn advance_vec() {
+    let mut a = BytesMut::from(b"hello world boooo yah world zomg wat wat".to_vec());
+    a.advance(16);
+    assert_eq!(a, b"o yah world zomg wat wat"[..]);
+
+    a.advance(4);
+    assert_eq!(a, b"h world zomg wat wat"[..]);
+
+    // Reserve some space.
+    a.reserve(1024);
+    assert_eq!(a, b"h world zomg wat wat"[..]);
+
+    a.advance(6);
+    assert_eq!(a, b"d zomg wat wat"[..]);
+}
+
+#[test]
+#[should_panic]
+fn advance_past_len() {
+    let mut a = BytesMut::from(b"hello world".to_vec());
+    a.advance(20);
+}
+
+#[test]
 // Only run these tests on little endian systems. CI uses qemu for testing
 // little endian... and qemu doesn't really support threading all that well.
 #[cfg(target_endian = "little")]
