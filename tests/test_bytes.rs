@@ -549,10 +549,10 @@ fn unsplit_arc_inline() {
 
     buf.split_off(8); //arc
 
-    let mut buf3 = BytesMut::with_capacity(8); //inline
-    buf3.extend_from_slice(b"ccccdddd");
+    let mut buf2 = BytesMut::with_capacity(8); //inline
+    buf2.extend_from_slice(b"ccccdddd");
 
-    buf.unsplit(buf3);
+    buf.unsplit(buf2);
     assert_eq!(b"aaaabbbbccccdddd", &buf[..]);
 
 }
@@ -578,12 +578,12 @@ fn unsplit_arc_different() {
 
     buf.split_off(8);
 
-    let mut buf3 = BytesMut::with_capacity(64); //arc
-    buf3.extend_from_slice(b"ccccddddeeee");
+    let mut buf2 = BytesMut::with_capacity(64); //arc
+    buf2.extend_from_slice(b"ccccddddeeee");
 
-    buf3.split_off(8);
+    buf2.split_off(8);
 
-    buf.unsplit(buf3);
+    buf.unsplit(buf2);
     assert_eq!(b"aaaabbbbccccdddd", &buf[..]);
 }
 
@@ -594,23 +594,24 @@ fn unsplit_arc_non_contiguous() {
 
     buf.split_off(8);
 
-    let mut buf3 = BytesMut::with_capacity(64); //arc
-    buf3.extend_from_slice(b"eeeeccccdddd");
+    let mut buf2 = BytesMut::with_capacity(64); //arc
+    buf2.extend_from_slice(b"eeeeccccdddd");
 
-    let buf4 = buf3.split_off(4);
+    let buf3 = buf2.split_off(4);
 
-    buf.unsplit(buf4);
+    buf.unsplit(buf3);
     assert_eq!(b"aaaabbbbccccdddd", &buf[..]);
 }
 
 #[test]
 fn unsplit_two_split_offs() {
     let mut buf = BytesMut::with_capacity(64); //arc
-    buf.extend_from_slice(b"aaaabbbbccccddddeeee");
+    buf.extend_from_slice(b"aaaabbbbccccdddd");
 
     let mut buf2 = buf.split_off(8); //arc
-    buf2.split_off(8); //arc
+    let buf3 = buf2.split_off(4);//arc
 
+    buf2.unsplit(buf3);
     buf.unsplit(buf2);
     assert_eq!(b"aaaabbbbccccdddd", &buf[..]);
 }
