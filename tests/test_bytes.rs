@@ -350,16 +350,16 @@ fn reserve_growth() {
 
 #[test]
 fn reserve_allocates_at_least_original_capacity() {
-    let mut bytes = BytesMut::with_capacity(128);
+    let mut bytes = BytesMut::with_capacity(1024);
 
-    for i in 0..120 {
+    for i in 0..1020 {
         bytes.put(i as u8);
     }
 
     let _other = bytes.take();
 
     bytes.reserve(16);
-    assert_eq!(bytes.capacity(), 128);
+    assert_eq!(bytes.capacity(), 1024);
 }
 
 #[test]
@@ -464,6 +464,44 @@ fn from_static() {
 
     assert_eq!(a, b"a"[..]);
     assert_eq!(b, b"b"[..]);
+}
+
+#[test]
+fn advance_inline() {
+    let mut a = Bytes::from(&b"hello world"[..]);
+    a.advance(6);
+    assert_eq!(a, &b"world"[..]);
+}
+
+#[test]
+fn advance_static() {
+    let mut a = Bytes::from_static(b"hello world");
+    a.advance(6);
+    assert_eq!(a, &b"world"[..]);
+}
+
+#[test]
+fn advance_vec() {
+    let mut a = BytesMut::from(b"hello world boooo yah world zomg wat wat".to_vec());
+    a.advance(16);
+    assert_eq!(a, b"o yah world zomg wat wat"[..]);
+
+    a.advance(4);
+    assert_eq!(a, b"h world zomg wat wat"[..]);
+
+    // Reserve some space.
+    a.reserve(1024);
+    assert_eq!(a, b"h world zomg wat wat"[..]);
+
+    a.advance(6);
+    assert_eq!(a, b"d zomg wat wat"[..]);
+}
+
+#[test]
+#[should_panic]
+fn advance_past_len() {
+    let mut a = BytesMut::from(b"hello world".to_vec());
+    a.advance(20);
 }
 
 #[test]
