@@ -18,6 +18,7 @@
 
 mod buf;
 mod buf_mut;
+#[cfg(feature = "allocator")]
 mod from_buf;
 mod chain;
 mod into_buf;
@@ -28,6 +29,7 @@ mod writer;
 
 pub use self::buf::Buf;
 pub use self::buf_mut::BufMut;
+#[cfg(feature = "allocator")]
 pub use self::from_buf::FromBuf;
 pub use self::chain::Chain;
 pub use self::into_buf::IntoBuf;

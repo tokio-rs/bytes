@@ -70,8 +70,16 @@
 
 #![deny(warnings, missing_docs, missing_debug_implementations)]
 #![doc(html_root_url = "https://docs.rs/bytes/0.4")]
+#![cfg_attr(not(feature = "std"), no_std)]
+#![cfg_attr(feature = "nightly", feature(alloc))]
 
 extern crate byteorder;
+
+#[cfg(feature = "nightly")]
+extern crate alloc;
+#[cfg(feature = "std")]
+extern crate core;
+#[cfg(feature = "std")]
 extern crate iovec;
 
 pub mod buf;
@@ -88,8 +96,12 @@ pub use buf::{
     Take,
 };
 
+#[cfg(feature = "allocator")]
 mod bytes;
+#[cfg(feature = "allocator")]
 mod debug;
+
+#[cfg(feature = "allocator")]
 pub use bytes::{Bytes, BytesMut};
 
 pub use byteorder::{ByteOrder, BigEndian, LittleEndian};
@@ -98,3 +110,15 @@ pub use byteorder::{ByteOrder, BigEndian, LittleEndian};
 #[cfg(feature = "serde")]
 #[doc(hidden)]
 pub mod serde;
+
+/// Custom (internal-only) prelude for this module
+mod prelude {
+    #[cfg(feature = "nightly")]
+    pub use alloc::boxed::Box;
+
+    #[cfg(feature = "nightly")]
+    pub use alloc::string::String;
+
+    #[cfg(feature = "nightly")]
+    pub use alloc::vec::Vec;
+}

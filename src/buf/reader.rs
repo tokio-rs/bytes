@@ -1,5 +1,6 @@
 use {Buf};
 
+#[cfg(feature = "std")]
 use std::{cmp, io};
 
 /// A `Buf` adapter which implements `io::Read` for the inner value.
@@ -78,6 +79,7 @@ impl<B: Buf> Reader<B> {
     }
 }
 
+#[cfg(feature = "std")]
 impl<B: Buf + Sized> io::Read for Reader<B> {
     fn read(&mut self, dst: &mut [u8]) -> io::Result<usize> {
         let len = cmp::min(self.buf.remaining(), dst.len());

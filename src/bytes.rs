@@ -1,13 +1,21 @@
-use {IntoBuf, Buf, BufMut};
+#[cfg(feature = "std")]
+use {IntoBuf, Buf};
+use BufMut;
+#[cfg(feature = "std")]
 use buf::Iter;
 use debug;
 
-use std::{cmp, fmt, mem, hash, ops, slice, ptr, usize};
-use std::borrow::Borrow;
-use std::io::Cursor;
-use std::sync::atomic::{self, AtomicUsize, AtomicPtr};
-use std::sync::atomic::Ordering::{Relaxed, Acquire, Release, AcqRel};
-use std::iter::{FromIterator, Iterator};
+use core::{cmp, fmt, mem, hash, ops, slice, ptr, usize};
+use core::borrow::Borrow;
+use core::sync::atomic::{self, AtomicUsize, AtomicPtr};
+use core::sync::atomic::Ordering::{Relaxed, Acquire, Release, AcqRel};
+use core::iter::{FromIterator, Iterator};
+
+#[cfg(feature = "std")]
+use std::io;
+
+#[allow(unused_imports)]
+use prelude::*;
 
 /// A reference counted contiguous slice of memory.
 ///
@@ -311,10 +319,10 @@ struct Inner {
 }
 
 // Thread-safe reference-counted container for the shared storage. This mostly
-// the same as `std::sync::Arc` but without the weak counter. The ref counting
+// the same as `core::sync::Arc` but without the weak counter. The ref counting
 // fns are based on the ones found in `std`.
 //
-// The main reason to use `Shared` instead of `std::sync::Arc` is that it ends
+// The main reason to use `Shared` instead of `core::sync::Arc` is that it ends
 // up making the overall code simpler and easier to reason about. This is due to
 // some of the logic around setting `Inner::arc` and other ways the `arc` field
 // is used. Using `Arc` ended up requiring a number of funky transmutes and
@@ -787,19 +795,21 @@ impl Bytes {
     }
 }
 
+#[cfg(feature = "std")]
 impl IntoBuf for Bytes {
-    type Buf = Cursor<Self>;
+    type Buf = io::Cursor<Self>;
 
     fn into_buf(self) -> Self::Buf {
-        Cursor::new(self)
+        io::Cursor::new(self)
     }
 }
 
+#[cfg(feature = "std")]
 impl<'a> IntoBuf for &'a Bytes {
-    type Buf = Cursor<Self>;
+    type Buf = io::Cursor<Self>;
 
     fn into_buf(self) -> Self::Buf {
-        Cursor::new(self)
+        io::Cursor::new(self)
     }
 }
 
@@ -925,18 +935,20 @@ impl Borrow<[u8]> for Bytes {
     }
 }
 
+#[cfg(feature = "std")]
 impl IntoIterator for Bytes {
     type Item = u8;
-    type IntoIter = Iter<Cursor<Bytes>>;
+    type IntoIter = Iter<io::Cursor<Bytes>>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.into_buf().iter()
     }
 }
 
+#[cfg(feature = "std")]
 impl<'a> IntoIterator for &'a Bytes {
     type Item = u8;
-    type IntoIter = Iter<Cursor<&'a Bytes>>;
+    type IntoIter = Iter<io::Cursor<&'a Bytes>>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.into_buf().iter()
@@ -1425,19 +1437,21 @@ impl BufMut for BytesMut {
     }
 }
 
+#[cfg(feature = "std")]
 impl IntoBuf for BytesMut {
-    type Buf = Cursor<Self>;
+    type Buf = io::Cursor<Self>;
 
     fn into_buf(self) -> Self::Buf {
-        Cursor::new(self)
+        io::Cursor::new(self)
     }
 }
 
+#[cfg(feature = "std")]
 impl<'a> IntoBuf for &'a BytesMut {
-    type Buf = Cursor<&'a BytesMut>;
+    type Buf = io::Cursor<&'a BytesMut>;
 
     fn into_buf(self) -> Self::Buf {
-        Cursor::new(self)
+        io::Cursor::new(self)
     }
 }
 
@@ -1592,18 +1606,20 @@ impl Clone for BytesMut {
     }
 }
 
+#[cfg(feature = "std")]
 impl IntoIterator for BytesMut {
     type Item = u8;
-    type IntoIter = Iter<Cursor<BytesMut>>;
+    type IntoIter = Iter<io::Cursor<BytesMut>>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.into_buf().iter()
     }
 }
 
+#[cfg(feature = "std")]
 impl<'a> IntoIterator for &'a BytesMut {
     type Item = u8;
-    type IntoIter = Iter<Cursor<&'a BytesMut>>;
+    type IntoIter = Iter<io::Cursor<&'a BytesMut>>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.into_buf().iter()
