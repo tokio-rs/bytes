@@ -386,7 +386,7 @@ impl Bytes {
     /// Creates a new `Bytes` with the specified capacity.
     ///
     /// The returned `Bytes` will be able to hold at least `capacity` bytes
-    /// without reallocating. If `capacity` is under `3 * size_of::<usize>()`,
+    /// without reallocating. If `capacity` is under `4 * size_of::<usize>() - 1`,
     /// then `BytesMut` will not allocate.
     ///
     /// It is important to note that this function does not specify the length
@@ -985,7 +985,7 @@ impl BytesMut {
     /// Creates a new `BytesMut` with the specified capacity.
     ///
     /// The returned `BytesMut` will be able to hold at least `capacity` bytes
-    /// without reallocating. If `capacity` is under `3 * size_of::<usize>()`,
+    /// without reallocating. If `capacity` is under `4 * size_of::<usize>() - 1`,
     /// then `BytesMut` will not allocate.
     ///
     /// It is important to note that this function does not specify the length
