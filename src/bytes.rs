@@ -295,7 +295,8 @@ pub struct BytesMut {
 #[cfg(target_endian = "little")]
 #[repr(C)]
 struct Inner {
-    // WARNING: Do not access the fields directly unless you know what you are doing. Instead, use the fns. See implementation comment above.
+    // WARNING: Do not access the fields directly unless you know what you are
+    // doing. Instead, use the fns. See implementation comment above.
     arc: AtomicPtr<Shared>,
     ptr: *mut u8,
     len: usize,
@@ -305,7 +306,8 @@ struct Inner {
 #[cfg(target_endian = "big")]
 #[repr(C)]
 struct Inner {
-    // WARNING: Do not access the fields directly unless you know what you are doing. Instead, use the fns. See implementation comment above.
+    // WARNING: Do not access the fields directly unless you know what you are
+    // doing. Instead, use the fns. See implementation comment above.
     ptr: *mut u8,
     len: usize,
     cap: usize,
