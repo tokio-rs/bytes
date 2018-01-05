@@ -1401,6 +1401,15 @@ impl BytesMut {
     pub fn unsplit(&mut self, other: BytesMut) {
         let ptr;
 
+        if other.inner.len == 0 {
+            return;
+        }
+
+        if self.inner.len == 0 {
+            *self = other;
+            return;
+        }
+
         unsafe {
             ptr = self.inner.ptr.offset(self.inner.len as isize); 
         }
@@ -1415,7 +1424,7 @@ impl BytesMut {
             self.inner.cap += other.inner.cap;
         }
         else {
-            self.extend(other);
+            self.extend_from_slice(&other);
         }
     }
 }
