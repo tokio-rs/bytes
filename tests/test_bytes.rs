@@ -571,7 +571,7 @@ fn unsplit_empty_other() {
     let mut buf = BytesMut::with_capacity(64);
     buf.extend_from_slice(b"aaabbbcccddd");
 
-    //empty other
+    // empty other
     let other = BytesMut::new();
 
     buf.unsplit(other);
@@ -580,7 +580,7 @@ fn unsplit_empty_other() {
 
 #[test]
 fn unsplit_empty_self() {
-    //empty self
+    // empty self
     let mut buf = BytesMut::new();
 
     let mut other = BytesMut::with_capacity(64);

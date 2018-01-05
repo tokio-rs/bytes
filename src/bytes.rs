@@ -295,6 +295,7 @@ pub struct BytesMut {
 #[cfg(target_endian = "little")]
 #[repr(C)]
 struct Inner {
+    // WARNING: Do not access the fields directly unless you know what you are doing. Instead, use the fns. See implementation comment above.
     arc: AtomicPtr<Shared>,
     ptr: *mut u8,
     len: usize,
@@ -304,6 +305,7 @@ struct Inner {
 #[cfg(target_endian = "big")]
 #[repr(C)]
 struct Inner {
+    // WARNING: Do not access the fields directly unless you know what you are doing. Instead, use the fns. See implementation comment above.
     ptr: *mut u8,
     len: usize,
     cap: usize,
@@ -1401,11 +1403,11 @@ impl BytesMut {
     pub fn unsplit(&mut self, other: BytesMut) {
         let ptr;
 
-        if other.inner.len == 0 {
+        if other.is_empty() {
             return;
         }
 
-        if self.inner.len == 0 {
+        if self.is_empty() {
             *self = other;
             return;
         }
