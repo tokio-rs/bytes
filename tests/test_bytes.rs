@@ -567,6 +567,30 @@ fn unsplit_basic() {
 }
 
 #[test]
+fn unsplit_empty_other() {
+    let mut buf = BytesMut::with_capacity(64);
+    buf.extend_from_slice(b"aaabbbcccddd");
+
+    // empty other
+    let other = BytesMut::new();
+
+    buf.unsplit(other);
+    assert_eq!(b"aaabbbcccddd", &buf[..]);
+}
+
+#[test]
+fn unsplit_empty_self() {
+    // empty self
+    let mut buf = BytesMut::new();
+
+    let mut other = BytesMut::with_capacity(64);
+    other.extend_from_slice(b"aaabbbcccddd");
+
+    buf.unsplit(other);
+    assert_eq!(b"aaabbbcccddd", &buf[..]);
+}
+
+#[test]
 fn unsplit_inline_arc() {
     let mut buf = BytesMut::with_capacity(8); //inline
     buf.extend_from_slice(b"aaaabbbb");
