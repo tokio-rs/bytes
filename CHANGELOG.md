@@ -1,3 +1,10 @@
+# 0.4.6 (Janary 8, 2018)
+
+* Implement FromIterator for Bytes/BytesMut (#148).
+* Add `advance` fn to Bytes/BytesMut (#166).
+* Add `unsplit` fn to `BytesMut` (#162, #173).
+* Improvements to Bytes split fns (#92).
+
 # 0.4.5 (August 12, 2017)
 
 * Fix range bug in `Take::bytes`
