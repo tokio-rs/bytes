@@ -417,6 +417,27 @@ impl Bytes {
         }
     }
 
+    /// Creates a new `Bytes` with the specified capacity, using stable storage
+    ///
+    /// Exactly like `with_capacity`, but never uses the inline optimization.
+    /// The resulting `Bytes` can be used with asynchronous C APIs that require
+    /// stable storage.
+    ///
+    /// # Examples
+    /// ```
+    /// use bytes::Bytes;
+    ///
+    /// let mut bytes = Bytes::with_capacity_stable(4);
+    ///
+    /// assert!(!bytes.is_inline());
+    /// ```
+    #[inline]
+    pub fn with_capacity_stable(capacity: usize) -> Bytes {
+        Bytes {
+            inner: Inner::with_capacity_stable(capacity),
+        }
+    }
+
     /// Creates a new empty `Bytes`.
     ///
     /// This will not allocate and the returned `Bytes` handle will be empty.
@@ -480,6 +501,19 @@ impl Bytes {
     /// ```
     pub fn is_empty(&self) -> bool {
         self.inner.is_empty()
+    }
+
+    /// Return true if the `Bytes` uses inline allocation
+    ///
+    /// # Examples
+    /// ```
+    /// use bytes::Bytes;
+    ///
+    /// assert!(Bytes::with_capacity(4).is_inline());
+    /// assert!(!Bytes::with_capacity(1024).is_inline());
+    /// ```
+    pub fn is_inline(&self) -> bool {
+        self.inner.is_inline()
     }
 
     /// Returns a slice of self for the index range `[begin..end)`.
@@ -1016,6 +1050,28 @@ impl BytesMut {
         }
     }
 
+    /// Creates a new `BytesMut` with the specified capacity, using stable
+    /// storage
+    ///
+    /// Exactly like `with_capacity`, but never uses the inline optimization.
+    /// The resulting `BytesMut` can be used with asynchronous C APIs that
+    /// require stable storage.
+    ///
+    /// # Examples
+    /// ```
+    /// use bytes::BytesMut;
+    ///
+    /// let mut bytes = BytesMut::with_capacity_stable(4);
+    ///
+    /// assert!(!bytes.is_inline());
+    /// ```
+    #[inline]
+    pub fn with_capacity_stable(capacity: usize) -> BytesMut {
+        BytesMut {
+            inner: Inner::with_capacity_stable(capacity),
+        }
+    }
+
     /// Creates a new `BytesMut` with default capacity.
     ///
     /// Resulting object has length 0 and unspecified capacity.
@@ -1068,6 +1124,19 @@ impl BytesMut {
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.len() == 0
+    }
+
+    /// Return true if the `BytesMut` uses inline allocation
+    ///
+    /// # Examples
+    /// ```
+    /// use bytes::BytesMut;
+    ///
+    /// assert!(BytesMut::with_capacity(4).is_inline());
+    /// assert!(!BytesMut::with_capacity(1024).is_inline());
+    /// ```
+    pub fn is_inline(&self) -> bool {
+        self.inner.is_inline()
     }
 
     /// Returns the number of bytes the `BytesMut` can hold without reallocating.
@@ -1736,8 +1805,13 @@ impl Inner {
                 inner
             }
         } else {
-            Inner::from_vec(Vec::with_capacity(capacity))
+            Inner::with_capacity_stable(capacity)
         }
+    }
+
+    #[inline]
+    fn with_capacity_stable(capacity:usize) -> Inner {
+            Inner::from_vec(Vec::with_capacity(capacity))
     }
 
     /// Return a slice for the handle's view into the shared buffer
