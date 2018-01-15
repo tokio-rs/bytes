@@ -95,9 +95,10 @@ use std::iter::{FromIterator, Iterator};
 /// # Inline bytes
 ///
 /// As an optimization, when the slice referenced by a `Bytes` or `BytesMut`
-/// handle is small enough [1], `Bytes` will avoid the allocation by inlining
-/// the slice directly in the handle. In this case, a clone is no longer
-/// "shallow" and the data will be copied.
+/// handle is small enough [1], `with_capacity` will avoid the allocation
+/// by inlining the slice directly in the handle. In this case, a clone is no
+/// longer "shallow" and the data will be copied.  Converting from a `Vec` will
+/// never use inlining.
 ///
 /// [1] Small enough: 31 bytes on 64 bit systems, 15 on 32 bit systems.
 ///
@@ -482,6 +483,20 @@ impl Bytes {
         self.inner.is_empty()
     }
 
+    /// Return true if the `Bytes` uses inline allocation
+    ///
+    /// # Examples
+    /// ```
+    /// use bytes::Bytes;
+    ///
+    /// assert!(Bytes::with_capacity(4).is_inline());
+    /// assert!(!Bytes::from(Vec::with_capacity(4)).is_inline());
+    /// assert!(!Bytes::with_capacity(1024).is_inline());
+    /// ```
+    pub fn is_inline(&self) -> bool {
+        self.inner.is_inline()
+    }
+
     /// Returns a slice of self for the index range `[begin..end)`.
     ///
     /// This will increment the reference count for the underlying memory and
@@ -838,6 +853,11 @@ impl From<BytesMut> for Bytes {
 }
 
 impl From<Vec<u8>> for Bytes {
+    /// Convert a `Vec` into a `Bytes`
+    ///
+    /// This constructor may be used to avoid the inlining optimization used by
+    /// `with_capacity`.  A `Bytes` constructed this way will always store its
+    /// data on the heap.
     fn from(src: Vec<u8>) -> Bytes {
         BytesMut::from(src).freeze()
     }
@@ -1068,6 +1088,20 @@ impl BytesMut {
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.len() == 0
+    }
+
+    /// Return true if the `BytesMut` uses inline allocation
+    ///
+    /// # Examples
+    /// ```
+    /// use bytes::BytesMut;
+    ///
+    /// assert!(BytesMut::with_capacity(4).is_inline());
+    /// assert!(!BytesMut::from(Vec::with_capacity(4)).is_inline());
+    /// assert!(!BytesMut::with_capacity(1024).is_inline());
+    /// ```
+    pub fn is_inline(&self) -> bool {
+        self.inner.is_inline()
     }
 
     /// Returns the number of bytes the `BytesMut` can hold without reallocating.
@@ -1524,6 +1558,11 @@ impl ops::DerefMut for BytesMut {
 }
 
 impl From<Vec<u8>> for BytesMut {
+    /// Convert a `Vec` into a `BytesMut`
+    ///
+    /// This constructor may be used to avoid the inlining optimization used by
+    /// `with_capacity`.  A `BytesMut` constructed this way will always store
+    /// its data on the heap.
     fn from(src: Vec<u8>) -> BytesMut {
         BytesMut {
             inner: Inner::from_vec(src),
