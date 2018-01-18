@@ -1,6 +1,6 @@
 use super::{IntoBuf, Writer};
 use byteorder::ByteOrder;
-use iovec::IoVec;
+use iovec::IoVecMut;
 
 use std::{cmp, io, ptr, usize};
 
@@ -188,7 +188,7 @@ pub trait BufMut {
     /// with `dst` being a zero length slice.
     ///
     /// [`readv`]: http://man7.org/linux/man-pages/man2/readv.2.html
-    unsafe fn bytes_vec_mut<'a>(&'a mut self, dst: &mut [&'a mut IoVec]) -> usize {
+    unsafe fn bytes_vec_mut<'a>(&'a mut self, dst: &mut [IoVecMut<'a>]) -> usize {
         if dst.is_empty() {
             return 0;
         }
@@ -645,7 +645,7 @@ impl<'a, T: BufMut + ?Sized> BufMut for &'a mut T {
         (**self).bytes_mut()
     }
 
-    unsafe fn bytes_vec_mut<'b>(&'b mut self, dst: &mut [&'b mut IoVec]) -> usize {
+    unsafe fn bytes_vec_mut<'b>(&'b mut self, dst: &mut [IoVecMut<'b>]) -> usize {
         (**self).bytes_vec_mut(dst)
     }
 
@@ -663,7 +663,7 @@ impl<T: BufMut + ?Sized> BufMut for Box<T> {
         (**self).bytes_mut()
     }
 
-    unsafe fn bytes_vec_mut<'b>(&'b mut self, dst: &mut [&'b mut IoVec]) -> usize {
+    unsafe fn bytes_vec_mut<'b>(&'b mut self, dst: &mut [IoVecMut<'b>]) -> usize {
         (**self).bytes_vec_mut(dst)
     }
 

@@ -113,7 +113,7 @@ pub trait Buf {
     /// with `dst` being a zero length slice.
     ///
     /// [`writev`]: http://man7.org/linux/man-pages/man2/readv.2.html
-    fn bytes_vec<'a>(&'a self, dst: &mut [&'a IoVec]) -> usize {
+    fn bytes_vec<'a>(&'a self, dst: &mut [IoVec<'a>]) -> usize {
         if dst.is_empty() {
             return 0;
         }
@@ -662,7 +662,7 @@ impl<'a, T: Buf + ?Sized> Buf for &'a mut T {
         (**self).bytes()
     }
 
-    fn bytes_vec<'b>(&'b self, dst: &mut [&'b IoVec]) -> usize {
+    fn bytes_vec<'b>(&'b self, dst: &mut [IoVec<'b>]) -> usize {
         (**self).bytes_vec(dst)
     }
 
@@ -680,7 +680,7 @@ impl<T: Buf + ?Sized> Buf for Box<T> {
         (**self).bytes()
     }
 
-    fn bytes_vec<'b>(&'b self, dst: &mut [&'b IoVec]) -> usize {
+    fn bytes_vec<'b>(&'b self, dst: &mut [IoVec<'b>]) -> usize {
         (**self).bytes_vec(dst)
     }
 

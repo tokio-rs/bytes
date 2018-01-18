@@ -3,7 +3,7 @@ extern crate byteorder;
 extern crate iovec;
 
 use bytes::{BufMut, BytesMut};
-use iovec::IoVec;
+use iovec::IoVecMut;
 use std::usize;
 use std::fmt::Write;
 
@@ -77,7 +77,7 @@ fn test_bufs_vec_mut() {
     let mut buf = BytesMut::from(&b"hello world"[..]);
 
     unsafe {
-        let mut dst: [&mut IoVec; 2] = mem::zeroed();
+        let mut dst: [IoVecMut; 2] = mem::zeroed();
         assert_eq!(1, buf.bytes_vec_mut(&mut dst[..]));
     }
 }
