@@ -59,7 +59,7 @@ fn vectored_read() {
         let b2: &[u8] = &mut [0];
         let b3: &[u8] = &mut [0];
         let b4: &[u8] = &mut [0];
-        let mut iovecs: [&IoVec; 4] =
+        let mut iovecs: [IoVec; 4] =
             [b1.into(), b2.into(), b3.into(), b4.into()];
 
         assert_eq!(2, buf.bytes_vec(&mut iovecs));
@@ -76,7 +76,7 @@ fn vectored_read() {
         let b2: &[u8] = &mut [0];
         let b3: &[u8] = &mut [0];
         let b4: &[u8] = &mut [0];
-        let mut iovecs: [&IoVec; 4] =
+        let mut iovecs: [IoVec; 4] =
             [b1.into(), b2.into(), b3.into(), b4.into()];
 
         assert_eq!(2, buf.bytes_vec(&mut iovecs));
@@ -93,7 +93,7 @@ fn vectored_read() {
         let b2: &[u8] = &mut [0];
         let b3: &[u8] = &mut [0];
         let b4: &[u8] = &mut [0];
-        let mut iovecs: [&IoVec; 4] =
+        let mut iovecs: [IoVec; 4] =
             [b1.into(), b2.into(), b3.into(), b4.into()];
 
         assert_eq!(1, buf.bytes_vec(&mut iovecs));
@@ -110,7 +110,7 @@ fn vectored_read() {
         let b2: &[u8] = &mut [0];
         let b3: &[u8] = &mut [0];
         let b4: &[u8] = &mut [0];
-        let mut iovecs: [&IoVec; 4] =
+        let mut iovecs: [IoVec; 4] =
             [b1.into(), b2.into(), b3.into(), b4.into()];
 
         assert_eq!(1, buf.bytes_vec(&mut iovecs));
