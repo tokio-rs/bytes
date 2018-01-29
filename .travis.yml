@@ -36,6 +36,13 @@ matrix:
     # Serde implementation
     - env: EXTRA_ARGS="--features serde"
 
+    # WASM support
+    - rust: beta
+      script:
+        - rustup target add wasm32-unknown-unknown
+        - cargo build --target=wasm32-unknown-unknown
+
+
 before_install: set -e
 
 install:
