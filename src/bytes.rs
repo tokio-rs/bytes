@@ -1437,32 +1437,13 @@ impl BytesMut {
     /// assert_eq!(b"aaabbbcccddd", &buf[..]);
     /// ```
     pub fn unsplit(&mut self, other: BytesMut) {
-        let ptr;
-
-        if other.is_empty() {
-            return;
-        }
-
         if self.is_empty() {
             *self = other;
             return;
         }
 
-        unsafe {
-            ptr = self.inner.ptr.offset(self.inner.len as isize); 
-        }
-        if ptr == other.inner.ptr &&
-           self.inner.kind() == KIND_ARC &&
-           other.inner.kind() == KIND_ARC
-        {
-            debug_assert_eq!(self.inner.arc.load(Acquire),
-                             other.inner.arc.load(Acquire));
-            // Contiguous blocks, just combine directly
-            self.inner.len += other.inner.len;
-            self.inner.cap += other.inner.cap;
-        }
-        else {
-            self.extend_from_slice(&other);
+        if let Err(other_inner) = self.inner.try_unsplit(other.inner) {
+            self.extend_from_slice(other_inner.as_ref());
         }
     }
 }
@@ -1919,6 +1900,31 @@ impl Inner {
     fn truncate(&mut self, len: usize) {
         if len <= self.len() {
             unsafe { self.set_len(len); }
+        }
+    }
+
+    fn try_unsplit(&mut self, other: Inner) -> Result<(), Inner> {
+        let ptr;
+
+        if other.is_empty() {
+            return Ok(());
+        }
+
+        unsafe {
+            ptr = self.ptr.offset(self.len as isize);
+        }
+        if ptr == other.ptr &&
+           self.kind() == KIND_ARC &&
+           other.kind() == KIND_ARC
+        {
+            debug_assert_eq!(self.arc.load(Acquire),
+                             other.arc.load(Acquire));
+            // Contiguous blocks, just combine directly
+            self.len += other.len;
+            self.cap += other.cap;
+            Ok(())
+        } else {
+            Err(other)
         }
     }
 
