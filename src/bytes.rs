@@ -1087,7 +1087,7 @@ impl BytesMut {
     /// ```
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.len() == 0
+        self.inner.is_empty()
     }
 
     /// Return true if the `BytesMut` uses inline allocation
