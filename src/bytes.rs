@@ -804,6 +804,36 @@ impl Bytes {
 
         mem::replace(self, result.freeze());
     }
+
+    /// Combine splitted Bytes objects back as contiguous.
+    ///
+    /// If `Bytes` objects were not contiguous originally, they will be extended.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Bytes;
+    ///
+    /// let mut buf = Bytes::with_capacity(64);
+    /// buf.extend_from_slice(b"aaabbbcccddd");
+    ///
+    /// let splitted = buf.split_off(6);
+    /// assert_eq!(b"aaabbb", &buf[..]);
+    /// assert_eq!(b"cccddd", &splitted[..]);
+    ///
+    /// buf.unsplit(splitted);
+    /// assert_eq!(b"aaabbbcccddd", &buf[..]);
+    /// ```
+    pub fn unsplit(&mut self, other: Bytes) {
+        if self.is_empty() {
+            *self = other;
+            return;
+        }
+
+        if let Err(other_inner) = self.inner.try_unsplit(other.inner) {
+            self.extend_from_slice(other_inner.as_ref());
+        }
+    }
 }
 
 impl IntoBuf for Bytes {
