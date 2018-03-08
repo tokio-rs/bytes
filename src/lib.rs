@@ -92,6 +92,7 @@ mod bytes;
 mod debug;
 pub use bytes::{Bytes, BytesMut};
 
+#[deprecated]
 pub use byteorder::{ByteOrder, BigEndian, LittleEndian};
 
 // Optional Serde support
