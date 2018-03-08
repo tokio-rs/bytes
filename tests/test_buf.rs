@@ -33,7 +33,7 @@ fn test_get_u8() {
 #[test]
 fn test_get_u16() {
     let buf = b"\x21\x54zomg";
-    assert_eq!(0x2154, Cursor::new(buf).get_u16_be());
+    assert_eq!(0x2154, Cursor::new(buf).get_u16());
     assert_eq!(0x5421, Cursor::new(buf).get_u16_le());
 }
 
@@ -41,7 +41,7 @@ fn test_get_u16() {
 #[should_panic]
 fn test_get_u16_buffer_underflow() {
     let mut buf = Cursor::new(b"\x21");
-    buf.get_u16_be();
+    buf.get_u16();
 }
 
 #[test]

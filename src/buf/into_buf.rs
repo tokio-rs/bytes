@@ -11,12 +11,12 @@ use std::io;
 /// # Examples
 ///
 /// ```
-/// use bytes::{Buf, IntoBuf, BigEndian};
+/// use bytes::{Buf, IntoBuf};
 ///
 /// let bytes = b"\x00\x01hello world";
 /// let mut buf = bytes.into_buf();
 ///
-/// assert_eq!(1, buf.get_u16::<BigEndian>());
+/// assert_eq!(1, buf.get_u16());
 ///
 /// let mut rest = [0; 11];
 /// buf.copy_to_slice(&mut rest);
@@ -32,12 +32,12 @@ pub trait IntoBuf {
     /// # Examples
     ///
     /// ```
-    /// use bytes::{Buf, IntoBuf, BigEndian};
+    /// use bytes::{Buf, IntoBuf};
     ///
     /// let bytes = b"\x00\x01hello world";
     /// let mut buf = bytes.into_buf();
     ///
-    /// assert_eq!(1, buf.get_u16::<BigEndian>());
+    /// assert_eq!(1, buf.get_u16());
     ///
     /// let mut rest = [0; 11];
     /// buf.copy_to_slice(&mut rest);

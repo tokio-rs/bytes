@@ -41,7 +41,7 @@ fn test_put_u8() {
 #[test]
 fn test_put_u16() {
     let mut buf = Vec::with_capacity(8);
-    buf.put_u16_be(8532);
+    buf.put_u16(8532);
     assert_eq!(b"\x21\x54", &buf[..]);
 
     buf.clear();
