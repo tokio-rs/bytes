@@ -3,7 +3,7 @@ use buf::Iter;
 use debug;
 
 use std::{cmp, fmt, mem, hash, ops, slice, ptr, usize};
-use std::borrow::Borrow;
+use std::borrow::{Borrow, BorrowMut};
 use std::io::Cursor;
 use std::sync::atomic::{self, AtomicUsize, AtomicPtr};
 use std::sync::atomic::Ordering::{Relaxed, Acquire, Release, AcqRel};
@@ -1669,6 +1669,12 @@ impl hash::Hash for BytesMut {
 impl Borrow<[u8]> for BytesMut {
     fn borrow(&self) -> &[u8] {
         self.as_ref()
+    }
+}
+
+impl BorrowMut<[u8]> for BytesMut {
+    fn borrow_mut(&mut self) -> &mut [u8] {
+        self.as_mut()
     }
 }
 
