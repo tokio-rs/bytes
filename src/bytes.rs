@@ -763,6 +763,17 @@ impl Bytes {
         }
     }
 
+    /// Acquires a mutable reference to the owned form of the data.
+    ///
+    /// Clones the data if it is not already owned.
+    pub fn to_mut(&mut self) -> &mut BytesMut {
+        if !self.inner.is_mut_safe() {
+            let new = Bytes::from(&self[..]);
+            *self = new;
+        }
+        unsafe { &mut *(self as *mut Bytes as *mut BytesMut) }
+    }
+
     /// Appends given bytes to this object.
     ///
     /// If this `Bytes` object has not enough capacity, it is resized first.
