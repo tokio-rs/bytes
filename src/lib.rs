@@ -23,11 +23,11 @@
 //! example:
 //!
 //! ```rust
-//! use bytes::{BytesMut, BufMut, BigEndian};
+//! use bytes::{BytesMut, BufMut};
 //!
 //! let mut buf = BytesMut::with_capacity(1024);
 //! buf.put(&b"hello world"[..]);
-//! buf.put_u16::<BigEndian>(1234);
+//! buf.put_u16(1234);
 //!
 //! let a = buf.take();
 //! assert_eq!(a, b"hello world\x04\xD2"[..]);
@@ -91,8 +91,6 @@ pub use buf::{
 mod bytes;
 mod debug;
 pub use bytes::{Bytes, BytesMut};
-
-pub use byteorder::{ByteOrder, BigEndian, LittleEndian};
 
 // Optional Serde support
 #[cfg(feature = "serde")]
