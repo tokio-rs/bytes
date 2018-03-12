@@ -1,5 +1,5 @@
 use super::{IntoBuf, Take, Reader, Iter, FromBuf, Chain};
-use byteorder::ByteOrder;
+use byteorder::{BigEndian, ByteOrder, LittleEndian};
 use iovec::IoVec;
 
 use std::{cmp, io, ptr};
@@ -271,218 +271,341 @@ pub trait Buf {
         buf[0] as i8
     }
 
-    /// Gets an unsigned 16 bit integer from `self` in the specified byte order.
-    ///
-    /// The current position is advanced by 2.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use bytes::{Buf, BigEndian};
-    /// use std::io::Cursor;
-    ///
-    /// let mut buf = Cursor::new(b"\x08\x09 hello");
-    /// assert_eq!(0x0809, buf.get_u16::<BigEndian>());
-    /// ```
-    ///
-    /// # Panics
-    ///
-    /// This function panics if there is not enough remaining data in `self`.
-    fn get_u16<T: ByteOrder>(&mut self) -> u16 {
+    #[doc(hidden)]
+    #[deprecated(note="use get_u16_be or get_u16_le")]
+    fn get_u16<T: ByteOrder>(&mut self) -> u16 where Self: Sized {
         let mut buf = [0; 2];
         self.copy_to_slice(&mut buf);
         T::read_u16(&buf)
     }
 
-    /// Gets a signed 16 bit integer from `self` in the specified byte order.
+    /// Gets an unsigned 16 bit integer from `self` in big-endian byte order.
     ///
     /// The current position is advanced by 2.
     ///
     /// # Examples
     ///
     /// ```
-    /// use bytes::{Buf, BigEndian};
+    /// use bytes::Buf;
     /// use std::io::Cursor;
     ///
     /// let mut buf = Cursor::new(b"\x08\x09 hello");
-    /// assert_eq!(0x0809, buf.get_i16::<BigEndian>());
+    /// assert_eq!(0x0809, buf.get_u16_be());
     /// ```
     ///
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
-    fn get_i16<T: ByteOrder>(&mut self) -> i16 {
+    fn get_u16_be(&mut self) -> u16 {
+        let mut buf = [0; 2];
+        self.copy_to_slice(&mut buf);
+        BigEndian::read_u16(&buf)
+    }
+
+    /// Gets an unsigned 16 bit integer from `self` in little-endian byte order.
+    ///
+    /// The current position is advanced by 2.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Buf;
+    /// use std::io::Cursor;
+    ///
+    /// let mut buf = Cursor::new(b"\x09\x08 hello");
+    /// assert_eq!(0x0809, buf.get_u16_le());
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// This function panics if there is not enough remaining data in `self`.
+    fn get_u16_le(&mut self) -> u16 {
+        let mut buf = [0; 2];
+        self.copy_to_slice(&mut buf);
+        LittleEndian::read_u16(&buf)
+    }
+
+    #[doc(hidden)]
+    #[deprecated(note="use get_i16_be or get_i16_le")]
+    fn get_i16<T: ByteOrder>(&mut self) -> i16 where Self: Sized {
         let mut buf = [0; 2];
         self.copy_to_slice(&mut buf);
         T::read_i16(&buf)
     }
 
-    /// Gets an unsigned 32 bit integer from `self` in the specified byte order.
+    /// Gets a signed 16 bit integer from `self` in big-endian byte order.
     ///
-    /// The current position is advanced by 4.
+    /// The current position is advanced by 2.
     ///
     /// # Examples
     ///
     /// ```
-    /// use bytes::{Buf, BigEndian};
+    /// use bytes::Buf;
     /// use std::io::Cursor;
     ///
-    /// let mut buf = Cursor::new(b"\x08\x09\xA0\xA1 hello");
-    /// assert_eq!(0x0809A0A1, buf.get_u32::<BigEndian>());
+    /// let mut buf = Cursor::new(b"\x08\x09 hello");
+    /// assert_eq!(0x0809, buf.get_i16_be());
     /// ```
     ///
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
-    fn get_u32<T: ByteOrder>(&mut self) -> u32 {
+    fn get_i16_be(&mut self) -> i16 {
+        let mut buf = [0; 2];
+        self.copy_to_slice(&mut buf);
+        BigEndian::read_i16(&buf)
+    }
+
+    /// Gets a signed 16 bit integer from `self` in little-endian byte order.
+    ///
+    /// The current position is advanced by 2.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Buf;
+    /// use std::io::Cursor;
+    ///
+    /// let mut buf = Cursor::new(b"\x09\x08 hello");
+    /// assert_eq!(0x0809, buf.get_i16_le());
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// This function panics if there is not enough remaining data in `self`.
+    fn get_i16_le(&mut self) -> i16 {
+        let mut buf = [0; 2];
+        self.copy_to_slice(&mut buf);
+        LittleEndian::read_i16(&buf)
+    }
+
+    #[doc(hidden)]
+    #[deprecated(note="use get_u32_be or get_u32_le")]
+    fn get_u32<T: ByteOrder>(&mut self) -> u32 where Self: Sized {
         let mut buf = [0; 4];
         self.copy_to_slice(&mut buf);
         T::read_u32(&buf)
     }
 
-    /// Gets a signed 32 bit integer from `self` in the specified byte order.
+    /// Gets an unsigned 32 bit integer from `self` in the big-endian byte order.
     ///
     /// The current position is advanced by 4.
     ///
     /// # Examples
     ///
     /// ```
-    /// use bytes::{Buf, BigEndian};
+    /// use bytes::Buf;
     /// use std::io::Cursor;
     ///
     /// let mut buf = Cursor::new(b"\x08\x09\xA0\xA1 hello");
-    /// assert_eq!(0x0809A0A1, buf.get_i32::<BigEndian>());
+    /// assert_eq!(0x0809A0A1, buf.get_u32_be());
     /// ```
     ///
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
-    fn get_i32<T: ByteOrder>(&mut self) -> i32 {
+    fn get_u32_be(&mut self) -> u32 {
+        let mut buf = [0; 4];
+        self.copy_to_slice(&mut buf);
+        BigEndian::read_u32(&buf)
+    }
+
+    /// Gets an unsigned 32 bit integer from `self` in the little-endian byte order.
+    ///
+    /// The current position is advanced by 4.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Buf;
+    /// use std::io::Cursor;
+    ///
+    /// let mut buf = Cursor::new(b"\xA1\xA0\x09\x08 hello");
+    /// assert_eq!(0x0809A0A1, buf.get_u32_le());
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// This function panics if there is not enough remaining data in `self`.
+    fn get_u32_le(&mut self) -> u32 {
+        let mut buf = [0; 4];
+        self.copy_to_slice(&mut buf);
+        LittleEndian::read_u32(&buf)
+    }
+
+    #[doc(hidden)]
+    #[deprecated(note="use get_i32_be or get_i32_le")]
+    fn get_i32<T: ByteOrder>(&mut self) -> i32 where Self: Sized {
         let mut buf = [0; 4];
         self.copy_to_slice(&mut buf);
         T::read_i32(&buf)
     }
 
-    /// Gets an unsigned 64 bit integer from `self` in the specified byte order.
-    ///
-    /// The current position is advanced by 8.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use bytes::{Buf, BigEndian};
-    /// use std::io::Cursor;
-    ///
-    /// let mut buf = Cursor::new(b"\x01\x02\x03\x04\x05\x06\x07\x08 hello");
-    /// assert_eq!(0x0102030405060708, buf.get_u64::<BigEndian>());
-    /// ```
-    ///
-    /// # Panics
-    ///
-    /// This function panics if there is not enough remaining data in `self`.
-    fn get_u64<T: ByteOrder>(&mut self) -> u64 {
-        let mut buf = [0; 8];
-        self.copy_to_slice(&mut buf);
-        T::read_u64(&buf)
-    }
-
-    /// Gets a signed 64 bit integer from `self` in the specified byte order.
-    ///
-    /// The current position is advanced by 8.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use bytes::{Buf, BigEndian};
-    /// use std::io::Cursor;
-    ///
-    /// let mut buf = Cursor::new(b"\x01\x02\x03\x04\x05\x06\x07\x08 hello");
-    /// assert_eq!(0x0102030405060708, buf.get_i64::<BigEndian>());
-    /// ```
-    ///
-    /// # Panics
-    ///
-    /// This function panics if there is not enough remaining data in `self`.
-    fn get_i64<T: ByteOrder>(&mut self) -> i64 {
-        let mut buf = [0; 8];
-        self.copy_to_slice(&mut buf);
-        T::read_i64(&buf)
-    }
-
-    /// Gets an unsigned n-byte integer from `self` in the specified byte order.
-    ///
-    /// The current position is advanced by `nbytes`.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use bytes::{Buf, BigEndian};
-    /// use std::io::Cursor;
-    ///
-    /// let mut buf = Cursor::new(b"\x01\x02\x03 hello");
-    /// assert_eq!(0x010203, buf.get_uint::<BigEndian>(3));
-    /// ```
-    ///
-    /// # Panics
-    ///
-    /// This function panics if there is not enough remaining data in `self`.
-    fn get_uint<T: ByteOrder>(&mut self, nbytes: usize) -> u64 {
-        let mut buf = [0; 8];
-        self.copy_to_slice(&mut buf[..nbytes]);
-        T::read_uint(&buf[..nbytes], nbytes)
-    }
-
-    /// Gets a signed n-byte integer from `self` in the specified byte order.
-    ///
-    /// The current position is advanced by `nbytes`.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use bytes::{Buf, BigEndian};
-    /// use std::io::Cursor;
-    ///
-    /// let mut buf = Cursor::new(b"\x01\x02\x03 hello");
-    /// assert_eq!(0x010203, buf.get_int::<BigEndian>(3));
-    /// ```
-    ///
-    /// # Panics
-    ///
-    /// This function panics if there is not enough remaining data in `self`.
-    fn get_int<T: ByteOrder>(&mut self, nbytes: usize) -> i64 {
-        let mut buf = [0; 8];
-        self.copy_to_slice(&mut buf[..nbytes]);
-        T::read_int(&buf[..nbytes], nbytes)
-    }
-
-    /// Gets an IEEE754 single-precision (4 bytes) floating point number from
-    /// `self` in the specified byte order.
+    /// Gets a signed 32 bit integer from `self` in big-endian byte order.
     ///
     /// The current position is advanced by 4.
     ///
     /// # Examples
     ///
     /// ```
-    /// use bytes::{Buf, BigEndian};
+    /// use bytes::Buf;
     /// use std::io::Cursor;
     ///
-    /// let mut buf = Cursor::new(b"\x3F\x99\x99\x9A hello");
-    /// assert_eq!(1.2f32, buf.get_f32::<BigEndian>());
+    /// let mut buf = Cursor::new(b"\x08\x09\xA0\xA1 hello");
+    /// assert_eq!(0x0809A0A1, buf.get_i32_be());
     /// ```
     ///
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
-    fn get_f32<T: ByteOrder>(&mut self) -> f32 {
+    fn get_i32_be(&mut self) -> i32 {
         let mut buf = [0; 4];
         self.copy_to_slice(&mut buf);
-        T::read_f32(&buf)
+        BigEndian::read_i32(&buf)
     }
 
-    /// Gets an IEEE754 double-precision (8 bytes) floating point number from
-    /// `self` in the specified byte order.
+    /// Gets a signed 32 bit integer from `self` in little-endian byte order.
+    ///
+    /// The current position is advanced by 4.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Buf;
+    /// use std::io::Cursor;
+    ///
+    /// let mut buf = Cursor::new(b"\xA1\xA0\x09\x08 hello");
+    /// assert_eq!(0x0809A0A1, buf.get_i32_le());
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// This function panics if there is not enough remaining data in `self`.
+    fn get_i32_le(&mut self) -> i32 {
+        let mut buf = [0; 4];
+        self.copy_to_slice(&mut buf);
+        LittleEndian::read_i32(&buf)
+    }
+
+    #[doc(hidden)]
+    #[deprecated(note="use get_u64_be or get_u64_le")]
+    fn get_u64<T: ByteOrder>(&mut self) -> u64 where Self: Sized {
+        let mut buf = [0; 8];
+        self.copy_to_slice(&mut buf);
+        T::read_u64(&buf)
+    }
+
+    /// Gets an unsigned 64 bit integer from `self` in big-endian byte order.
     ///
     /// The current position is advanced by 8.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Buf;
+    /// use std::io::Cursor;
+    ///
+    /// let mut buf = Cursor::new(b"\x01\x02\x03\x04\x05\x06\x07\x08 hello");
+    /// assert_eq!(0x0102030405060708, buf.get_u64_be());
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// This function panics if there is not enough remaining data in `self`.
+    fn get_u64_be(&mut self) -> u64 {
+        let mut buf = [0; 8];
+        self.copy_to_slice(&mut buf);
+        BigEndian::read_u64(&buf)
+    }
+
+    /// Gets an unsigned 64 bit integer from `self` in little-endian byte order.
+    ///
+    /// The current position is advanced by 8.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Buf;
+    /// use std::io::Cursor;
+    ///
+    /// let mut buf = Cursor::new(b"\x08\x07\x06\x05\x04\x03\x02\x01 hello");
+    /// assert_eq!(0x0102030405060708, buf.get_u64_le());
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// This function panics if there is not enough remaining data in `self`.
+    fn get_u64_le(&mut self) -> u64 {
+        let mut buf = [0; 8];
+        self.copy_to_slice(&mut buf);
+        LittleEndian::read_u64(&buf)
+    }
+
+    #[doc(hidden)]
+    #[deprecated(note="use get_i64_be or get_i64_le")]
+    fn get_i64<T: ByteOrder>(&mut self) -> i64 where Self: Sized {
+        let mut buf = [0; 8];
+        self.copy_to_slice(&mut buf);
+        T::read_i64(&buf)
+    }
+
+    /// Gets a signed 64 bit integer from `self` in big-endian byte order.
+    ///
+    /// The current position is advanced by 8.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Buf;
+    /// use std::io::Cursor;
+    ///
+    /// let mut buf = Cursor::new(b"\x01\x02\x03\x04\x05\x06\x07\x08 hello");
+    /// assert_eq!(0x0102030405060708, buf.get_i64_be());
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// This function panics if there is not enough remaining data in `self`.
+    fn get_i64_be(&mut self) -> i64 {
+        let mut buf = [0; 8];
+        self.copy_to_slice(&mut buf);
+        BigEndian::read_i64(&buf)
+    }
+
+    /// Gets a signed 64 bit integer from `self` in little-endian byte order.
+    ///
+    /// The current position is advanced by 8.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Buf;
+    /// use std::io::Cursor;
+    ///
+    /// let mut buf = Cursor::new(b"\x08\x07\x06\x05\x04\x03\x02\x01 hello");
+    /// assert_eq!(0x0102030405060708, buf.get_i64_le());
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// This function panics if there is not enough remaining data in `self`.
+    fn get_i64_le(&mut self) -> i64 {
+        let mut buf = [0; 8];
+        self.copy_to_slice(&mut buf);
+        LittleEndian::read_i64(&buf)
+    }
+
+    #[doc(hidden)]
+    #[deprecated(note="use get_uint_be or get_uint_le")]
+    fn get_uint<T: ByteOrder>(&mut self, nbytes: usize) -> u64 where Self: Sized {
+        let mut buf = [0; 8];
+        self.copy_to_slice(&mut buf[..nbytes]);
+        T::read_uint(&buf[..nbytes], nbytes)
+    }
+
+    /// Gets an unsigned n-byte integer from `self` in big-endian byte order.
+    ///
+    /// The current position is advanced by `nbytes`.
     ///
     /// # Examples
     ///
@@ -490,17 +613,206 @@ pub trait Buf {
     /// use bytes::{Buf, BigEndian};
     /// use std::io::Cursor;
     ///
-    /// let mut buf = Cursor::new(b"\x3F\xF3\x33\x33\x33\x33\x33\x33 hello");
-    /// assert_eq!(1.2f64, buf.get_f64::<BigEndian>());
+    /// let mut buf = Cursor::new(b"\x01\x02\x03 hello");
+    /// assert_eq!(0x010203, buf.get_uint_be(3));
     /// ```
     ///
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
-    fn get_f64<T: ByteOrder>(&mut self) -> f64 {
+    fn get_uint_be(&mut self, nbytes: usize) -> u64 {
+        let mut buf = [0; 8];
+        self.copy_to_slice(&mut buf[..nbytes]);
+        BigEndian::read_uint(&buf[..nbytes], nbytes)
+    }
+
+    /// Gets an unsigned n-byte integer from `self` in little-endian byte order.
+    ///
+    /// The current position is advanced by `nbytes`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Buf;
+    /// use std::io::Cursor;
+    ///
+    /// let mut buf = Cursor::new(b"\x03\x02\x01 hello");
+    /// assert_eq!(0x010203, buf.get_uint_le(3));
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// This function panics if there is not enough remaining data in `self`.
+    fn get_uint_le(&mut self, nbytes: usize) -> u64 {
+        let mut buf = [0; 8];
+        self.copy_to_slice(&mut buf[..nbytes]);
+        LittleEndian::read_uint(&buf[..nbytes], nbytes)
+    }
+
+    #[doc(hidden)]
+    #[deprecated(note="use get_int_be or get_int_le")]
+    fn get_int<T: ByteOrder>(&mut self, nbytes: usize) -> i64 where Self: Sized {
+        let mut buf = [0; 8];
+        self.copy_to_slice(&mut buf[..nbytes]);
+        T::read_int(&buf[..nbytes], nbytes)
+    }
+
+    /// Gets a signed n-byte integer from `self` in big-endian byte order.
+    ///
+    /// The current position is advanced by `nbytes`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Buf;
+    /// use std::io::Cursor;
+    ///
+    /// let mut buf = Cursor::new(b"\x01\x02\x03 hello");
+    /// assert_eq!(0x010203, buf.get_int_be(3));
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// This function panics if there is not enough remaining data in `self`.
+    fn get_int_be(&mut self, nbytes: usize) -> i64 {
+        let mut buf = [0; 8];
+        self.copy_to_slice(&mut buf[..nbytes]);
+        BigEndian::read_int(&buf[..nbytes], nbytes)
+    }
+
+    /// Gets a signed n-byte integer from `self` in little-endian byte order.
+    ///
+    /// The current position is advanced by `nbytes`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Buf;
+    /// use std::io::Cursor;
+    ///
+    /// let mut buf = Cursor::new(b"\x03\x02\x01 hello");
+    /// assert_eq!(0x010203, buf.get_int_le(3));
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// This function panics if there is not enough remaining data in `self`.
+    fn get_int_le(&mut self, nbytes: usize) -> i64 {
+        let mut buf = [0; 8];
+        self.copy_to_slice(&mut buf[..nbytes]);
+        LittleEndian::read_int(&buf[..nbytes], nbytes)
+    }
+
+    #[doc(hidden)]
+    #[deprecated(note="use get_f32_be or get_f32_le")]
+    fn get_f32<T: ByteOrder>(&mut self) -> f32 where Self: Sized {
+        let mut buf = [0; 4];
+        self.copy_to_slice(&mut buf);
+        T::read_f32(&buf)
+    }
+
+    /// Gets an IEEE754 single-precision (4 bytes) floating point number from
+    /// `self` in big-endian byte order.
+    ///
+    /// The current position is advanced by 4.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Buf;
+    /// use std::io::Cursor;
+    ///
+    /// let mut buf = Cursor::new(b"\x3F\x99\x99\x9A hello");
+    /// assert_eq!(1.2f32, buf.get_f32_be());
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// This function panics if there is not enough remaining data in `self`.
+    fn get_f32_be(&mut self) -> f32 {
+        let mut buf = [0; 4];
+        self.copy_to_slice(&mut buf);
+        BigEndian::read_f32(&buf)
+    }
+
+    /// Gets an IEEE754 single-precision (4 bytes) floating point number from
+    /// `self` in little-endian byte order.
+    ///
+    /// The current position is advanced by 4.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Buf;
+    /// use std::io::Cursor;
+    ///
+    /// let mut buf = Cursor::new(b"\x9A\x99\x99\x3F hello");
+    /// assert_eq!(1.2f32, buf.get_f32_le());
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// This function panics if there is not enough remaining data in `self`.
+    fn get_f32_le(&mut self) -> f32 {
+        let mut buf = [0; 4];
+        self.copy_to_slice(&mut buf);
+        LittleEndian::read_f32(&buf)
+    }
+
+    #[doc(hidden)]
+    #[deprecated(note="use get_f64_be or get_f64_le")]
+    fn get_f64<T: ByteOrder>(&mut self) -> f64 where Self: Sized {
         let mut buf = [0; 8];
         self.copy_to_slice(&mut buf);
         T::read_f64(&buf)
+    }
+
+    /// Gets an IEEE754 double-precision (8 bytes) floating point number from
+    /// `self` in big-endian byte order.
+    ///
+    /// The current position is advanced by 8.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Buf;
+    /// use std::io::Cursor;
+    ///
+    /// let mut buf = Cursor::new(b"\x3F\xF3\x33\x33\x33\x33\x33\x33 hello");
+    /// assert_eq!(1.2f64, buf.get_f64_be());
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// This function panics if there is not enough remaining data in `self`.
+    fn get_f64_be(&mut self) -> f64 {
+        let mut buf = [0; 8];
+        self.copy_to_slice(&mut buf);
+        BigEndian::read_f64(&buf)
+    }
+
+    /// Gets an IEEE754 double-precision (8 bytes) floating point number from
+    /// `self` in little-endian byte order.
+    ///
+    /// The current position is advanced by 8.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Buf;
+    /// use std::io::Cursor;
+    ///
+    /// let mut buf = Cursor::new(b"\x33\x33\x33\x33\x33\x33\xF3\x3F hello");
+    /// assert_eq!(1.2f64, buf.get_f64_le());
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// This function panics if there is not enough remaining data in `self`.
+    fn get_f64_le(&mut self) -> f64 {
+        let mut buf = [0; 8];
+        self.copy_to_slice(&mut buf);
+        LittleEndian::read_f64(&buf)
     }
 
     /// Transforms a `Buf` into a concrete buffer.
@@ -749,3 +1061,7 @@ impl Buf for Option<[u8; 1]> {
         }
     }
 }
+
+// The existance of this function makes the compiler catch if the Buf
+// trait is "object-safe" or not.
+fn _assert_trait_object(_b: &Buf) {}
