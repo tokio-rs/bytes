@@ -218,7 +218,7 @@ pub trait Buf {
                 ptr::copy_nonoverlapping(
                     src.as_ptr(), dst[off..].as_mut_ptr(), cnt);
 
-                off += src.len();
+                off += cnt;
             }
 
             self.advance(cnt);
