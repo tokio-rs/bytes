@@ -6,11 +6,30 @@ use std::{cmp, io, ptr};
 
 macro_rules! buf_get_impl {
     ($this:ident, $size:expr, $conv:path) => ({
-        let mut buf = [0; ($size)];
-        $this.copy_to_slice(&mut buf);
-        return $conv(&buf);
+         // try to convert directly from the bytes
+        let ret = {
+            // this Option<ret> trick is to avoid keeping a borrow on self
+            // when advance() is called (mut borrow) and to call bytes() only once
+            if let Some(src) = $this.bytes().get(..($size)) {
+                Some($conv(src))
+            } else {
+                None
+            }
+        };
+        if let Some(ret) = ret {
+             // if the direct convertion was possible, advance and return
+            $this.advance($size);
+            return ret;
+        } else {
+            // if not we copy the bytes in a temp buffer then convert
+            let mut buf = [0; ($size)];
+            $this.copy_to_slice(&mut buf); // (do the advance)
+            return $conv(&buf);
+        }
     });
     ($this:ident, $buf_size:expr, $conv:path, $len_to_read:expr) => ({
+        // The same trick as above does not improve the best case speed.
+        // It seems to be linked to the way the method is optimised by the compiler
         let mut buf = [0; ($buf_size)];
         $this.copy_to_slice(&mut buf[..($len_to_read)]);
         return $conv(&buf[..($len_to_read)], $len_to_read);
