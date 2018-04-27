@@ -4,6 +4,38 @@ use iovec::IoVec;
 
 use std::{cmp, io, ptr};
 
+macro_rules! buf_get_impl {
+    ($this:ident, $size:expr, $conv:path) => ({
+         // try to convert directly from the bytes
+        let ret = {
+            // this Option<ret> trick is to avoid keeping a borrow on self
+            // when advance() is called (mut borrow) and to call bytes() only once
+            if let Some(src) = $this.bytes().get(..($size)) {
+                Some($conv(src))
+            } else {
+                None
+            }
+        };
+        if let Some(ret) = ret {
+             // if the direct convertion was possible, advance and return
+            $this.advance($size);
+            return ret;
+        } else {
+            // if not we copy the bytes in a temp buffer then convert
+            let mut buf = [0; ($size)];
+            $this.copy_to_slice(&mut buf); // (do the advance)
+            return $conv(&buf);
+        }
+    });
+    ($this:ident, $buf_size:expr, $conv:path, $len_to_read:expr) => ({
+        // The same trick as above does not improve the best case speed.
+        // It seems to be linked to the way the method is optimised by the compiler
+        let mut buf = [0; ($buf_size)];
+        $this.copy_to_slice(&mut buf[..($len_to_read)]);
+        return $conv(&buf[..($len_to_read)], $len_to_read);
+    });
+}
+
 /// Read bytes from a buffer.
 ///
 /// A buffer stores bytes in memory such that read operations are infallible.
@@ -243,9 +275,10 @@ pub trait Buf {
     ///
     /// This function panics if there is no more remaining data in `self`.
     fn get_u8(&mut self) -> u8 {
-        let mut buf = [0; 1];
-        self.copy_to_slice(&mut buf);
-        buf[0]
+        assert!(self.remaining() >= 1);
+        let ret = self.bytes()[0];
+        self.advance(1);
+        ret
     }
 
     /// Gets a signed 8 bit integer from `self`.
@@ -266,9 +299,10 @@ pub trait Buf {
     ///
     /// This function panics if there is no more remaining data in `self`.
     fn get_i8(&mut self) -> i8 {
-        let mut buf = [0; 1];
-        self.copy_to_slice(&mut buf);
-        buf[0] as i8
+        assert!(self.remaining() >= 1);
+        let ret = self.bytes()[0] as i8;
+        self.advance(1);
+        ret
     }
 
     /// Gets an unsigned 16 bit integer from `self` in big-endian byte order.
@@ -289,9 +323,7 @@ pub trait Buf {
     ///
     /// This function panics if there is not enough remaining data in `self`.
     fn get_u16(&mut self) -> u16 {
-        let mut buf = [0; 2];
-        self.copy_to_slice(&mut buf);
-        BigEndian::read_u16(&buf)
+        buf_get_impl!(self, 2, BigEndian::read_u16);
     }
 
     /// Gets an unsigned 16 bit integer from `self` in little-endian byte order.
@@ -312,9 +344,7 @@ pub trait Buf {
     ///
     /// This function panics if there is not enough remaining data in `self`.
     fn get_u16_le(&mut self) -> u16 {
-        let mut buf = [0; 2];
-        self.copy_to_slice(&mut buf);
-        LittleEndian::read_u16(&buf)
+        buf_get_impl!(self, 2, LittleEndian::read_u16);
     }
 
     /// Gets a signed 16 bit integer from `self` in big-endian byte order.
@@ -335,9 +365,7 @@ pub trait Buf {
     ///
     /// This function panics if there is not enough remaining data in `self`.
     fn get_i16(&mut self) -> i16 {
-        let mut buf = [0; 2];
-        self.copy_to_slice(&mut buf);
-        BigEndian::read_i16(&buf)
+        buf_get_impl!(self, 2, BigEndian::read_i16);
     }
 
     /// Gets a signed 16 bit integer from `self` in little-endian byte order.
@@ -358,9 +386,7 @@ pub trait Buf {
     ///
     /// This function panics if there is not enough remaining data in `self`.
     fn get_i16_le(&mut self) -> i16 {
-        let mut buf = [0; 2];
-        self.copy_to_slice(&mut buf);
-        LittleEndian::read_i16(&buf)
+        buf_get_impl!(self, 2, LittleEndian::read_i16);
     }
 
     /// Gets an unsigned 32 bit integer from `self` in the big-endian byte order.
@@ -381,9 +407,7 @@ pub trait Buf {
     ///
     /// This function panics if there is not enough remaining data in `self`.
     fn get_u32(&mut self) -> u32 {
-        let mut buf = [0; 4];
-        self.copy_to_slice(&mut buf);
-        BigEndian::read_u32(&buf)
+        buf_get_impl!(self, 4, BigEndian::read_u32);
     }
 
     /// Gets an unsigned 32 bit integer from `self` in the little-endian byte order.
@@ -404,9 +428,7 @@ pub trait Buf {
     ///
     /// This function panics if there is not enough remaining data in `self`.
     fn get_u32_le(&mut self) -> u32 {
-        let mut buf = [0; 4];
-        self.copy_to_slice(&mut buf);
-        LittleEndian::read_u32(&buf)
+        buf_get_impl!(self, 4, LittleEndian::read_u32);
     }
 
     /// Gets a signed 32 bit integer from `self` in big-endian byte order.
@@ -427,9 +449,7 @@ pub trait Buf {
     ///
     /// This function panics if there is not enough remaining data in `self`.
     fn get_i32(&mut self) -> i32 {
-        let mut buf = [0; 4];
-        self.copy_to_slice(&mut buf);
-        BigEndian::read_i32(&buf)
+        buf_get_impl!(self, 4, BigEndian::read_i32);
     }
 
     /// Gets a signed 32 bit integer from `self` in little-endian byte order.
@@ -450,9 +470,7 @@ pub trait Buf {
     ///
     /// This function panics if there is not enough remaining data in `self`.
     fn get_i32_le(&mut self) -> i32 {
-        let mut buf = [0; 4];
-        self.copy_to_slice(&mut buf);
-        LittleEndian::read_i32(&buf)
+        buf_get_impl!(self, 4, LittleEndian::read_i32);
     }
 
     /// Gets an unsigned 64 bit integer from `self` in big-endian byte order.
@@ -473,9 +491,7 @@ pub trait Buf {
     ///
     /// This function panics if there is not enough remaining data in `self`.
     fn get_u64(&mut self) -> u64 {
-        let mut buf = [0; 8];
-        self.copy_to_slice(&mut buf);
-        BigEndian::read_u64(&buf)
+        buf_get_impl!(self, 8, BigEndian::read_u64);
     }
 
     /// Gets an unsigned 64 bit integer from `self` in little-endian byte order.
@@ -496,9 +512,7 @@ pub trait Buf {
     ///
     /// This function panics if there is not enough remaining data in `self`.
     fn get_u64_le(&mut self) -> u64 {
-        let mut buf = [0; 8];
-        self.copy_to_slice(&mut buf);
-        LittleEndian::read_u64(&buf)
+        buf_get_impl!(self, 8, LittleEndian::read_u64);
     }
 
     /// Gets a signed 64 bit integer from `self` in big-endian byte order.
@@ -519,9 +533,7 @@ pub trait Buf {
     ///
     /// This function panics if there is not enough remaining data in `self`.
     fn get_i64(&mut self) -> i64 {
-        let mut buf = [0; 8];
-        self.copy_to_slice(&mut buf);
-        BigEndian::read_i64(&buf)
+        buf_get_impl!(self, 8, BigEndian::read_i64);
     }
 
     /// Gets a signed 64 bit integer from `self` in little-endian byte order.
@@ -542,9 +554,7 @@ pub trait Buf {
     ///
     /// This function panics if there is not enough remaining data in `self`.
     fn get_i64_le(&mut self) -> i64 {
-        let mut buf = [0; 8];
-        self.copy_to_slice(&mut buf);
-        LittleEndian::read_i64(&buf)
+        buf_get_impl!(self, 8, LittleEndian::read_i64);
     }
 
     /// Gets an unsigned n-byte integer from `self` in big-endian byte order.
@@ -565,9 +575,7 @@ pub trait Buf {
     ///
     /// This function panics if there is not enough remaining data in `self`.
     fn get_uint(&mut self, nbytes: usize) -> u64 {
-        let mut buf = [0; 8];
-        self.copy_to_slice(&mut buf[..nbytes]);
-        BigEndian::read_uint(&buf[..nbytes], nbytes)
+        buf_get_impl!(self, 8, BigEndian::read_uint, nbytes);
     }
 
     /// Gets an unsigned n-byte integer from `self` in little-endian byte order.
@@ -588,9 +596,7 @@ pub trait Buf {
     ///
     /// This function panics if there is not enough remaining data in `self`.
     fn get_uint_le(&mut self, nbytes: usize) -> u64 {
-        let mut buf = [0; 8];
-        self.copy_to_slice(&mut buf[..nbytes]);
-        LittleEndian::read_uint(&buf[..nbytes], nbytes)
+        buf_get_impl!(self, 8, LittleEndian::read_uint, nbytes);
     }
 
     /// Gets a signed n-byte integer from `self` in big-endian byte order.
@@ -611,9 +617,7 @@ pub trait Buf {
     ///
     /// This function panics if there is not enough remaining data in `self`.
     fn get_int(&mut self, nbytes: usize) -> i64 {
-        let mut buf = [0; 8];
-        self.copy_to_slice(&mut buf[..nbytes]);
-        BigEndian::read_int(&buf[..nbytes], nbytes)
+        buf_get_impl!(self, 8, BigEndian::read_int, nbytes);
     }
 
     /// Gets a signed n-byte integer from `self` in little-endian byte order.
@@ -634,9 +638,7 @@ pub trait Buf {
     ///
     /// This function panics if there is not enough remaining data in `self`.
     fn get_int_le(&mut self, nbytes: usize) -> i64 {
-        let mut buf = [0; 8];
-        self.copy_to_slice(&mut buf[..nbytes]);
-        LittleEndian::read_int(&buf[..nbytes], nbytes)
+        buf_get_impl!(self, 8, LittleEndian::read_int, nbytes);
     }
 
     /// Gets an IEEE754 single-precision (4 bytes) floating point number from
@@ -658,9 +660,7 @@ pub trait Buf {
     ///
     /// This function panics if there is not enough remaining data in `self`.
     fn get_f32(&mut self) -> f32 {
-        let mut buf = [0; 4];
-        self.copy_to_slice(&mut buf);
-        BigEndian::read_f32(&buf)
+        buf_get_impl!(self, 4, BigEndian::read_f32);
     }
 
     /// Gets an IEEE754 single-precision (4 bytes) floating point number from
@@ -682,9 +682,7 @@ pub trait Buf {
     ///
     /// This function panics if there is not enough remaining data in `self`.
     fn get_f32_le(&mut self) -> f32 {
-        let mut buf = [0; 4];
-        self.copy_to_slice(&mut buf);
-        LittleEndian::read_f32(&buf)
+        buf_get_impl!(self, 4, LittleEndian::read_f32);
     }
 
     /// Gets an IEEE754 double-precision (8 bytes) floating point number from
@@ -706,9 +704,7 @@ pub trait Buf {
     ///
     /// This function panics if there is not enough remaining data in `self`.
     fn get_f64(&mut self) -> f64 {
-        let mut buf = [0; 8];
-        self.copy_to_slice(&mut buf);
-        BigEndian::read_f64(&buf)
+        buf_get_impl!(self, 8, BigEndian::read_f64);
     }
 
     /// Gets an IEEE754 double-precision (8 bytes) floating point number from
@@ -730,9 +726,7 @@ pub trait Buf {
     ///
     /// This function panics if there is not enough remaining data in `self`.
     fn get_f64_le(&mut self) -> f64 {
-        let mut buf = [0; 8];
-        self.copy_to_slice(&mut buf);
-        LittleEndian::read_f64(&buf)
+        buf_get_impl!(self, 8, LittleEndian::read_f64);
     }
 
     /// Transforms a `Buf` into a concrete buffer.
