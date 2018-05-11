@@ -869,6 +869,7 @@ impl FromIterator<u8> for BytesMut {
         let mut out = BytesMut::with_capacity(maybe_max.unwrap_or(min));
 
         for i in iter {
+            out.reserve(1);
             out.put(i);
         }
 

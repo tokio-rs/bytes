@@ -674,3 +674,24 @@ fn unsplit_two_split_offs() {
     buf.unsplit(buf2);
     assert_eq!(b"aaaabbbbccccdddd", &buf[..]);
 }
+
+#[test]
+fn from_iter_no_size_hint() {
+    use std::iter;
+
+    let mut expect = vec![];
+
+    let actual: Bytes = iter::repeat(b'x')
+        .scan(100, |cnt, item| {
+            if *cnt >= 1 {
+                *cnt -= 1;
+                expect.push(item);
+                Some(item)
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    assert_eq!(&actual[..], &expect[..]);
+}
