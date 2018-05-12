@@ -2258,7 +2258,9 @@ impl Inner {
             unsafe {
                 let (off, prev) = self.uncoordinated_get_vec_pos();
 
-                if off >= additional {
+                // Only reuse space if we stand to gain at least capacity/2
+                // bytes of space back
+                if off >= additional && off >= (self.cap / 2) {
                     // There's space - reuse it
                     //
                     // Just move the pointer back to the start after copying
