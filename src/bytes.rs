@@ -2250,20 +2250,42 @@ impl Inner {
         }
 
         if kind == KIND_VEC {
-            // Currently backed by a vector, so just use `Vector::reserve`.
+            // If there's enough free space before the start of the buffer, then
+            // just copy the data backwards and reuse the already-allocated
+            // space.
+            //
+            // Otherwise, since backed by a vector, use `Vec::reserve`
             unsafe {
-                let (off, _) = self.uncoordinated_get_vec_pos();
-                let mut v = rebuild_vec(self.ptr, self.len, self.cap, off);
-                v.reserve(additional);
+                let (off, prev) = self.uncoordinated_get_vec_pos();
 
-                // Update the info
-                self.ptr = v.as_mut_ptr().offset(off as isize);
-                self.len = v.len() - off;
-                self.cap = v.capacity() - off;
+                // Only reuse space if we stand to gain at least capacity/2
+                // bytes of space back
+                if off >= additional && off >= (self.cap / 2) {
+                    // There's space - reuse it
+                    //
+                    // Just move the pointer back to the start after copying
+                    // data back.
+                    let base_ptr = self.ptr.offset(-(off as isize));
+                    ptr::copy(self.ptr, base_ptr, self.len);
+                    self.ptr = base_ptr;
+                    self.uncoordinated_set_vec_pos(0, prev);
 
-                // Drop the vec reference
-                mem::forget(v);
+                    // Length stays constant, but since we moved backwards we
+                    // can gain capacity back.
+                    self.cap += off;
+                } else {
+                    // No space - allocate more
+                    let mut v = rebuild_vec(self.ptr, self.len, self.cap, off);
+                    v.reserve(additional);
 
+                    // Update the info
+                    self.ptr = v.as_mut_ptr().offset(off as isize);
+                    self.len = v.len() - off;
+                    self.cap = v.capacity() - off;
+
+                    // Drop the vec reference
+                    mem::forget(v);
+                }
                 return;
             }
         }
