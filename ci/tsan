@@ -1,0 +1,13 @@
+# TSAN suppressions file for `bytes`
+
+# TSAN does not understand fences and `Arc::drop` is implemented using a fence.
+# This causes many false positives.
+race:Arc*drop
+race:arc*Weak*drop
+
+# `std` mpsc is not used in any Bytes code base. This race is triggered by some
+# rust runtime logic.
+race:std*mpsc_queue
+
+# Probably more fences in std.
+race:__call_tls_dtors
