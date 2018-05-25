@@ -49,6 +49,7 @@ matrix:
         - |
           set -e
 
+          export RUST_TEST_THREADS=1
           export ASAN_OPTIONS="detect_odr_violation=0 detect_leaks=0"
           export TSAN_OPTIONS="suppressions=`pwd`/ci/tsan"
 
