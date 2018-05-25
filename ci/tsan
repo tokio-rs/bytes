@@ -11,3 +11,7 @@ race:std*mpsc_queue
 
 # Probably more fences in std.
 race:__call_tls_dtors
+
+# `is_inline` is explicitly called concurrently without synchronization. The
+# safety explanation can be found in a comment.
+race:Inner::is_inline
