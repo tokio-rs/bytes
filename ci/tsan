@@ -9,6 +9,9 @@ race:arc*Weak*drop
 # rust runtime logic.
 race:std*mpsc_queue
 
+# Not sure why this is warning, but it is in the test harness and not the library.
+race:TestEvent.*clone
+
 # Probably more fences in std.
 race:__call_tls_dtors
 
