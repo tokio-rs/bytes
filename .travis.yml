@@ -42,6 +42,24 @@ matrix:
         - rustup target add wasm32-unknown-unknown
         - cargo build --target=wasm32-unknown-unknown
 
+    # Sanitizers
+    - rust: nightly
+      os: linux
+      script:
+        - |
+          set -e
+
+          export RUST_TEST_THREADS=1
+          export ASAN_OPTIONS="detect_odr_violation=0 detect_leaks=0"
+          export TSAN_OPTIONS="suppressions=`pwd`/ci/tsan"
+
+          # Run address sanitizer
+          RUSTFLAGS="-Z sanitizer=address" \
+          cargo test --tests --target x86_64-unknown-linux-gnu
+
+          # Run thread sanitizer
+          RUSTFLAGS="-Z sanitizer=thread" \
+          cargo test --tests --target x86_64-unknown-linux-gnu
 
 before_install: set -e
 
