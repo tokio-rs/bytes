@@ -1277,25 +1277,24 @@ impl BytesMut {
     }
 
     /// Resizes the buffer so that `len` is equal to `new_len`.
-    /// 
-    /// If `new_len` is greater than `len`, the buffer is extended by the 
-    /// difference with each additional byte set to `value`. If `new_len` is 
+    ///
+    /// If `new_len` is greater than `len`, the buffer is extended by the
+    /// difference with each additional byte set to `value`. If `new_len` is
     /// less than `len`, the buffer is simply truncated.
-    /// 
-    /// #Examples
-    /// 
+    ///
+    /// # Examples
+    ///
     /// ```
     /// use bytes::BytesMut;
-    /// 
+    ///
     /// let mut buf = BytesMut::new();
-    /// 
+    ///
     /// buf.resize(3, 0x1);
     /// assert_eq!(&buf[..], &[0x1, 0x1, 0x1]);
-    /// 
+    ///
     /// buf.resize(2, 0x2);
     /// assert_eq!(&buf[..], &[0x1, 0x1]);
-    /// 
-    /// 
+    ///
     /// buf.resize(4, 0x3);
     /// assert_eq!(&buf[..], &[0x1, 0x1, 0x3, 0x3]);
     /// ```
