@@ -1,5 +1,11 @@
 # 0.5.0 (unreleased)
 
+# 0.4.7 (April 27, 2018)
+
+* Make `Buf` and `BufMut` usable as trait objects (#186).
+* impl BorrowMut for BytesMut (#185).
+* Improve accessor performance (#195).
+
 # 0.4.6 (Janary 8, 2018)
 
 * Implement FromIterator for Bytes/BytesMut (#148).

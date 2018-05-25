@@ -930,6 +930,7 @@ impl FromIterator<u8> for BytesMut {
         let mut out = BytesMut::with_capacity(maybe_max.unwrap_or(min));
 
         for i in iter {
+            out.reserve(1);
             out.put(i);
         }
 
@@ -1348,6 +1349,32 @@ impl BytesMut {
     /// ```
     pub fn clear(&mut self) {
         self.truncate(0);
+    }
+
+    /// Resizes the buffer so that `len` is equal to `new_len`.
+    ///
+    /// If `new_len` is greater than `len`, the buffer is extended by the
+    /// difference with each additional byte set to `value`. If `new_len` is
+    /// less than `len`, the buffer is simply truncated.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::BytesMut;
+    ///
+    /// let mut buf = BytesMut::new();
+    ///
+    /// buf.resize(3, 0x1);
+    /// assert_eq!(&buf[..], &[0x1, 0x1, 0x1]);
+    ///
+    /// buf.resize(2, 0x2);
+    /// assert_eq!(&buf[..], &[0x1, 0x1]);
+    ///
+    /// buf.resize(4, 0x3);
+    /// assert_eq!(&buf[..], &[0x1, 0x1, 0x3, 0x3]);
+    /// ```
+    pub fn resize(&mut self, new_len: usize, value: u8) {
+        self.inner.resize(new_len, value);
     }
 
     /// Sets the length of the buffer.
@@ -1972,6 +1999,21 @@ impl Inner {
             Ok(())
         } else {
             Err(other)
+        }
+    }
+
+    fn resize(&mut self, new_len: usize, value: u8) {
+        let len = self.len();
+        if new_len > len {
+            let additional = new_len - len;
+            self.reserve(additional);
+            unsafe {
+                let dst = self.as_raw()[len..].as_mut_ptr();
+                ptr::write_bytes(dst, value, additional);
+                self.set_len(new_len);
+            }
+        } else {
+            self.truncate(new_len);
         }
     }
 
