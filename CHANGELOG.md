@@ -1,3 +1,9 @@
+# 0.4.8 (May 25, 2018)
+
+* Fix panic in `BytesMut` `FromIterator` implementation.
+* Bytes: Recycle space when reserving space in vec mode (#197).
+* Bytes: Add resize fn (#203).
+
 # 0.4.7 (April 27, 2018)
 
 * Make `Buf` and `BufMut` usable as trait objects (#186).
