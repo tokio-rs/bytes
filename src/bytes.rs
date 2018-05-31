@@ -576,6 +576,47 @@ impl Bytes {
         self.slice(0, end)
     }
 
+    /// Returns a slice of self that is equivalent to the given `subset`.
+    ///
+    /// When processing a `Bytes` buffer with other tools, one often
+    /// gets a `&[u8]` which is in fact a slice of the `Bytes`, i.e. a
+    /// subset of it.  This function turns that `&[u8]` into another
+    /// `Bytes`, as if one had called `self.slice()` with the offsets
+    /// that correspond to `subset`.
+    ///
+    /// This operation is `O(1)`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Bytes;
+    ///
+    /// let bytes = Bytes::from(&b"012345678"[..]);
+    /// let as_slice = bytes.as_ref();
+    /// let subset = &as_slice[2..6];
+    /// let subslice = bytes.slice_ref(&subset);
+    /// assert_eq!(&subslice[..], b"2345");
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// Requires that the given `sub` slice is in fact contained
+    /// within the `Bytes` buffer; otherwise this function will panic.
+    pub fn slice_ref(&self, subset: &[u8]) -> Bytes {
+        let bytes_p = self.as_ptr() as usize;
+        let bytes_len = self.len();
+
+        let sub_p = subset.as_ptr() as usize;
+        let sub_len = subset.len();
+
+        assert!(sub_p >= bytes_p);
+        assert!(sub_p + sub_len <= bytes_p + bytes_len);
+
+        let sub_offset = sub_p - bytes_p;
+
+        self.slice(sub_offset, sub_offset + sub_len)
+    }
+
     /// Splits the bytes into two at the given index.
     ///
     /// Afterwards `self` contains elements `[0, at)`, and the returned `Bytes`
