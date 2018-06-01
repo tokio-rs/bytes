@@ -34,16 +34,15 @@ pub trait BufMut {
     /// # Examples
     ///
     /// ```
-    /// use bytes::BufMut;
-    /// use std::io::Cursor;
+    /// use bytes::{BufMut, BytesMut};
     ///
-    /// let mut dst = [0; 10];
-    /// let mut buf = Cursor::new(&mut dst[..]);
+    /// let mut src = [0u8; 10];
+    /// let mut buf = BytesMut::from(&src[..]);
     ///
-    /// assert_eq!(10, buf.remaining_mut());
+    /// let original_remaining = buf.remaining_mut();
     /// buf.put("hello");
     ///
-    /// assert_eq!(5, buf.remaining_mut());
+    /// assert_eq!(original_remaining - 5, buf.remaining_mut());
     /// ```
     ///
     /// # Implementer notes

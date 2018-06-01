@@ -1,6 +1,6 @@
 extern crate bytes;
 
-use bytes::{Bytes, BytesMut, BufMut, IntoBuf};
+use bytes::{Bytes, BytesMut, Buf, BufMut, IntoBuf};
 
 const LONG: &'static [u8] = b"mary had a little lamb, little lamb, little lamb";
 const SHORT: &'static [u8] = b"hello world";
@@ -175,17 +175,17 @@ fn split_off_to_loop() {
             let off = bytes.split_off(i);
             assert_eq!(i, bytes.len());
             let mut sum = Vec::new();
-            sum.extend(&bytes);
-            sum.extend(&off);
+            sum.extend(bytes.iter());
+            sum.extend(off.iter());
             assert_eq!(&s[..], &sum[..]);
         }
         {
             let mut bytes = BytesMut::from(&s[..]);
-            let off = bytes.split_off(i);
+            let mut off = bytes.split_off(i);
             assert_eq!(i, bytes.len());
             let mut sum = Vec::new();
-            sum.extend(&bytes);
-            sum.extend(&off);
+            sum.extend(&mut bytes);
+            sum.extend(&mut off);
             assert_eq!(&s[..], &sum[..]);
         }
         {
@@ -193,17 +193,17 @@ fn split_off_to_loop() {
             let off = bytes.split_to(i);
             assert_eq!(i, off.len());
             let mut sum = Vec::new();
-            sum.extend(&off);
-            sum.extend(&bytes);
+            sum.extend(off.iter());
+            sum.extend(bytes.iter());
             assert_eq!(&s[..], &sum[..]);
         }
         {
             let mut bytes = BytesMut::from(&s[..]);
-            let off = bytes.split_to(i);
+            let mut off = bytes.split_to(i);
             assert_eq!(i, off.len());
             let mut sum = Vec::new();
-            sum.extend(&off);
-            sum.extend(&bytes);
+            sum.extend(&mut off);
+            sum.extend(&mut bytes);
             assert_eq!(&s[..], &sum[..]);
         }
     }
@@ -344,7 +344,7 @@ fn reserve_convert() {
 fn reserve_growth() {
     let mut bytes = BytesMut::with_capacity(64);
     bytes.put("hello world");
-    let _ = bytes.take();
+    let _ = bytes.split();
 
     bytes.reserve(65);
     assert_eq!(bytes.capacity(), 128);
@@ -358,7 +358,7 @@ fn reserve_allocates_at_least_original_capacity() {
         bytes.put(i as u8);
     }
 
-    let _other = bytes.take();
+    let _other = bytes.split();
 
     bytes.reserve(16);
     assert_eq!(bytes.capacity(), 1024);
@@ -374,7 +374,7 @@ fn reserve_max_original_capacity_value() {
         bytes.put(0u8);
     }
 
-    let _other = bytes.take();
+    let _other = bytes.split();
 
     bytes.reserve(16);
     assert_eq!(bytes.capacity(), 64 * 1024);
@@ -398,7 +398,7 @@ fn reserve_vec_recycling() {
 #[test]
 fn reserve_in_arc_unique_does_not_overallocate() {
     let mut bytes = BytesMut::with_capacity(1000);
-    bytes.take();
+    bytes.split();
 
     // now bytes is Arc and refcount == 1
 
@@ -410,7 +410,7 @@ fn reserve_in_arc_unique_does_not_overallocate() {
 #[test]
 fn reserve_in_arc_unique_doubles() {
     let mut bytes = BytesMut::with_capacity(1000);
-    bytes.take();
+    bytes.split();
 
     // now bytes is Arc and refcount == 1
 
@@ -422,7 +422,7 @@ fn reserve_in_arc_unique_doubles() {
 #[test]
 fn reserve_in_arc_nonunique_does_not_overallocate() {
     let mut bytes = BytesMut::with_capacity(1000);
-    let _copy = bytes.take();
+    let _copy = bytes.split();
 
     // now bytes is Arc and refcount == 2
 
