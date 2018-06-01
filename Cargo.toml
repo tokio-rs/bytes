@@ -19,10 +19,16 @@ exclude       = [
 ]
 categories = ["network-programming", "data-structures"]
 
+[package.metadata.docs.rs]
+features = ["i128"]
+
 [dependencies]
-byteorder = "1.0.0"
+byteorder = "1.1.0"
 iovec = "0.1"
 serde = { version = "1.0", optional = true }
 
 [dev-dependencies]
 serde_test = "1.0"
+
+[features]
+i128 = ["byteorder/i128"]
