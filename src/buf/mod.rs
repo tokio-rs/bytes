@@ -32,7 +32,7 @@ pub use self::buf_mut::BufMut;
 pub use self::from_buf::FromBuf;
 pub use self::chain::Chain;
 pub use self::into_buf::IntoBuf;
-pub use self::iter::Iter;
+pub use self::iter::IntoIter;
 pub use self::reader::Reader;
 pub use self::take::Take;
 pub use self::writer::Writer;

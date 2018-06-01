@@ -40,10 +40,10 @@ fn writing_chained() {
 
 #[test]
 fn iterating_two_bufs() {
-    let a = Cursor::new(Bytes::from(&b"hello"[..]));
-    let b = Cursor::new(Bytes::from(&b"world"[..]));
+    let a = Bytes::from(&b"hello"[..]);
+    let b = Bytes::from(&b"world"[..]);
 
-    let res: Vec<u8> = a.chain(b).iter().collect();
+    let res: Vec<u8> = a.chain(b).into_iter().collect();
     assert_eq!(res, &b"helloworld"[..]);
 }
 

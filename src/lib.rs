@@ -29,12 +29,12 @@
 //! buf.put(&b"hello world"[..]);
 //! buf.put_u16(1234);
 //!
-//! let a = buf.take();
+//! let a = buf.split();
 //! assert_eq!(a, b"hello world\x04\xD2"[..]);
 //!
 //! buf.put(&b"goodbye world"[..]);
 //!
-//! let b = buf.take();
+//! let b = buf.split();
 //! assert_eq!(b, b"goodbye world"[..]);
 //!
 //! assert_eq!(buf.capacity(), 998);
@@ -79,13 +79,6 @@ pub use buf::{
     Buf,
     BufMut,
     IntoBuf,
-};
-#[deprecated(since = "0.4.1", note = "moved to `buf` module")]
-#[doc(hidden)]
-pub use buf::{
-    Reader,
-    Writer,
-    Take,
 };
 
 mod bytes;
