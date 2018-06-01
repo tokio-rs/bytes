@@ -1,4 +1,4 @@
-use super::{IntoBuf, Take, Reader, Iter, FromBuf, Chain};
+use super::{IntoBuf, Prefix, Reader, FromBuf, Chain};
 use byteorder::{BigEndian, ByteOrder, LittleEndian};
 use iovec::IoVec;
 
@@ -47,10 +47,10 @@ macro_rules! buf_get_impl {
 /// The simplest `Buf` is a `Cursor` wrapping a `[u8]`.
 ///
 /// ```
-/// use bytes::Buf;
+/// use bytes::{Buf, Bytes};
 /// use std::io::Cursor;
 ///
-/// let mut buf = Cursor::new(b"hello world");
+/// let mut buf = Bytes::from_static(b"hello world");
 ///
 /// assert_eq!(b'h', buf.get_u8());
 /// assert_eq!(b'e', buf.get_u8());
@@ -71,10 +71,9 @@ pub trait Buf {
     /// # Examples
     ///
     /// ```
-    /// use bytes::Buf;
-    /// use std::io::Cursor;
+    /// use bytes::{Buf, Bytes};
     ///
-    /// let mut buf = Cursor::new(b"hello world");
+    /// let mut buf = Bytes::from_static(b"hello world");
     ///
     /// assert_eq!(buf.remaining(), 11);
     ///
@@ -99,10 +98,9 @@ pub trait Buf {
     /// # Examples
     ///
     /// ```
-    /// use bytes::Buf;
-    /// use std::io::Cursor;
+    /// use bytes::{Buf, Bytes};
     ///
-    /// let mut buf = Cursor::new(b"hello world");
+    /// let mut buf = Bytes::from_static(b"hello world");
     ///
     /// assert_eq!(buf.bytes(), b"hello world");
     ///
@@ -166,10 +164,9 @@ pub trait Buf {
     /// # Examples
     ///
     /// ```
-    /// use bytes::Buf;
-    /// use std::io::Cursor;
+    /// use bytes::{Buf, Bytes};
     ///
-    /// let mut buf = Cursor::new(b"hello world");
+    /// let mut buf = Bytes::from_static(b"hello world");
     ///
     /// assert_eq!(buf.bytes(), b"hello world");
     ///
@@ -198,10 +195,9 @@ pub trait Buf {
     /// # Examples
     ///
     /// ```
-    /// use bytes::Buf;
-    /// use std::io::Cursor;
+    /// use bytes::{Buf, Bytes};
     ///
-    /// let mut buf = Cursor::new(b"a");
+    /// let mut buf = Bytes::from_static(b"a");
     ///
     /// assert!(buf.has_remaining());
     ///
@@ -221,10 +217,9 @@ pub trait Buf {
     /// # Examples
     ///
     /// ```
-    /// use bytes::Buf;
-    /// use std::io::Cursor;
+    /// use bytes::{Buf, Bytes};
     ///
-    /// let mut buf = Cursor::new(b"hello world");
+    /// let mut buf = Bytes::from_static(b"hello world");
     /// let mut dst = [0; 5];
     ///
     /// buf.copy_to_slice(&mut dst);
@@ -264,10 +259,9 @@ pub trait Buf {
     /// # Examples
     ///
     /// ```
-    /// use bytes::Buf;
-    /// use std::io::Cursor;
+    /// use bytes::{Buf, Bytes};
     ///
-    /// let mut buf = Cursor::new(b"\x08 hello");
+    /// let mut buf = Bytes::from_static(b"\x08 hello");
     /// assert_eq!(8, buf.get_u8());
     /// ```
     ///
@@ -288,10 +282,9 @@ pub trait Buf {
     /// # Examples
     ///
     /// ```
-    /// use bytes::Buf;
-    /// use std::io::Cursor;
+    /// use bytes::{Buf, Bytes};
     ///
-    /// let mut buf = Cursor::new(b"\x08 hello");
+    /// let mut buf = Bytes::from_static(b"\x08 hello");
     /// assert_eq!(8, buf.get_i8());
     /// ```
     ///
@@ -312,10 +305,9 @@ pub trait Buf {
     /// # Examples
     ///
     /// ```
-    /// use bytes::Buf;
-    /// use std::io::Cursor;
+    /// use bytes::{Buf, Bytes};
     ///
-    /// let mut buf = Cursor::new(b"\x08\x09 hello");
+    /// let mut buf = Bytes::from_static(b"\x08\x09 hello");
     /// assert_eq!(0x0809, buf.get_u16());
     /// ```
     ///
@@ -333,10 +325,9 @@ pub trait Buf {
     /// # Examples
     ///
     /// ```
-    /// use bytes::Buf;
-    /// use std::io::Cursor;
+    /// use bytes::{Buf, Bytes};
     ///
-    /// let mut buf = Cursor::new(b"\x09\x08 hello");
+    /// let mut buf = Bytes::from_static(b"\x09\x08 hello");
     /// assert_eq!(0x0809, buf.get_u16_le());
     /// ```
     ///
@@ -354,10 +345,9 @@ pub trait Buf {
     /// # Examples
     ///
     /// ```
-    /// use bytes::Buf;
-    /// use std::io::Cursor;
+    /// use bytes::{Buf, Bytes};
     ///
-    /// let mut buf = Cursor::new(b"\x08\x09 hello");
+    /// let mut buf = Bytes::from_static(b"\x08\x09 hello");
     /// assert_eq!(0x0809, buf.get_i16());
     /// ```
     ///
@@ -375,10 +365,9 @@ pub trait Buf {
     /// # Examples
     ///
     /// ```
-    /// use bytes::Buf;
-    /// use std::io::Cursor;
+    /// use bytes::{Buf, Bytes};
     ///
-    /// let mut buf = Cursor::new(b"\x09\x08 hello");
+    /// let mut buf = Bytes::from_static(b"\x09\x08 hello");
     /// assert_eq!(0x0809, buf.get_i16_le());
     /// ```
     ///
@@ -396,10 +385,9 @@ pub trait Buf {
     /// # Examples
     ///
     /// ```
-    /// use bytes::Buf;
-    /// use std::io::Cursor;
+    /// use bytes::{Buf, Bytes};
     ///
-    /// let mut buf = Cursor::new(b"\x08\x09\xA0\xA1 hello");
+    /// let mut buf = Bytes::from_static(b"\x08\x09\xA0\xA1 hello");
     /// assert_eq!(0x0809A0A1, buf.get_u32());
     /// ```
     ///
@@ -417,10 +405,9 @@ pub trait Buf {
     /// # Examples
     ///
     /// ```
-    /// use bytes::Buf;
-    /// use std::io::Cursor;
+    /// use bytes::{Buf, Bytes};
     ///
-    /// let mut buf = Cursor::new(b"\xA1\xA0\x09\x08 hello");
+    /// let mut buf = Bytes::from_static(b"\xA1\xA0\x09\x08 hello");
     /// assert_eq!(0x0809A0A1, buf.get_u32_le());
     /// ```
     ///
@@ -438,10 +425,9 @@ pub trait Buf {
     /// # Examples
     ///
     /// ```
-    /// use bytes::Buf;
-    /// use std::io::Cursor;
+    /// use bytes::{Buf, Bytes};
     ///
-    /// let mut buf = Cursor::new(b"\x08\x09\xA0\xA1 hello");
+    /// let mut buf = Bytes::from_static(b"\x08\x09\xA0\xA1 hello");
     /// assert_eq!(0x0809A0A1, buf.get_i32());
     /// ```
     ///
@@ -459,10 +445,9 @@ pub trait Buf {
     /// # Examples
     ///
     /// ```
-    /// use bytes::Buf;
-    /// use std::io::Cursor;
+    /// use bytes::{Buf, Bytes};
     ///
-    /// let mut buf = Cursor::new(b"\xA1\xA0\x09\x08 hello");
+    /// let mut buf = Bytes::from_static(b"\xA1\xA0\x09\x08 hello");
     /// assert_eq!(0x0809A0A1, buf.get_i32_le());
     /// ```
     ///
@@ -480,10 +465,9 @@ pub trait Buf {
     /// # Examples
     ///
     /// ```
-    /// use bytes::Buf;
-    /// use std::io::Cursor;
+    /// use bytes::{Buf, Bytes};
     ///
-    /// let mut buf = Cursor::new(b"\x01\x02\x03\x04\x05\x06\x07\x08 hello");
+    /// let mut buf = Bytes::from_static(b"\x01\x02\x03\x04\x05\x06\x07\x08 hello");
     /// assert_eq!(0x0102030405060708, buf.get_u64());
     /// ```
     ///
@@ -501,10 +485,9 @@ pub trait Buf {
     /// # Examples
     ///
     /// ```
-    /// use bytes::Buf;
-    /// use std::io::Cursor;
+    /// use bytes::{Buf, Bytes};
     ///
-    /// let mut buf = Cursor::new(b"\x08\x07\x06\x05\x04\x03\x02\x01 hello");
+    /// let mut buf = Bytes::from_static(b"\x08\x07\x06\x05\x04\x03\x02\x01 hello");
     /// assert_eq!(0x0102030405060708, buf.get_u64_le());
     /// ```
     ///
@@ -522,10 +505,9 @@ pub trait Buf {
     /// # Examples
     ///
     /// ```
-    /// use bytes::Buf;
-    /// use std::io::Cursor;
+    /// use bytes::{Buf, Bytes};
     ///
-    /// let mut buf = Cursor::new(b"\x01\x02\x03\x04\x05\x06\x07\x08 hello");
+    /// let mut buf = Bytes::from_static(b"\x01\x02\x03\x04\x05\x06\x07\x08 hello");
     /// assert_eq!(0x0102030405060708, buf.get_i64());
     /// ```
     ///
@@ -543,10 +525,9 @@ pub trait Buf {
     /// # Examples
     ///
     /// ```
-    /// use bytes::Buf;
-    /// use std::io::Cursor;
+    /// use bytes::{Buf, Bytes};
     ///
-    /// let mut buf = Cursor::new(b"\x08\x07\x06\x05\x04\x03\x02\x01 hello");
+    /// let mut buf = Bytes::from_static(b"\x08\x07\x06\x05\x04\x03\x02\x01 hello");
     /// assert_eq!(0x0102030405060708, buf.get_i64_le());
     /// ```
     ///
@@ -564,10 +545,9 @@ pub trait Buf {
     /// # Examples
     ///
     /// ```
-    /// use bytes::Buf;
-    /// use std::io::Cursor;
+    /// use bytes::{Buf, Bytes};
     ///
-    /// let mut buf = Cursor::new(b"\x01\x02\x03 hello");
+    /// let mut buf = Bytes::from_static(b"\x01\x02\x03 hello");
     /// assert_eq!(0x010203, buf.get_uint(3));
     /// ```
     ///
@@ -585,10 +565,9 @@ pub trait Buf {
     /// # Examples
     ///
     /// ```
-    /// use bytes::Buf;
-    /// use std::io::Cursor;
+    /// use bytes::{Buf, Bytes};
     ///
-    /// let mut buf = Cursor::new(b"\x03\x02\x01 hello");
+    /// let mut buf = Bytes::from_static(b"\x03\x02\x01 hello");
     /// assert_eq!(0x010203, buf.get_uint_le(3));
     /// ```
     ///
@@ -606,10 +585,9 @@ pub trait Buf {
     /// # Examples
     ///
     /// ```
-    /// use bytes::Buf;
-    /// use std::io::Cursor;
+    /// use bytes::{Buf, Bytes};
     ///
-    /// let mut buf = Cursor::new(b"\x01\x02\x03 hello");
+    /// let mut buf = Bytes::from_static(b"\x01\x02\x03 hello");
     /// assert_eq!(0x010203, buf.get_int(3));
     /// ```
     ///
@@ -627,10 +605,9 @@ pub trait Buf {
     /// # Examples
     ///
     /// ```
-    /// use bytes::Buf;
-    /// use std::io::Cursor;
+    /// use bytes::{Buf, Bytes};
     ///
-    /// let mut buf = Cursor::new(b"\x03\x02\x01 hello");
+    /// let mut buf = Bytes::from_static(b"\x03\x02\x01 hello");
     /// assert_eq!(0x010203, buf.get_int_le(3));
     /// ```
     ///
@@ -649,10 +626,9 @@ pub trait Buf {
     /// # Examples
     ///
     /// ```
-    /// use bytes::Buf;
-    /// use std::io::Cursor;
+    /// use bytes::{Buf, Bytes};
     ///
-    /// let mut buf = Cursor::new(b"\x3F\x99\x99\x9A hello");
+    /// let mut buf = Bytes::from_static(b"\x3F\x99\x99\x9A hello");
     /// assert_eq!(1.2f32, buf.get_f32());
     /// ```
     ///
@@ -671,10 +647,9 @@ pub trait Buf {
     /// # Examples
     ///
     /// ```
-    /// use bytes::Buf;
-    /// use std::io::Cursor;
+    /// use bytes::{Buf, Bytes};
     ///
-    /// let mut buf = Cursor::new(b"\x9A\x99\x99\x3F hello");
+    /// let mut buf = Bytes::from_static(b"\x9A\x99\x99\x3F hello");
     /// assert_eq!(1.2f32, buf.get_f32_le());
     /// ```
     ///
@@ -693,10 +668,9 @@ pub trait Buf {
     /// # Examples
     ///
     /// ```
-    /// use bytes::Buf;
-    /// use std::io::Cursor;
+    /// use bytes::{Buf, Bytes};
     ///
-    /// let mut buf = Cursor::new(b"\x3F\xF3\x33\x33\x33\x33\x33\x33 hello");
+    /// let mut buf = Bytes::from_static(b"\x3F\xF3\x33\x33\x33\x33\x33\x33 hello");
     /// assert_eq!(1.2f64, buf.get_f64());
     /// ```
     ///
@@ -715,10 +689,9 @@ pub trait Buf {
     /// # Examples
     ///
     /// ```
-    /// use bytes::Buf;
-    /// use std::io::Cursor;
+    /// use bytes::{Buf, Bytes};
     ///
-    /// let mut buf = Cursor::new(b"\x33\x33\x33\x33\x33\x33\xF3\x3F hello");
+    /// let mut buf = Bytes::from_static(b"\x33\x33\x33\x33\x33\x33\xF3\x3F hello");
     /// assert_eq!(1.2f64, buf.get_f64_le());
     /// ```
     ///
@@ -761,10 +734,9 @@ pub trait Buf {
     /// # Examples
     ///
     /// ```
-    /// use bytes::{Buf, BufMut};
-    /// use std::io::Cursor;
+    /// use bytes::{Buf, BufMut, Bytes};
     ///
-    /// let mut buf = Cursor::new("hello world").take(5);
+    /// let mut buf = Bytes::from_static(b"hello world").prefix(5);
     /// let mut dst = vec![];
     ///
     /// dst.put(&mut buf);
@@ -775,10 +747,10 @@ pub trait Buf {
     /// dst.put(&mut buf);
     /// assert_eq!(dst, b" world");
     /// ```
-    fn take(self, limit: usize) -> Take<Self>
+    fn prefix(self, limit: usize) -> Prefix<Self>
         where Self: Sized
     {
-        super::take::new(self, limit)
+        super::prefix::new(self, limit)
     }
 
     /// Creates an adaptor which will chain this buffer with another.
@@ -789,13 +761,13 @@ pub trait Buf {
     /// # Examples
     ///
     /// ```
-    /// use bytes::{Bytes, Buf, IntoBuf};
+    /// use bytes::{Bytes, Buf};
     /// use bytes::buf::Chain;
     ///
-    /// let buf = Bytes::from(&b"hello "[..]).into_buf()
+    /// let chain = Bytes::from_static(b"hello ")
     ///             .chain(Bytes::from(&b"world"[..]));
     ///
-    /// let full: Bytes = buf.collect();
+    /// let full: Bytes = chain.collect();
     /// assert_eq!(full[..], b"hello world"[..]);
     /// ```
     fn chain<U>(self, next: U) -> Chain<Self, U::Buf>
@@ -812,15 +784,14 @@ pub trait Buf {
     /// # Examples
     ///
     /// ```
-    /// use bytes::{Buf, BufMut};
-    /// use std::io::Cursor;
+    /// use bytes::{Buf, BufMut, Bytes};
     ///
-    /// let mut buf = Cursor::new("hello world");
+    /// let mut buf = Bytes::from_static(b"hello world");
     /// let mut dst = vec![];
     ///
     /// {
     ///     let mut reference = buf.by_ref();
-    ///     dst.put(&mut reference.take(5));
+    ///     dst.put(&mut reference.prefix(5));
     ///     assert_eq!(dst, b"hello");
     /// } // drop our &mut reference so we can use `buf` again
     ///
@@ -857,25 +828,6 @@ pub trait Buf {
     /// ```
     fn reader(self) -> Reader<Self> where Self: Sized {
         super::reader::new(self)
-    }
-
-    /// Returns an iterator over the bytes contained by the buffer.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use bytes::{Buf, IntoBuf, Bytes};
-    ///
-    /// let buf = Bytes::from(&b"abc"[..]).into_buf();
-    /// let mut iter = buf.iter();
-    ///
-    /// assert_eq!(iter.next(), Some(b'a'));
-    /// assert_eq!(iter.next(), Some(b'b'));
-    /// assert_eq!(iter.next(), Some(b'c'));
-    /// assert_eq!(iter.next(), None);
-    /// ```
-    fn iter(self) -> Iter<Self> where Self: Sized {
-        super::iter::new(self)
     }
 }
 

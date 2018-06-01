@@ -1,10 +1,9 @@
-use {IntoBuf, Buf, BufMut};
-use buf::Iter;
+use {Buf, BufMut};
+use buf::{self, IntoIter};
 use debug;
 
 use std::{cmp, fmt, mem, hash, ops, slice, ptr, usize};
 use std::borrow::{Borrow, BorrowMut};
-use std::io::Cursor;
 use std::sync::atomic::{self, AtomicUsize, AtomicPtr};
 use std::sync::atomic::Ordering::{Relaxed, Acquire, Release, AcqRel};
 use std::iter::{FromIterator, Iterator};
@@ -696,22 +695,6 @@ impl Bytes {
         self.inner.truncate(len);
     }
 
-    /// Shortens the buffer, dropping the first `cnt` bytes and keeping the
-    /// rest.
-    ///
-    /// This is the same function as `Buf::advance`, and in the next breaking
-    /// release of `bytes`, this implementation will be removed in favor of
-    /// having `Bytes` implement `Buf`.
-    ///
-    /// # Panics
-    ///
-    /// This function panics if `cnt` is greater than `self.len()`
-    #[inline]
-    pub fn advance(&mut self, cnt: usize) {
-        assert!(cnt <= self.len(), "cannot advance past `remaining`");
-        unsafe { self.inner.set_start(cnt); }
-    }
-
     /// Clears the buffer, removing all data.
     ///
     /// # Examples
@@ -845,21 +828,42 @@ impl Bytes {
             self.extend_from_slice(other_inner.as_ref());
         }
     }
-}
 
-impl IntoBuf for Bytes {
-    type Buf = Cursor<Self>;
-
-    fn into_buf(self) -> Self::Buf {
-        Cursor::new(self)
+    /// Returns an iterator over the bytes contained by the buffer.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::{Buf, IntoBuf, Bytes};
+    ///
+    /// let buf = Bytes::from(&b"abc"[..]);
+    /// let mut iter = buf.iter();
+    ///
+    /// assert_eq!(iter.next().map(|b| *b), Some(b'a'));
+    /// assert_eq!(iter.next().map(|b| *b), Some(b'b'));
+    /// assert_eq!(iter.next().map(|b| *b), Some(b'c'));
+    /// assert_eq!(iter.next(), None);
+    /// ```
+    pub fn iter<'a>(&'a self) -> ::std::slice::Iter<'a, u8> {
+        self.bytes().iter()
     }
 }
 
-impl<'a> IntoBuf for &'a Bytes {
-    type Buf = Cursor<Self>;
+impl Buf for Bytes {
+    #[inline]
+    fn remaining(&self) -> usize {
+        self.len()
+    }
 
-    fn into_buf(self) -> Self::Buf {
-        Cursor::new(self)
+    #[inline]
+    fn bytes(&self) -> &[u8] {
+        &(self.inner.as_ref())
+    }
+
+    #[inline]
+    fn advance(&mut self, cnt: usize) {
+        assert!(cnt <= self.inner.as_ref().len(), "cannot advance past `remaining`");
+        unsafe { self.inner.set_start(cnt); }
     }
 }
 
@@ -993,19 +997,19 @@ impl Borrow<[u8]> for Bytes {
 
 impl IntoIterator for Bytes {
     type Item = u8;
-    type IntoIter = Iter<Cursor<Bytes>>;
+    type IntoIter = IntoIter<Bytes>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.into_buf().iter()
+        buf::iter::new(self)
     }
 }
 
-impl<'a> IntoIterator for &'a Bytes {
+impl<'a> IntoIterator for &'a mut Bytes {
     type Item = u8;
-    type IntoIter = Iter<Cursor<&'a Bytes>>;
+    type IntoIter = IntoIter<&'a mut Bytes>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.into_buf().iter()
+        buf::iter::new(self)
     }
 }
 
@@ -1320,22 +1324,6 @@ impl BytesMut {
         self.inner.truncate(len);
     }
 
-    /// Shortens the buffer, dropping the first `cnt` bytes and keeping the
-    /// rest.
-    ///
-    /// This is the same function as `Buf::advance`, and in the next breaking
-    /// release of `bytes`, this implementation will be removed in favor of
-    /// having `BytesMut` implement `Buf`.
-    ///
-    /// # Panics
-    ///
-    /// This function panics if `cnt` is greater than `self.len()`
-    #[inline]
-    pub fn advance(&mut self, cnt: usize) {
-        assert!(cnt <= self.len(), "cannot advance past `remaining`");
-        unsafe { self.inner.set_start(cnt); }
-    }
-
     /// Clears the buffer, removing all data.
     ///
     /// # Examples
@@ -1514,6 +1502,43 @@ impl BytesMut {
             self.extend_from_slice(other_inner.as_ref());
         }
     }
+
+    /// Returns an iterator over the bytes contained by the buffer.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::{Buf, BytesMut};
+    ///
+    /// let buf = BytesMut::from(&b"abc"[..]);
+    /// let mut iter = buf.iter();
+    ///
+    /// assert_eq!(iter.next().map(|b| *b), Some(b'a'));
+    /// assert_eq!(iter.next().map(|b| *b), Some(b'b'));
+    /// assert_eq!(iter.next().map(|b| *b), Some(b'c'));
+    /// assert_eq!(iter.next(), None);
+    /// ```
+    pub fn iter<'a>(&'a self) -> ::std::slice::Iter<'a, u8> {
+        self.bytes().iter()
+    }
+}
+
+impl Buf for BytesMut {
+    #[inline]
+    fn remaining(&self) -> usize {
+        self.len()
+    }
+
+    #[inline]
+    fn bytes(&self) -> &[u8] {
+        &(self.inner.as_ref())
+    }
+
+    #[inline]
+    fn advance(&mut self, cnt: usize) {
+        assert!(cnt <= self.inner.as_ref().len(), "cannot advance past `remaining`");
+        unsafe { self.inner.set_start(cnt); }
+    }
 }
 
 impl BufMut for BytesMut {
@@ -1558,22 +1583,6 @@ impl BufMut for BytesMut {
     #[inline]
     fn put_i8(&mut self, n: i8) {
         self.put_u8(n as u8);
-    }
-}
-
-impl IntoBuf for BytesMut {
-    type Buf = Cursor<Self>;
-
-    fn into_buf(self) -> Self::Buf {
-        Cursor::new(self)
-    }
-}
-
-impl<'a> IntoBuf for &'a BytesMut {
-    type Buf = Cursor<&'a BytesMut>;
-
-    fn into_buf(self) -> Self::Buf {
-        Cursor::new(self)
     }
 }
 
@@ -1741,19 +1750,19 @@ impl Clone for BytesMut {
 
 impl IntoIterator for BytesMut {
     type Item = u8;
-    type IntoIter = Iter<Cursor<BytesMut>>;
+    type IntoIter = IntoIter<BytesMut>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.into_buf().iter()
+        buf::iter::new(self)
     }
 }
 
-impl<'a> IntoIterator for &'a BytesMut {
+impl<'a> IntoIterator for &'a mut BytesMut {
     type Item = u8;
-    type IntoIter = Iter<Cursor<&'a BytesMut>>;
+    type IntoIter = IntoIter<&'a mut BytesMut>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.into_buf().iter()
+        buf::iter::new(self)
     }
 }
 

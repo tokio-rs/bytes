@@ -1,6 +1,6 @@
 extern crate bytes;
 
-use bytes::{Bytes, BytesMut, BufMut};
+use bytes::{Bytes, BytesMut, Buf, BufMut};
 
 const LONG: &'static [u8] = b"mary had a little lamb, little lamb, little lamb";
 const SHORT: &'static [u8] = b"hello world";
@@ -175,17 +175,17 @@ fn split_off_to_loop() {
             let off = bytes.split_off(i);
             assert_eq!(i, bytes.len());
             let mut sum = Vec::new();
-            sum.extend(&bytes);
-            sum.extend(&off);
+            sum.extend(bytes.iter());
+            sum.extend(off.iter());
             assert_eq!(&s[..], &sum[..]);
         }
         {
             let mut bytes = BytesMut::from(&s[..]);
-            let off = bytes.split_off(i);
+            let mut off = bytes.split_off(i);
             assert_eq!(i, bytes.len());
             let mut sum = Vec::new();
-            sum.extend(&bytes);
-            sum.extend(&off);
+            sum.extend(&mut bytes);
+            sum.extend(&mut off);
             assert_eq!(&s[..], &sum[..]);
         }
         {
@@ -193,17 +193,17 @@ fn split_off_to_loop() {
             let off = bytes.split_to(i);
             assert_eq!(i, off.len());
             let mut sum = Vec::new();
-            sum.extend(&off);
-            sum.extend(&bytes);
+            sum.extend(off.iter());
+            sum.extend(bytes.iter());
             assert_eq!(&s[..], &sum[..]);
         }
         {
             let mut bytes = BytesMut::from(&s[..]);
-            let off = bytes.split_to(i);
+            let mut off = bytes.split_to(i);
             assert_eq!(i, off.len());
             let mut sum = Vec::new();
-            sum.extend(&off);
-            sum.extend(&bytes);
+            sum.extend(&mut off);
+            sum.extend(&mut bytes);
             assert_eq!(&s[..], &sum[..]);
         }
     }

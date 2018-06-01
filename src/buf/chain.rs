@@ -1,4 +1,5 @@
 use {Buf, BufMut};
+use buf::IntoIter;
 use iovec::{IoVec, IoVecMut};
 
 /// A `Chain` sequences two buffers.
@@ -64,7 +65,7 @@ impl<T, U> Chain<T, U> {
     /// let buf = Bytes::from(&b"hello"[..]).into_buf()
     ///             .chain(Bytes::from(&b"world"[..]));
     ///
-    /// assert_eq!(buf.first_ref().get_ref()[..], b"hello"[..]);
+    /// assert_eq!(buf.first_ref()[..], b"hello"[..]);
     /// ```
     pub fn first_ref(&self) -> &T {
         &self.a
@@ -80,7 +81,7 @@ impl<T, U> Chain<T, U> {
     /// let mut buf = Bytes::from(&b"hello "[..]).into_buf()
     ///                 .chain(Bytes::from(&b"world"[..]));
     ///
-    /// buf.first_mut().set_position(1);
+    /// buf.first_mut().advance(1);
     ///
     /// let full: Bytes = buf.collect();
     /// assert_eq!(full[..], b"ello world"[..]);
@@ -99,7 +100,7 @@ impl<T, U> Chain<T, U> {
     /// let buf = Bytes::from(&b"hello"[..]).into_buf()
     ///             .chain(Bytes::from(&b"world"[..]));
     ///
-    /// assert_eq!(buf.last_ref().get_ref()[..], b"world"[..]);
+    /// assert_eq!(buf.last_ref()[..], b"world"[..]);
     /// ```
     pub fn last_ref(&self) -> &U {
         &self.b
@@ -115,7 +116,7 @@ impl<T, U> Chain<T, U> {
     /// let mut buf = Bytes::from(&b"hello "[..]).into_buf()
     ///                 .chain(Bytes::from(&b"world"[..]));
     ///
-    /// buf.last_mut().set_position(1);
+    /// buf.last_mut().advance(1);
     ///
     /// let full: Bytes = buf.collect();
     /// assert_eq!(full[..], b"hello orld"[..]);
@@ -129,14 +130,14 @@ impl<T, U> Chain<T, U> {
     /// # Examples
     ///
     /// ```
-    /// use bytes::{Bytes, Buf, IntoBuf};
+    /// use bytes::{Bytes, Buf};
     ///
-    /// let buf = Bytes::from(&b"hello"[..]).into_buf()
+    /// let chain = Bytes::from(&b"hello"[..])
     ///             .chain(Bytes::from(&b"world"[..]));
     ///
-    /// let (first, last) = buf.into_inner();
-    /// assert_eq!(first.get_ref()[..], b"hello"[..]);
-    /// assert_eq!(last.get_ref()[..], b"world"[..]);
+    /// let (first, last) = chain.into_inner();
+    /// assert_eq!(first[..], b"hello"[..]);
+    /// assert_eq!(last[..], b"world"[..]);
     /// ```
     pub fn into_inner(self) -> (T, U) {
         (self.a, self.b)
@@ -222,5 +223,18 @@ impl<T, U> BufMut for Chain<T, U>
         let mut n = self.a.bytes_vec_mut(dst);
         n += self.b.bytes_vec_mut(&mut dst[n..]);
         n
+    }
+}
+
+impl<T, U> IntoIterator for Chain<T, U>
+where
+    T: Buf,
+    U: Buf,
+{
+    type Item = u8;
+    type IntoIter = IntoIter<Chain<T, U>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        super::iter::new(self)
     }
 }

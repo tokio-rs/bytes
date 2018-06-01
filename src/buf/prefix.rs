@@ -4,31 +4,30 @@ use std::cmp;
 
 /// A `Buf` adapter which limits the bytes read from an underlying buffer.
 ///
-/// This struct is generally created by calling `take()` on `Buf`. See
-/// documentation of [`take()`](trait.Buf.html#method.take) for more details.
+/// This struct is generally created by calling `prefix()` on `Buf`. See
+/// documentation of [`prefix()`](trait.Buf.html#method.prefix) for more details.
 #[derive(Debug)]
-pub struct Take<T> {
+pub struct Prefix<T> {
     inner: T,
     limit: usize,
 }
 
-pub fn new<T>(inner: T, limit: usize) -> Take<T> {
-    Take {
+pub fn new<T>(inner: T, limit: usize) -> Prefix<T> {
+    Prefix {
         inner: inner,
         limit: limit,
     }
 }
 
-impl<T> Take<T> {
-    /// Consumes this `Take`, returning the underlying value.
+impl<T> Prefix<T> {
+    /// Consumes this `Prefix`, returning the underlying value.
     ///
     /// # Examples
     ///
     /// ```rust
-    /// use bytes::{Buf, BufMut};
-    /// use std::io::Cursor;
+    /// use bytes::{Buf, BufMut, Bytes};
     ///
-    /// let mut buf = Cursor::new(b"hello world").take(2);
+    /// let mut buf = Bytes::from_static(b"hello world").prefix(2);
     /// let mut dst = vec![];
     ///
     /// dst.put(&mut buf);
@@ -51,12 +50,11 @@ impl<T> Take<T> {
     /// # Examples
     ///
     /// ```rust
-    /// use bytes::{Buf, BufMut};
-    /// use std::io::Cursor;
+    /// use bytes::{Buf, BufMut, Bytes};
     ///
-    /// let mut buf = Cursor::new(b"hello world").take(2);
+    /// let mut buf = Bytes::from_static(b"hello world").prefix(2);
     ///
-    /// assert_eq!(0, buf.get_ref().position());
+    /// assert_eq!(11, buf.get_ref().remaining());
     /// ```
     pub fn get_ref(&self) -> &T {
         &self.inner
@@ -69,13 +67,12 @@ impl<T> Take<T> {
     /// # Examples
     ///
     /// ```rust
-    /// use bytes::{Buf, BufMut};
-    /// use std::io::Cursor;
+    /// use bytes::{Buf, BufMut, Bytes};
     ///
-    /// let mut buf = Cursor::new(b"hello world").take(2);
+    /// let mut buf = Bytes::from_static(b"hello world").prefix(2);
     /// let mut dst = vec![];
     ///
-    /// buf.get_mut().set_position(2);
+    /// buf.get_mut().advance(2);
     ///
     /// dst.put(&mut buf);
     /// assert_eq!(*dst, b"ll"[..]);
@@ -94,10 +91,9 @@ impl<T> Take<T> {
     /// # Examples
     ///
     /// ```rust
-    /// use bytes::Buf;
-    /// use std::io::Cursor;
+    /// use bytes::{Buf, Bytes};
     ///
-    /// let mut buf = Cursor::new(b"hello world").take(2);
+    /// let mut buf = Bytes::from_static(b"hello world").prefix(2);
     ///
     /// assert_eq!(2, buf.limit());
     /// assert_eq!(b'h', buf.get_u8());
@@ -117,10 +113,9 @@ impl<T> Take<T> {
     /// # Examples
     ///
     /// ```rust
-    /// use bytes::{Buf, BufMut};
-    /// use std::io::Cursor;
+    /// use bytes::{Buf, BufMut, Bytes};
     ///
-    /// let mut buf = Cursor::new(b"hello world").take(2);
+    /// let mut buf = Bytes::from_static(b"hello world").prefix(2);
     /// let mut dst = vec![];
     ///
     /// dst.put(&mut buf);
@@ -137,7 +132,7 @@ impl<T> Take<T> {
     }
 }
 
-impl<T: Buf> Buf for Take<T> {
+impl<T: Buf> Buf for Prefix<T> {
     fn remaining(&self) -> usize {
         cmp::min(self.inner.remaining(), self.limit)
     }
