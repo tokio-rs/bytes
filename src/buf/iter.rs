@@ -28,6 +28,25 @@ pub struct IntoIter<T> {
 }
 
 impl<T> IntoIter<T> {
+    /// Creates an iterator over the bytes contained by the buffer.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::{Buf, Bytes};
+    /// use bytes::buf::IntoIter;
+    ///
+    /// let buf = Bytes::from_static(b"abc");
+    /// let mut iter = IntoIter::new(buf);
+    ///
+    /// assert_eq!(iter.next(), Some(b'a'));
+    /// assert_eq!(iter.next(), Some(b'b'));
+    /// assert_eq!(iter.next(), Some(b'c'));
+    /// assert_eq!(iter.next(), None);
+    /// ```
+    pub fn new(inner: T) -> IntoIter<T> {
+        IntoIter { inner: inner }
+    }
     /// Consumes this `IntoIter`, returning the underlying value.
     ///
     /// # Examples
@@ -90,9 +109,6 @@ impl<T> IntoIter<T> {
     }
 }
 
-pub fn new<T>(inner: T) -> IntoIter<T> {
-    IntoIter { inner: inner }
-}
 
 impl<T: Buf> Iterator for IntoIter<T> {
     type Item = u8;

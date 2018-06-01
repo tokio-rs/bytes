@@ -235,6 +235,6 @@ where
     type IntoIter = IntoIter<Chain<T, U>>;
 
     fn into_iter(self) -> Self::IntoIter {
-        super::iter::new(self)
+        IntoIter::new(self)
     }
 }

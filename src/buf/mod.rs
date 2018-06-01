@@ -21,7 +21,7 @@ mod buf_mut;
 mod from_buf;
 mod chain;
 mod into_buf;
-pub(crate) mod iter;
+mod iter;
 mod reader;
 mod prefix;
 mod writer;

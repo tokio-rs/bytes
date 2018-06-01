@@ -1,5 +1,5 @@
 use {Buf, BufMut};
-use buf::{self, IntoIter};
+use buf::IntoIter;
 use debug;
 
 use std::{cmp, fmt, mem, hash, ops, slice, ptr, usize};
@@ -1000,7 +1000,7 @@ impl IntoIterator for Bytes {
     type IntoIter = IntoIter<Bytes>;
 
     fn into_iter(self) -> Self::IntoIter {
-        buf::iter::new(self)
+        IntoIter::new(self)
     }
 }
 
@@ -1009,7 +1009,7 @@ impl<'a> IntoIterator for &'a mut Bytes {
     type IntoIter = IntoIter<&'a mut Bytes>;
 
     fn into_iter(self) -> Self::IntoIter {
-        buf::iter::new(self)
+        IntoIter::new(self)
     }
 }
 
@@ -1753,7 +1753,7 @@ impl IntoIterator for BytesMut {
     type IntoIter = IntoIter<BytesMut>;
 
     fn into_iter(self) -> Self::IntoIter {
-        buf::iter::new(self)
+        IntoIter::new(self)
     }
 }
 
@@ -1762,7 +1762,7 @@ impl<'a> IntoIterator for &'a mut BytesMut {
     type IntoIter = IntoIter<&'a mut BytesMut>;
 
     fn into_iter(self) -> Self::IntoIter {
-        buf::iter::new(self)
+        IntoIter::new(self)
     }
 }
 
