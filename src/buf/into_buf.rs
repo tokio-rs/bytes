@@ -45,6 +45,26 @@ pub trait IntoBuf {
     /// assert_eq!(b"hello world", &rest);
     /// ```
     fn into_buf(self) -> Self::Buf;
+
+    /// Returns the number of bytes that would contained in the buffer created by calling
+    /// `into_buf()` with `self`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::{Buf, IntoBuf};
+    ///
+    /// let bytes = b"\x00\x01hello world";
+    /// let r: &'static [u8] = bytes;
+    ///
+    /// assert_eq!(13, IntoBuf::len(&r));
+    ///
+    /// let mut buf = bytes.into_buf();
+    ///
+    /// assert_eq!(13, bytes.len());
+    ///
+    /// ```
+    fn len(&self) -> usize;
 }
 
 impl<T: Buf> IntoBuf for T {
@@ -52,6 +72,10 @@ impl<T: Buf> IntoBuf for T {
 
     fn into_buf(self) -> Self {
         self
+    }
+
+    fn len(&self) -> usize {
+        <Self as Buf>::remaining(self)
     }
 }
 
@@ -61,6 +85,10 @@ impl<'a> IntoBuf for &'a [u8] {
     fn into_buf(self) -> Self::Buf {
         io::Cursor::new(self)
     }
+
+    fn len(&self) -> usize {
+        <[u8]>::len(self)
+    }
 }
 
 impl<'a> IntoBuf for &'a str {
@@ -68,6 +96,10 @@ impl<'a> IntoBuf for &'a str {
 
     fn into_buf(self) -> Self::Buf {
         self.as_bytes().into_buf()
+    }
+
+    fn len(&self) -> usize {
+        str::len(self)
     }
 }
 
@@ -77,6 +109,10 @@ impl IntoBuf for Vec<u8> {
     fn into_buf(self) -> Self::Buf {
         io::Cursor::new(self)
     }
+
+    fn len(&self) -> usize {
+        Vec::len(self)
+    }
 }
 
 impl<'a> IntoBuf for &'a Vec<u8> {
@@ -84,6 +120,10 @@ impl<'a> IntoBuf for &'a Vec<u8> {
 
     fn into_buf(self) -> Self::Buf {
         io::Cursor::new(&self[..])
+    }
+
+    fn len(&self) -> usize {
+        Vec::len(self)
     }
 }
 
@@ -95,6 +135,10 @@ impl<'a> IntoBuf for &'a &'static [u8] {
     fn into_buf(self) -> Self::Buf {
         io::Cursor::new(self)
     }
+
+    fn len(&self) -> usize {
+        <&[u8]>::len(self)
+    }
 }
 
 impl<'a> IntoBuf for &'a &'static str {
@@ -102,6 +146,10 @@ impl<'a> IntoBuf for &'a &'static str {
 
     fn into_buf(self) -> Self::Buf {
         self.as_bytes().into_buf()
+    }
+
+    fn len(&self) -> usize {
+        str::len(self)
     }
 }
 
@@ -111,6 +159,10 @@ impl IntoBuf for String {
     fn into_buf(self) -> Self::Buf {
         self.into_bytes().into_buf()
     }
+
+    fn len(&self) -> usize {
+        String::len(self)
+    }
 }
 
 impl<'a> IntoBuf for &'a String {
@@ -118,6 +170,10 @@ impl<'a> IntoBuf for &'a String {
 
     fn into_buf(self) -> Self::Buf {
         self.as_bytes().into_buf()
+    }
+
+    fn len(&self) -> usize {
+        String::len(self)
     }
 }
 
@@ -127,6 +183,10 @@ impl IntoBuf for u8 {
     fn into_buf(self) -> Self::Buf {
         Some([self])
     }
+
+    fn len(&self) -> usize {
+        1
+    }
 }
 
 impl IntoBuf for i8 {
@@ -134,5 +194,9 @@ impl IntoBuf for i8 {
 
     fn into_buf(self) -> Self::Buf {
         Some([self as u8; 1])
+    }
+
+    fn len(&self) -> usize {
+        1
     }
 }
