@@ -85,7 +85,7 @@ pub use buf::{
 pub use buf::{
     Reader,
     Writer,
-    Prefix,
+    Limit,
 };
 
 mod bytes;

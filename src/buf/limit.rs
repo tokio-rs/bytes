@@ -4,30 +4,30 @@ use std::cmp;
 
 /// A `Buf` adapter which limits the bytes read from an underlying buffer.
 ///
-/// This struct is generally created by calling `prefix()` on `Buf`. See
-/// documentation of [`prefix()`](trait.Buf.html#method.prefix) for more details.
+/// This struct is generally created by calling `limit()` on `Buf`. See
+/// documentation of [`limit()`](trait.Buf.html#method.limit) for more details.
 #[derive(Debug)]
-pub struct Prefix<T> {
+pub struct Limit<T> {
     inner: T,
     limit: usize,
 }
 
-pub fn new<T>(inner: T, limit: usize) -> Prefix<T> {
-    Prefix {
+pub fn new<T>(inner: T, limit: usize) -> Limit<T> {
+    Limit {
         inner: inner,
         limit: limit,
     }
 }
 
-impl<T> Prefix<T> {
-    /// Consumes this `Prefix`, returning the underlying value.
+impl<T> Limit<T> {
+    /// Consumes this `Limit`, returning the underlying value.
     ///
     /// # Examples
     ///
     /// ```rust
     /// use bytes::{Buf, BufMut, Bytes};
     ///
-    /// let mut buf = Bytes::from_static(b"hello world").prefix(2);
+    /// let mut buf = Bytes::from_static(b"hello world").limit(2);
     /// let mut dst = vec![];
     ///
     /// dst.put(&mut buf);
@@ -52,7 +52,7 @@ impl<T> Prefix<T> {
     /// ```rust
     /// use bytes::{Buf, BufMut, Bytes};
     ///
-    /// let mut buf = Bytes::from_static(b"hello world").prefix(2);
+    /// let mut buf = Bytes::from_static(b"hello world").limit(2);
     ///
     /// assert_eq!(11, buf.get_ref().remaining());
     /// ```
@@ -69,7 +69,7 @@ impl<T> Prefix<T> {
     /// ```rust
     /// use bytes::{Buf, BufMut, Bytes};
     ///
-    /// let mut buf = Bytes::from_static(b"hello world").prefix(2);
+    /// let mut buf = Bytes::from_static(b"hello world").limit(2);
     /// let mut dst = vec![];
     ///
     /// buf.get_mut().advance(2);
@@ -93,13 +93,13 @@ impl<T> Prefix<T> {
     /// ```rust
     /// use bytes::{Buf, Bytes};
     ///
-    /// let mut buf = Bytes::from_static(b"hello world").prefix(2);
+    /// let mut buf = Bytes::from_static(b"hello world").limit(2);
     ///
-    /// assert_eq!(2, buf.limit());
+    /// assert_eq!(2, buf.get_limit());
     /// assert_eq!(b'h', buf.get_u8());
-    /// assert_eq!(1, buf.limit());
+    /// assert_eq!(1, buf.get_limit());
     /// ```
-    pub fn limit(&self) -> usize {
+    pub fn get_limit(&self) -> usize {
         self.limit
     }
 
@@ -115,7 +115,7 @@ impl<T> Prefix<T> {
     /// ```rust
     /// use bytes::{Buf, BufMut, Bytes};
     ///
-    /// let mut buf = Bytes::from_static(b"hello world").prefix(2);
+    /// let mut buf = Bytes::from_static(b"hello world").limit(2);
     /// let mut dst = vec![];
     ///
     /// dst.put(&mut buf);
@@ -132,7 +132,7 @@ impl<T> Prefix<T> {
     }
 }
 
-impl<T: Buf> Buf for Prefix<T> {
+impl<T: Buf> Buf for Limit<T> {
     fn remaining(&self) -> usize {
         cmp::min(self.inner.remaining(), self.limit)
     }

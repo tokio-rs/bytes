@@ -23,7 +23,7 @@ mod chain;
 mod into_buf;
 mod iter;
 mod reader;
-mod prefix;
+mod limit;
 mod writer;
 
 pub use self::buf::Buf;
@@ -33,5 +33,5 @@ pub use self::chain::Chain;
 pub use self::into_buf::IntoBuf;
 pub use self::iter::IntoIter;
 pub use self::reader::Reader;
-pub use self::prefix::Prefix;
+pub use self::limit::Limit;
 pub use self::writer::Writer;

@@ -1,4 +1,4 @@
-use super::{IntoBuf, Prefix, Reader, FromBuf, Chain};
+use super::{IntoBuf, Limit, Reader, FromBuf, Chain};
 use byteorder::{BigEndian, ByteOrder, LittleEndian};
 use iovec::IoVec;
 
@@ -736,7 +736,7 @@ pub trait Buf {
     /// ```
     /// use bytes::{Buf, BufMut, Bytes};
     ///
-    /// let mut buf = Bytes::from_static(b"hello world").prefix(5);
+    /// let mut buf = Bytes::from_static(b"hello world").limit(5);
     /// let mut dst = vec![];
     ///
     /// dst.put(&mut buf);
@@ -747,10 +747,10 @@ pub trait Buf {
     /// dst.put(&mut buf);
     /// assert_eq!(dst, b" world");
     /// ```
-    fn prefix(self, limit: usize) -> Prefix<Self>
+    fn limit(self, limit: usize) -> Limit<Self>
         where Self: Sized
     {
-        super::prefix::new(self, limit)
+        super::limit::new(self, limit)
     }
 
     /// Creates an adaptor which will chain this buffer with another.
@@ -791,7 +791,7 @@ pub trait Buf {
     ///
     /// {
     ///     let mut reference = buf.by_ref();
-    ///     dst.put(&mut reference.prefix(5));
+    ///     dst.put(&mut reference.limit(5));
     ///     assert_eq!(dst, b"hello");
     /// } // drop our &mut reference so we can use `buf` again
     ///
