@@ -454,6 +454,20 @@ impl Bytes {
         }
     }
 
+    /// Creates a new `Bytes` copying data from a slice.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Bytes;
+    ///
+    /// let b = Bytes::copy_from_slice(b"hello");
+    /// assert_eq!(&b[..], b"hello");
+    /// ```
+    pub fn copy_from_slice<'a>(src: &'a [u8]) -> Bytes {
+        BytesMut::from(src).freeze()
+    }
+
     /// Returns the number of bytes contained in this `Bytes`.
     ///
     /// # Examples
@@ -523,7 +537,7 @@ impl Bytes {
         assert!(end <= self.len());
 
         if end - begin <= INLINE_CAP {
-            return Bytes::from(&self[begin..end]);
+            return Bytes::copy_from_slice(&self[begin..end]);
         }
 
         let mut ret = self.clone();
@@ -721,7 +735,7 @@ impl Bytes {
     /// ```
     /// use bytes::Bytes;
     ///
-    /// let a = Bytes::from(&b"Mary had a little lamb, little lamb, little lamb..."[..]);
+    /// let a = Bytes::copy_from_slice(&b"Mary had a little lamb, little lamb, little lamb..."[..]);
     ///
     /// // Create a shallow clone
     /// let b = a.clone();
@@ -751,7 +765,7 @@ impl Bytes {
     /// Clones the data if it is not already owned.
     pub fn to_mut(&mut self) -> &mut BytesMut {
         if !self.inner.is_mut_safe() {
-            let new = Bytes::from(&self[..]);
+            let new = Bytes::copy_from_slice(&self[..]);
             *self = new;
         }
         unsafe { &mut *(self as *mut Bytes as *mut BytesMut) }
@@ -914,9 +928,9 @@ impl From<String> for Bytes {
     }
 }
 
-impl<'a> From<&'a [u8]> for Bytes {
-    fn from(src: &'a [u8]) -> Bytes {
-        BytesMut::from(src).freeze()
+impl From<&'static [u8]> for Bytes {
+    fn from(src: &'static [u8]) -> Bytes {
+        Bytes::from_static(src)
     }
 }
 

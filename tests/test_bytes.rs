@@ -533,7 +533,7 @@ fn stress() {
 
     for i in 0..ITERS {
         let data = [i as u8; 256];
-        let buf = Arc::new(Bytes::from(&data[..]));
+        let buf = Arc::new(Bytes::copy_from_slice(&data[..]));
 
         let barrier = Arc::new(Barrier::new(THREADS));
         let mut joins = Vec::with_capacity(THREADS);
