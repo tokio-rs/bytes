@@ -18,8 +18,8 @@
 //! using a reference count to track when the memory is no longer needed and can
 //! be freed.
 //!
-//! A `Bytes` handle can be created directly from an existing byte store (such as &[u8]
-//! or Vec<u8>), but usually a `BytesMut` is used first and written to. For
+//! A `Bytes` handle can be created directly from an existing byte store (such as `&[u8]`
+//! or `Vec<u8>`), but usually a `BytesMut` is used first and written to. For
 //! example:
 //!
 //! ```rust
