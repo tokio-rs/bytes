@@ -36,6 +36,9 @@ matrix:
     # Serde implementation
     - env: EXTRA_ARGS="--features serde"
 
+    # 128 bit numbers
+    - env: EXTRA_ARGS="--features i128"
+
     # WASM support
     - rust: beta
       script:

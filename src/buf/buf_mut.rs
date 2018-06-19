@@ -674,6 +674,110 @@ pub trait BufMut {
         self.put_slice(&buf)
     }
 
+    /// Writes an unsigned 128 bit integer to `self` in the big-endian byte order.
+    ///
+    /// **NOTE:** This method requires the `i128` feature.
+    /// The current position is advanced by 16.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::BufMut;
+    ///
+    /// let mut buf = vec![];
+    /// buf.put_u128_be(0x01020304050607080910111213141516);
+    /// assert_eq!(buf, b"\x01\x02\x03\x04\x05\x06\x07\x08\x09\x10\x11\x12\x13\x14\x15\x16");
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// This function panics if there is not enough remaining capacity in
+    /// `self`.
+    #[cfg(feature = "i128")]
+    fn put_u128_be(&mut self, n: u128) {
+        let mut buf = [0; 16];
+        BigEndian::write_u128(&mut buf, n);
+        self.put_slice(&buf)
+    }
+
+    /// Writes an unsigned 128 bit integer to `self` in little-endian byte order.
+    ///
+    /// **NOTE:** This method requires the `i128` feature.
+    /// The current position is advanced by 16.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::BufMut;
+    ///
+    /// let mut buf = vec![];
+    /// buf.put_u128_le(0x01020304050607080910111213141516);
+    /// assert_eq!(buf, b"\x16\x15\x14\x13\x12\x11\x10\x09\x08\x07\x06\x05\x04\x03\x02\x01");
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// This function panics if there is not enough remaining capacity in
+    /// `self`.
+    #[cfg(feature = "i128")]
+    fn put_u128_le(&mut self, n: u128) {
+        let mut buf = [0; 16];
+        LittleEndian::write_u128(&mut buf, n);
+        self.put_slice(&buf)
+    }
+
+    /// Writes a signed 128 bit integer to `self` in the big-endian byte order.
+    ///
+    /// **NOTE:** This method requires the `i128` feature.
+    /// The current position is advanced by 16.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::BufMut;
+    ///
+    /// let mut buf = vec![];
+    /// buf.put_i128_be(0x01020304050607080910111213141516);
+    /// assert_eq!(buf, b"\x01\x02\x03\x04\x05\x06\x07\x08\x09\x10\x11\x12\x13\x14\x15\x16");
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// This function panics if there is not enough remaining capacity in
+    /// `self`.
+    #[cfg(feature = "i128")]
+    fn put_i128_be(&mut self, n: i128) {
+        let mut buf = [0; 16];
+        BigEndian::write_i128(&mut buf, n);
+        self.put_slice(&buf)
+    }
+
+    /// Writes a signed 128 bit integer to `self` in little-endian byte order.
+    ///
+    /// **NOTE:** This method requires the `i128` feature.
+    /// The current position is advanced by 16.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::BufMut;
+    ///
+    /// let mut buf = vec![];
+    /// buf.put_i128_le(0x01020304050607080910111213141516);
+    /// assert_eq!(buf, b"\x16\x15\x14\x13\x12\x11\x10\x09\x08\x07\x06\x05\x04\x03\x02\x01");
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// This function panics if there is not enough remaining capacity in
+    /// `self`.
+    #[cfg(feature = "i128")]
+    fn put_i128_le(&mut self, n: i128) {
+        let mut buf = [0; 16];
+        LittleEndian::write_i128(&mut buf, n);
+        self.put_slice(&buf)
+    }
+
     #[doc(hidden)]
     #[deprecated(note="use put_uint_be or put_uint_le")]
     fn put_uint<T: ByteOrder>(&mut self, n: u64, nbytes: usize) where Self: Sized {
