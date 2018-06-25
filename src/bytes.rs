@@ -2051,124 +2051,134 @@ impl Inner {
     unsafe fn shallow_clone(&self, mut_self: bool) -> Inner {
         // Always check `inline` first, because if the handle is using inline
         // data storage, all of the `Inner` struct fields will be gibberish.
-        if self.is_inline() {
+        //
+        // Additionally, if kind is STATIC, then Arc is *never* changed, making
+        // it safe and faster to check for it now before an atomic acquire.
+
+        let kind = self.kind();
+
+        if kind == KIND_INLINE || kind == KIND_STATIC {
             // In this case, a shallow_clone still involves copying the data.
-            //
-            // TODO: Just copy the fields
             let mut inner: Inner = mem::uninitialized();
-            let len = self.inline_len();
-
-            inner.arc = AtomicPtr::new(KIND_INLINE as *mut Shared);
-            inner.set_inline_len(len);
-            inner.as_raw()[0..len].copy_from_slice(self.as_ref());
+            ptr::copy_nonoverlapping(
+                self,
+                &mut inner,
+                1,
+            );
             inner
+        } else if kind == KIND_ARC {
+            self.shallow_clone_arc()
         } else {
-            // The function requires `&self`, this means that `shallow_clone`
-            // could be called concurrently.
-            //
-            // The first step is to load the value of `arc`. This will determine
-            // how to proceed. The `Acquire` ordering synchronizes with the
-            // `compare_and_swap` that comes later in this function. The goal is
-            // to ensure that if `arc` is currently set to point to a `Shared`,
-            // that the current thread acquires the associated memory.
-            let mut arc = self.arc.load(Acquire);
+            self.shallow_clone_vec(mut_self)
+        }
+    }
 
-            // If  the buffer is still tracked in a `Vec<u8>`. It is time to
-            // promote the vec to an `Arc`. This could potentially be called
-            // concurrently, so some care must be taken.
-            if arc as usize & KIND_MASK == KIND_VEC {
-                let original_capacity_repr =
-                    (arc as usize & ORIGINAL_CAPACITY_MASK) >> ORIGINAL_CAPACITY_OFFSET;
+    unsafe fn shallow_clone_arc(&self) -> Inner {
+        debug_assert!(self.kind() == KIND_ARC);
+        // This should only be called from `shallow_clone` when the Arc was already
+        // noticed be KIND_ARC, which means the pointer would never change.
 
-                // The vec offset cannot be concurrently mutated, so there
-                // should be no danger reading it.
-                let off = (arc as usize) >> VEC_POS_OFFSET;
+        let arc = self.arc.load(Acquire);
+        let old_size = (*arc).ref_count.fetch_add(1, Relaxed);
 
-                // First, allocate a new `Shared` instance containing the
-                // `Vec` fields. It's important to note that `ptr`, `len`,
-                // and `cap` cannot be mutated without having `&mut self`.
-                // This means that these fields will not be concurrently
-                // updated and since the buffer hasn't been promoted to an
-                // `Arc`, those three fields still are the components of the
-                // vector.
-                let shared = Box::new(Shared {
-                    vec: rebuild_vec(self.ptr, self.len, self.cap, off),
-                    original_capacity_repr: original_capacity_repr,
-                    // Initialize refcount to 2. One for this reference, and one
-                    // for the new clone that will be returned from
-                    // `shallow_clone`.
-                    ref_count: AtomicUsize::new(2),
-                });
+        if old_size == usize::MAX {
+            abort();
+        }
 
-                let shared = Box::into_raw(shared);
+        let mut inner: Inner = mem::uninitialized();
+        ptr::copy_nonoverlapping(
+            self,
+            &mut inner,
+            1,
+        );
+        inner
+    }
 
-                // The pointer should be aligned, so this assert should
-                // always succeed.
-                debug_assert!(0 == (shared as usize & 0b11));
+    #[cold]
+    unsafe fn shallow_clone_vec(&self, mut_self: bool) -> Inner {
+        // The function requires `&self`, this means that `shallow_clone`
+        // could be called concurrently.
+        //
+        // The first step is to load the value of `arc`. This will determine
+        // how to proceed. The `Acquire` ordering synchronizes with the
+        // `compare_and_swap` that comes later in this function. The goal is
+        // to ensure that if `arc` is currently set to point to a `Shared`,
+        // that the current thread acquires the associated memory.
+        let arc = self.arc.load(Acquire);
 
-                // If there are no references to self in other threads,
-                // expensive atomic operations can be avoided.
-                if mut_self {
-                    self.arc.store(shared, Relaxed);
-                    return Inner {
-                        arc: AtomicPtr::new(shared),
-                        .. *self
-                    };
-                }
+        // If  the buffer is still tracked in a `Vec<u8>`. It is time to
+        // promote the vec to an `Arc`. This could potentially be called
+        // concurrently, so some care must be taken.
+        if arc as usize & KIND_MASK == KIND_VEC {
+            let original_capacity_repr =
+                (arc as usize & ORIGINAL_CAPACITY_MASK) >> ORIGINAL_CAPACITY_OFFSET;
 
-                // Try compare & swapping the pointer into the `arc` field.
-                // `Release` is used synchronize with other threads that
-                // will load the `arc` field.
-                //
-                // If the `compare_and_swap` fails, then the thread lost the
-                // race to promote the buffer to shared. The `Acquire`
-                // ordering will synchronize with the `compare_and_swap`
-                // that happened in the other thread and the `Shared`
-                // pointed to by `actual` will be visible.
-                let actual = self.arc.compare_and_swap(arc, shared, AcqRel);
+            // The vec offset cannot be concurrently mutated, so there
+            // should be no danger reading it.
+            let off = (arc as usize) >> VEC_POS_OFFSET;
 
-                if actual == arc {
-                    // The upgrade was successful, the new handle can be
-                    // returned.
-                    return Inner {
-                        arc: AtomicPtr::new(shared),
-                        .. *self
-                    };
-                }
+            // First, allocate a new `Shared` instance containing the
+            // `Vec` fields. It's important to note that `ptr`, `len`,
+            // and `cap` cannot be mutated without having `&mut self`.
+            // This means that these fields will not be concurrently
+            // updated and since the buffer hasn't been promoted to an
+            // `Arc`, those three fields still are the components of the
+            // vector.
+            let shared = Box::new(Shared {
+                vec: rebuild_vec(self.ptr, self.len, self.cap, off),
+                original_capacity_repr: original_capacity_repr,
+                // Initialize refcount to 2. One for this reference, and one
+                // for the new clone that will be returned from
+                // `shallow_clone`.
+                ref_count: AtomicUsize::new(2),
+            });
 
-                // The upgrade failed, a concurrent clone happened. Release
-                // the allocation that was made in this thread, it will not
-                // be needed.
-                let shared = Box::from_raw(shared);
-                mem::forget(*shared);
+            let shared = Box::into_raw(shared);
 
-                // Update the `arc` local variable and fall through to a ref
-                // count update
-                arc = actual;
-            } else if arc as usize & KIND_MASK == KIND_STATIC {
-                // Static buffer
+            // The pointer should be aligned, so this assert should
+            // always succeed.
+            debug_assert!(0 == (shared as usize & 0b11));
+
+            // If there are no references to self in other threads,
+            // expensive atomic operations can be avoided.
+            if mut_self {
+                self.arc.store(shared, Relaxed);
                 return Inner {
-                    arc: AtomicPtr::new(arc),
+                    arc: AtomicPtr::new(shared),
                     .. *self
                 };
             }
 
-            // Buffer already promoted to shared storage, so increment ref
-            // count.
+            // Try compare & swapping the pointer into the `arc` field.
+            // `Release` is used synchronize with other threads that
+            // will load the `arc` field.
             //
-            // Relaxed ordering is acceptable as the memory has already been
-            // acquired via the `Acquire` load above.
-            let old_size = (*arc).ref_count.fetch_add(1, Relaxed);
+            // If the `compare_and_swap` fails, then the thread lost the
+            // race to promote the buffer to shared. The `Acquire`
+            // ordering will synchronize with the `compare_and_swap`
+            // that happened in the other thread and the `Shared`
+            // pointed to by `actual` will be visible.
+            let actual = self.arc.compare_and_swap(arc, shared, AcqRel);
 
-            if old_size == usize::MAX {
-                panic!(); // TODO: abort
+            if actual == arc {
+                // The upgrade was successful, the new handle can be
+                // returned.
+                return Inner {
+                    arc: AtomicPtr::new(shared),
+                    .. *self
+                };
             }
 
-            Inner {
-                arc: AtomicPtr::new(arc),
-                .. *self
-            }
+            // The upgrade failed, a concurrent clone happened. Release
+            // the allocation that was made in this thread, it will not
+            // be needed.
+            let shared = Box::from_raw(shared);
+            mem::forget(*shared);
         }
+
+        // Buffer already promoted to shared storage, so increment ref
+        // count.
+        self.shallow_clone_arc()
     }
 
     #[inline]
@@ -2826,4 +2836,22 @@ impl PartialEq<Bytes> for BytesMut
     fn eq(&self, other: &Bytes) -> bool {
         &other[..] == &self[..]
     }
+}
+
+// While there is `std::process:abort`, it's only available in Rust 1.17, and
+// our minimum supported version is currently 1.15. So, this acts as an abort
+// by triggering a double panic, which always aborts in Rust.
+struct Abort;
+
+impl Drop for Abort {
+    fn drop(&mut self) {
+        panic!();
+    }
+}
+
+#[inline(never)]
+#[cold]
+fn abort() {
+    let _a = Abort;
+    panic!();
 }
