@@ -16,6 +16,6 @@ race:test::run_tests_console::*closure
 # Probably more fences in std.
 race:__call_tls_dtors
 
-# `is_inline` is explicitly called concurrently without synchronization. The
+# `kind` is explicitly called concurrently without synchronization. The
 # safety explanation can be found in a comment.
-race:Inner::is_inline
+race:Inner::kind
