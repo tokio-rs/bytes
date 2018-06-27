@@ -2054,13 +2054,8 @@ impl Inner {
         //
         // Additionally, if kind is STATIC, then Arc is *never* changed, making
         // it safe and faster to check for it now before an atomic acquire.
-        //
-        // Checking `kind` could be unsafe if we acted on the value without
-        // synchronization, but care is taken to still do an Acquire load if
-        // the kind is VEC or ARC.
-        let kind = self.shallow_clone_kind();
 
-        if kind == KIND_INLINE || kind == KIND_STATIC {
+        if self.is_inline_or_static() {
             // In this case, a shallow_clone still involves copying the data.
             let mut inner: Inner = mem::uninitialized();
             ptr::copy_nonoverlapping(
@@ -2069,27 +2064,36 @@ impl Inner {
                 1,
             );
             inner
-        } else if kind == KIND_ARC {
-            self.shallow_clone_arc()
         } else {
-            self.shallow_clone_vec(mut_self)
+            self.shallow_clone_sync(mut_self)
         }
     }
 
-    #[inline]
-    fn shallow_clone_kind(&self) -> usize {
-        // The value returned by `kind` isn't itself safe, but the value could
-        // inform what operations to take, and unsafely do something without
-        // synchronization.
-        self.kind()
+
+    #[cold]
+    unsafe fn shallow_clone_sync(&self, mut_self: bool) -> Inner {
+        // The function requires `&self`, this means that `shallow_clone`
+        // could be called concurrently.
+        //
+        // The first step is to load the value of `arc`. This will determine
+        // how to proceed. The `Acquire` ordering synchronizes with the
+        // `compare_and_swap` that comes later in this function. The goal is
+        // to ensure that if `arc` is currently set to point to a `Shared`,
+        // that the current thread acquires the associated memory.
+        let arc = self.arc.load(Acquire);
+        let kind = arc as usize & KIND_MASK;
+
+        if kind == KIND_ARC {
+            self.shallow_clone_arc(arc)
+        } else {
+            assert!(kind == KIND_VEC);
+            self.shallow_clone_vec(arc as usize, mut_self)
+        }
     }
 
-    unsafe fn shallow_clone_arc(&self) -> Inner {
-        debug_assert!(self.shallow_clone_kind() == KIND_ARC);
-        // This should only be called from `shallow_clone` when the Arc was already
-        // noticed be KIND_ARC, which means the pointer would never change.
+    unsafe fn shallow_clone_arc(&self, arc: *mut Shared) -> Inner {
+        debug_assert!(arc as usize & KIND_MASK == KIND_ARC);
 
-        let arc = self.arc.load(Acquire);
         let old_size = (*arc).ref_count.fetch_add(1, Relaxed);
 
         if old_size == usize::MAX {
@@ -2106,90 +2110,81 @@ impl Inner {
     }
 
     #[cold]
-    unsafe fn shallow_clone_vec(&self, mut_self: bool) -> Inner {
-        // The function requires `&self`, this means that `shallow_clone`
-        // could be called concurrently.
-        //
-        // The first step is to load the value of `arc`. This will determine
-        // how to proceed. The `Acquire` ordering synchronizes with the
-        // `compare_and_swap` that comes later in this function. The goal is
-        // to ensure that if `arc` is currently set to point to a `Shared`,
-        // that the current thread acquires the associated memory.
-        let arc = self.arc.load(Acquire);
-
+    unsafe fn shallow_clone_vec(&self, arc: usize, mut_self: bool) -> Inner {
         // If  the buffer is still tracked in a `Vec<u8>`. It is time to
         // promote the vec to an `Arc`. This could potentially be called
         // concurrently, so some care must be taken.
-        if arc as usize & KIND_MASK == KIND_VEC {
-            let original_capacity_repr =
-                (arc as usize & ORIGINAL_CAPACITY_MASK) >> ORIGINAL_CAPACITY_OFFSET;
 
-            // The vec offset cannot be concurrently mutated, so there
-            // should be no danger reading it.
-            let off = (arc as usize) >> VEC_POS_OFFSET;
+        debug_assert!(arc & KIND_MASK == KIND_VEC);
 
-            // First, allocate a new `Shared` instance containing the
-            // `Vec` fields. It's important to note that `ptr`, `len`,
-            // and `cap` cannot be mutated without having `&mut self`.
-            // This means that these fields will not be concurrently
-            // updated and since the buffer hasn't been promoted to an
-            // `Arc`, those three fields still are the components of the
-            // vector.
-            let shared = Box::new(Shared {
-                vec: rebuild_vec(self.ptr, self.len, self.cap, off),
-                original_capacity_repr: original_capacity_repr,
-                // Initialize refcount to 2. One for this reference, and one
-                // for the new clone that will be returned from
-                // `shallow_clone`.
-                ref_count: AtomicUsize::new(2),
-            });
+        let original_capacity_repr =
+            (arc as usize & ORIGINAL_CAPACITY_MASK) >> ORIGINAL_CAPACITY_OFFSET;
 
-            let shared = Box::into_raw(shared);
+        // The vec offset cannot be concurrently mutated, so there
+        // should be no danger reading it.
+        let off = (arc as usize) >> VEC_POS_OFFSET;
 
-            // The pointer should be aligned, so this assert should
-            // always succeed.
-            debug_assert!(0 == (shared as usize & 0b11));
+        // First, allocate a new `Shared` instance containing the
+        // `Vec` fields. It's important to note that `ptr`, `len`,
+        // and `cap` cannot be mutated without having `&mut self`.
+        // This means that these fields will not be concurrently
+        // updated and since the buffer hasn't been promoted to an
+        // `Arc`, those three fields still are the components of the
+        // vector.
+        let shared = Box::new(Shared {
+            vec: rebuild_vec(self.ptr, self.len, self.cap, off),
+            original_capacity_repr: original_capacity_repr,
+            // Initialize refcount to 2. One for this reference, and one
+            // for the new clone that will be returned from
+            // `shallow_clone`.
+            ref_count: AtomicUsize::new(2),
+        });
 
-            // If there are no references to self in other threads,
-            // expensive atomic operations can be avoided.
-            if mut_self {
-                self.arc.store(shared, Relaxed);
-                return Inner {
-                    arc: AtomicPtr::new(shared),
-                    .. *self
-                };
-            }
+        let shared = Box::into_raw(shared);
 
-            // Try compare & swapping the pointer into the `arc` field.
-            // `Release` is used synchronize with other threads that
-            // will load the `arc` field.
-            //
-            // If the `compare_and_swap` fails, then the thread lost the
-            // race to promote the buffer to shared. The `Acquire`
-            // ordering will synchronize with the `compare_and_swap`
-            // that happened in the other thread and the `Shared`
-            // pointed to by `actual` will be visible.
-            let actual = self.arc.compare_and_swap(arc, shared, AcqRel);
+        // The pointer should be aligned, so this assert should
+        // always succeed.
+        debug_assert!(0 == (shared as usize & 0b11));
 
-            if actual == arc {
-                // The upgrade was successful, the new handle can be
-                // returned.
-                return Inner {
-                    arc: AtomicPtr::new(shared),
-                    .. *self
-                };
-            }
-
-            // The upgrade failed, a concurrent clone happened. Release
-            // the allocation that was made in this thread, it will not
-            // be needed.
-            let shared = Box::from_raw(shared);
-            mem::forget(*shared);
+        // If there are no references to self in other threads,
+        // expensive atomic operations can be avoided.
+        if mut_self {
+            self.arc.store(shared, Relaxed);
+            return Inner {
+                arc: AtomicPtr::new(shared),
+                .. *self
+            };
         }
+
+        // Try compare & swapping the pointer into the `arc` field.
+        // `Release` is used synchronize with other threads that
+        // will load the `arc` field.
+        //
+        // If the `compare_and_swap` fails, then the thread lost the
+        // race to promote the buffer to shared. The `Acquire`
+        // ordering will synchronize with the `compare_and_swap`
+        // that happened in the other thread and the `Shared`
+        // pointed to by `actual` will be visible.
+        let actual = self.arc.compare_and_swap(arc as *mut Shared, shared, AcqRel);
+
+        if actual as usize == arc {
+            // The upgrade was successful, the new handle can be
+            // returned.
+            return Inner {
+                arc: AtomicPtr::new(shared),
+                .. *self
+            };
+        }
+
+        // The upgrade failed, a concurrent clone happened. Release
+        // the allocation that was made in this thread, it will not
+        // be needed.
+        let shared = Box::from_raw(shared);
+        mem::forget(*shared);
 
         // Buffer already promoted to shared storage, so increment ref
         // count.
-        self.shallow_clone_arc()
+        self.shallow_clone_arc(actual)
     }
 
     #[inline]
@@ -2346,6 +2341,18 @@ impl Inner {
     #[inline]
     fn is_inline(&self) -> bool {
         self.kind() == KIND_INLINE
+    }
+
+    #[inline]
+    fn is_inline_or_static(&self) -> bool {
+        // The value returned by `kind` isn't itself safe, but the value could
+        // inform what operations to take, and unsafely do something without
+        // synchronization.
+        //
+        // KIND_INLINE and KIND_STATIC will *never* change, so branches on that
+        // information is safe.
+        let kind = self.kind();
+        kind == KIND_INLINE || kind == KIND_STATIC
     }
 
     /// Used for `debug_assert` statements. &mut is used to guarantee that it is
