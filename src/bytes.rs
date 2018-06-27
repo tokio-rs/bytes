@@ -2054,8 +2054,11 @@ impl Inner {
         //
         // Additionally, if kind is STATIC, then Arc is *never* changed, making
         // it safe and faster to check for it now before an atomic acquire.
-
-        let kind = self.kind();
+        //
+        // Checking `kind` could be unsafe if we acted on the value without
+        // synchronization, but care is taken to still do an Acquire load if
+        // the kind is VEC or ARC.
+        let kind = self.shallow_clone_kind();
 
         if kind == KIND_INLINE || kind == KIND_STATIC {
             // In this case, a shallow_clone still involves copying the data.
@@ -2073,8 +2076,16 @@ impl Inner {
         }
     }
 
+    #[inline]
+    fn shallow_clone_kind(&self) -> usize {
+        // The value returned by `kind` isn't itself safe, but the value could
+        // inform what operations to take, and unsafely do something without
+        // synchronization.
+        self.kind()
+    }
+
     unsafe fn shallow_clone_arc(&self) -> Inner {
-        debug_assert!(self.kind() == KIND_ARC);
+        debug_assert!(self.shallow_clone_kind() == KIND_ARC);
         // This should only be called from `shallow_clone` when the Arc was already
         // noticed be KIND_ARC, which means the pointer would never change.
 
