@@ -2100,13 +2100,10 @@ impl Inner {
             abort();
         }
 
-        let mut inner: Inner = mem::uninitialized();
-        ptr::copy_nonoverlapping(
-            self,
-            &mut inner,
-            1,
-        );
-        inner
+        Inner {
+            arc: AtomicPtr::new(arc),
+            .. *self
+        }
     }
 
     #[cold]
