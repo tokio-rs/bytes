@@ -114,6 +114,39 @@ fn deref_two(b: &mut Bencher) {
 }
 
 #[bench]
+fn clone_inline(b: &mut Bencher) {
+    let bytes = Bytes::from_static(b"hello world");
+
+    b.iter(|| {
+        for _ in 0..1024 {
+            test::black_box(&bytes.clone());
+        }
+    })
+}
+
+#[bench]
+fn clone_static(b: &mut Bencher) {
+    let bytes = Bytes::from_static("hello world 1234567890 and have a good byte 0987654321".as_bytes());
+
+    b.iter(|| {
+        for _ in 0..1024 {
+            test::black_box(&bytes.clone());
+        }
+    })
+}
+
+#[bench]
+fn clone_arc(b: &mut Bencher) {
+    let bytes = Bytes::from("hello world 1234567890 and have a good byte 0987654321".as_bytes());
+
+    b.iter(|| {
+        for _ in 0..1024 {
+            test::black_box(&bytes.clone());
+        }
+    })
+}
+
+#[bench]
 fn alloc_write_split_to_mid(b: &mut Bencher) {
     b.iter(|| {
         let mut buf = BytesMut::with_capacity(128);
