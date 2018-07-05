@@ -95,12 +95,12 @@ use std::iter::{FromIterator, Iterator};
 /// # Inline bytes
 ///
 /// As an optimization, when the slice referenced by a `Bytes` or `BytesMut`
-/// handle is small enough [1], `with_capacity` will avoid the allocation
+/// handle is small enough [^1], `with_capacity` will avoid the allocation
 /// by inlining the slice directly in the handle. In this case, a clone is no
 /// longer "shallow" and the data will be copied.  Converting from a `Vec` will
 /// never use inlining.
 ///
-/// [1] Small enough: 31 bytes on 64 bit systems, 15 on 32 bit systems.
+/// [^1]: Small enough: 31 bytes on 64 bit systems, 15 on 32 bit systems.
 ///
 pub struct Bytes {
     inner: Inner,
