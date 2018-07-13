@@ -1,6 +1,6 @@
 extern crate bytes;
 
-use bytes::{Bytes, BytesMut, BufMut};
+use bytes::{Bytes, BytesMut, BufMut, IntoBuf};
 
 const LONG: &'static [u8] = b"mary had a little lamb, little lamb, little lamb";
 const SHORT: &'static [u8] = b"hello world";
@@ -301,6 +301,13 @@ fn fns_defined_for_bytes_mut() {
     // Iterator
     let v: Vec<u8> = bytes.iter().map(|b| *b).collect();
     assert_eq!(&v[..], bytes);
+}
+
+#[test]
+fn mut_into_buf() {
+    let mut v = vec![0, 0, 0, 0];
+    let s = &mut v[..];
+    s.into_buf().put_u32_le(42);
 }
 
 #[test]
