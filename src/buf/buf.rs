@@ -557,6 +557,98 @@ pub trait Buf {
         buf_get_impl!(self, 8, LittleEndian::read_i64);
     }
 
+    /// Gets an unsigned 128 bit integer from `self` in big-endian byte order.
+    ///
+    /// **NOTE:** This method requires the `i128` feature.
+    /// The current position is advanced by 16.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Buf;
+    /// use std::io::Cursor;
+    ///
+    /// let mut buf = Cursor::new(b"\x01\x02\x03\x04\x05\x06\x07\x08\x09\x10\x11\x12\x13\x14\x15\x16 hello");
+    /// assert_eq!(0x01020304050607080910111213141516, buf.get_u128());
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// This function panics if there is not enough remaining data in `self`.
+    #[cfg(feature = "i128")]
+    fn get_u128(&mut self) -> u128 {
+        buf_get_impl!(self, 16, BigEndian::read_u128);
+    }
+
+    /// Gets an unsigned 128 bit integer from `self` in little-endian byte order.
+    ///
+    /// **NOTE:** This method requires the `i128` feature.
+    /// The current position is advanced by 16.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Buf;
+    /// use std::io::Cursor;
+    ///
+    /// let mut buf = Cursor::new(b"\x16\x15\x14\x13\x12\x11\x10\x09\x08\x07\x06\x05\x04\x03\x02\x01 hello");
+    /// assert_eq!(0x01020304050607080910111213141516, buf.get_u128_le());
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// This function panics if there is not enough remaining data in `self`.
+    #[cfg(feature = "i128")]
+    fn get_u128_le(&mut self) -> u128 {
+        buf_get_impl!(self, 16, LittleEndian::read_u128);
+    }
+
+    /// Gets a signed 128 bit integer from `self` in big-endian byte order.
+    ///
+    /// **NOTE:** This method requires the `i128` feature.
+    /// The current position is advanced by 16.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Buf;
+    /// use std::io::Cursor;
+    ///
+    /// let mut buf = Cursor::new(b"\x01\x02\x03\x04\x05\x06\x07\x08\x09\x10\x11\x12\x13\x14\x15\x16 hello");
+    /// assert_eq!(0x01020304050607080910111213141516, buf.get_i128());
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// This function panics if there is not enough remaining data in `self`.
+    #[cfg(feature = "i128")]
+    fn get_i128(&mut self) -> i128 {
+        buf_get_impl!(self, 16, BigEndian::read_i128);
+    }
+
+    /// Gets a signed 128 bit integer from `self` in little-endian byte order.
+    ///
+    /// **NOTE:** This method requires the `i128` feature.
+    /// The current position is advanced by 16.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Buf;
+    /// use std::io::Cursor;
+    ///
+    /// let mut buf = Cursor::new(b"\x16\x15\x14\x13\x12\x11\x10\x09\x08\x07\x06\x05\x04\x03\x02\x01 hello");
+    /// assert_eq!(0x01020304050607080910111213141516, buf.get_i128_le());
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// This function panics if there is not enough remaining data in `self`.
+    #[cfg(feature = "i128")]
+    fn get_i128_le(&mut self) -> i128 {
+        buf_get_impl!(self, 16, LittleEndian::read_i128);
+    }
+
     /// Gets an unsigned n-byte integer from `self` in big-endian byte order.
     ///
     /// The current position is advanced by `nbytes`.
