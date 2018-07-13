@@ -465,6 +465,7 @@ impl Bytes {
     /// let b = Bytes::from(&b"hello"[..]);
     /// assert_eq!(b.len(), 5);
     /// ```
+    #[inline]
     pub fn len(&self) -> usize {
         self.inner.len()
     }
@@ -479,6 +480,7 @@ impl Bytes {
     /// let b = Bytes::new();
     /// assert!(b.is_empty());
     /// ```
+    #[inline]
     pub fn is_empty(&self) -> bool {
         self.inner.is_empty()
     }
