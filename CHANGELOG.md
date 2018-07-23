@@ -1,3 +1,8 @@
+# 0.4.9 (July 12, 2018)
+
+* Add 128 bit number support behind a feature flag (#209).
+* Implement `IntoBuf` for `&mut [u8]`
+
 # 0.4.8 (May 25, 2018)
 
 * Fix panic in `BytesMut` `FromIterator` implementation.
