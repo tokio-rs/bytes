@@ -3,14 +3,14 @@
 extern crate bytes;
 extern crate test;
 
+use bytes::{BufMut, LocalBytes, LocalBytesMut};
 use test::Bencher;
-use bytes::{Bytes, BytesMut, BufMut};
 
 #[bench]
 fn alloc_small(b: &mut Bencher) {
     b.iter(|| {
         for _ in 0..1024 {
-            test::black_box(BytesMut::with_capacity(12));
+            test::black_box(LocalBytesMut::with_capacity(12));
         }
     })
 }
@@ -18,14 +18,14 @@ fn alloc_small(b: &mut Bencher) {
 #[bench]
 fn alloc_mid(b: &mut Bencher) {
     b.iter(|| {
-        test::black_box(BytesMut::with_capacity(128));
+        test::black_box(LocalBytesMut::with_capacity(128));
     })
 }
 
 #[bench]
 fn alloc_big(b: &mut Bencher) {
     b.iter(|| {
-        test::black_box(BytesMut::with_capacity(4096));
+        test::black_box(LocalBytesMut::with_capacity(4096));
     })
 }
 
@@ -34,7 +34,7 @@ fn split_off_and_drop(b: &mut Bencher) {
     b.iter(|| {
         for _ in 0..1024 {
             let v = vec![10; 200];
-            let mut b = Bytes::from(v);
+            let mut b = LocalBytes::from(v);
             test::black_box(b.split_off(150));
             test::black_box(b.split_off(100));
             test::black_box(b.split_off(50));
@@ -45,7 +45,7 @@ fn split_off_and_drop(b: &mut Bencher) {
 
 #[bench]
 fn deref_unique(b: &mut Bencher) {
-    let mut buf = BytesMut::with_capacity(4096);
+    let mut buf = LocalBytesMut::with_capacity(4096);
     buf.put(&[0u8; 1024][..]);
 
     b.iter(|| {
@@ -57,7 +57,7 @@ fn deref_unique(b: &mut Bencher) {
 
 #[bench]
 fn deref_unique_unroll(b: &mut Bencher) {
-    let mut buf = BytesMut::with_capacity(4096);
+    let mut buf = LocalBytesMut::with_capacity(4096);
     buf.put(&[0u8; 1024][..]);
 
     b.iter(|| {
@@ -76,7 +76,7 @@ fn deref_unique_unroll(b: &mut Bencher) {
 
 #[bench]
 fn deref_shared(b: &mut Bencher) {
-    let mut buf = BytesMut::with_capacity(4096);
+    let mut buf = LocalBytesMut::with_capacity(4096);
     buf.put(&[0u8; 1024][..]);
     let _b2 = buf.split_off(1024);
 
@@ -89,7 +89,7 @@ fn deref_shared(b: &mut Bencher) {
 
 #[bench]
 fn deref_inline(b: &mut Bencher) {
-    let mut buf = BytesMut::with_capacity(8);
+    let mut buf = LocalBytesMut::with_capacity(8);
     buf.put(&[0u8; 8][..]);
 
     b.iter(|| {
@@ -101,10 +101,10 @@ fn deref_inline(b: &mut Bencher) {
 
 #[bench]
 fn deref_two(b: &mut Bencher) {
-    let mut buf1 = BytesMut::with_capacity(8);
+    let mut buf1 = LocalBytesMut::with_capacity(8);
     buf1.put(&[0u8; 8][..]);
 
-    let mut buf2 = BytesMut::with_capacity(4096);
+    let mut buf2 = LocalBytesMut::with_capacity(4096);
     buf2.put(&[0u8; 1024][..]);
 
     b.iter(|| {
@@ -117,7 +117,7 @@ fn deref_two(b: &mut Bencher) {
 
 #[bench]
 fn clone_inline(b: &mut Bencher) {
-    let bytes = Bytes::from_static(b"hello world");
+    let bytes = LocalBytes::from_static(b"hello world");
 
     b.iter(|| {
         for _ in 0..1024 {
@@ -128,7 +128,8 @@ fn clone_inline(b: &mut Bencher) {
 
 #[bench]
 fn clone_static(b: &mut Bencher) {
-    let bytes = Bytes::from_static("hello world 1234567890 and have a good byte 0987654321".as_bytes());
+    let bytes =
+        LocalBytes::from_static("hello world 1234567890 and have a good byte 0987654321".as_bytes());
 
     b.iter(|| {
         for _ in 0..1024 {
@@ -139,7 +140,7 @@ fn clone_static(b: &mut Bencher) {
 
 #[bench]
 fn clone_arc(b: &mut Bencher) {
-    let bytes = Bytes::from("hello world 1234567890 and have a good byte 0987654321".as_bytes());
+    let bytes = LocalBytes::from("hello world 1234567890 and have a good byte 0987654321".as_bytes());
 
     b.iter(|| {
         for _ in 0..1024 {
@@ -151,7 +152,7 @@ fn clone_arc(b: &mut Bencher) {
 #[bench]
 fn alloc_write_split_to_mid(b: &mut Bencher) {
     b.iter(|| {
-        let mut buf = BytesMut::with_capacity(128);
+        let mut buf = LocalBytesMut::with_capacity(128);
         buf.put_slice(&[0u8; 64]);
         test::black_box(buf.split_to(64));
     })
@@ -162,7 +163,7 @@ fn drain_write_drain(b: &mut Bencher) {
     let data = [0u8; 128];
 
     b.iter(|| {
-        let mut buf = BytesMut::with_capacity(1024);
+        let mut buf = LocalBytesMut::with_capacity(1024);
         let mut parts = Vec::with_capacity(8);
 
         for _ in 0..8 {
@@ -177,14 +178,16 @@ fn drain_write_drain(b: &mut Bencher) {
 #[bench]
 fn fmt_write(b: &mut Bencher) {
     use std::fmt::Write;
-    let mut buf = BytesMut::with_capacity(128);
+    let mut buf = LocalBytesMut::with_capacity(128);
     let s = "foo bar baz quux lorem ipsum dolor et";
 
     b.bytes = s.len() as u64;
     b.iter(|| {
         let _ = write!(buf, "{}", s);
         test::black_box(&buf);
-        unsafe { buf.set_len(0); }
+        unsafe {
+            buf.set_len(0);
+        }
     })
 }
 
@@ -193,7 +196,7 @@ fn from_long_slice(b: &mut Bencher) {
     let data = [0u8; 128];
     b.bytes = data.len() as u64;
     b.iter(|| {
-        let buf = BytesMut::from(&data[..]);
+        let buf = LocalBytesMut::from(&data[..]);
         test::black_box(buf);
     })
 }
@@ -201,7 +204,7 @@ fn from_long_slice(b: &mut Bencher) {
 #[bench]
 fn slice_empty(b: &mut Bencher) {
     b.iter(|| {
-        let b = Bytes::from(vec![17; 1024]).clone();
+        let b = LocalBytes::from(vec![17; 1024]).clone();
         for i in 0..1000 {
             test::black_box(b.slice(i % 100, i % 100));
         }
@@ -212,7 +215,7 @@ fn slice_empty(b: &mut Bencher) {
 fn slice_short_from_arc(b: &mut Bencher) {
     b.iter(|| {
         // `clone` is to convert to ARC
-        let b = Bytes::from(vec![17; 1024]).clone();
+        let b = LocalBytes::from(vec![17; 1024]).clone();
         for i in 0..1000 {
             test::black_box(b.slice(1, 2 + i % 10));
         }
@@ -229,7 +232,7 @@ const INLINE_CAP: usize = 4 * 4 - 1;
 fn slice_avg_le_inline_from_arc(b: &mut Bencher) {
     b.iter(|| {
         // `clone` is to convert to ARC
-        let b = Bytes::from(vec![17; 1024]).clone();
+        let b = LocalBytes::from(vec![17; 1024]).clone();
         for i in 0..1000 {
             // [1, INLINE_CAP]
             let len = 1 + i % (INLINE_CAP - 1);
@@ -242,7 +245,7 @@ fn slice_avg_le_inline_from_arc(b: &mut Bencher) {
 fn slice_large_le_inline_from_arc(b: &mut Bencher) {
     b.iter(|| {
         // `clone` is to convert to ARC
-        let b = Bytes::from(vec![17; 1024]).clone();
+        let b = LocalBytes::from(vec![17; 1024]).clone();
         for i in 0..1000 {
             // [INLINE_CAP - 10, INLINE_CAP]
             let len = INLINE_CAP - 9 + i % 10;
