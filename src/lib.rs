@@ -75,22 +75,15 @@ extern crate byteorder;
 extern crate iovec;
 
 pub mod buf;
-pub use buf::{
-    Buf,
-    BufMut,
-    IntoBuf,
-};
+pub use buf::{Buf, BufMut, IntoBuf};
 #[deprecated(since = "0.4.1", note = "moved to `buf` module")]
 #[doc(hidden)]
-pub use buf::{
-    Reader,
-    Writer,
-    Take,
-};
+pub use buf::{Reader, Take, Writer};
 
-mod bytes;
 mod debug;
-pub use bytes::{Bytes, BytesMut};
+mod imp;
+pub use imp::bytes::{Bytes, BytesMut};
+pub use imp::local_bytes::{LocalBytes, LocalBytesMut};
 
 // Optional Serde support
 #[cfg(feature = "serde")]
