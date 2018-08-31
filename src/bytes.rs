@@ -578,11 +578,10 @@ impl Bytes {
 
     /// Returns a slice of self that is equivalent to the given `subset`.
     ///
-    /// When processing a `Bytes` buffer with other tools, one often
-    /// gets a `&[u8]` which is in fact a slice of the `Bytes`, i.e. a
-    /// subset of it.  This function turns that `&[u8]` into another
-    /// `Bytes`, as if one had called `self.slice()` with the offsets
-    /// that correspond to `subset`.
+    /// When processing a `Bytes` buffer with other tools, one often gets a
+    /// `&[u8]` which is in fact a slice of the `Bytes`, i.e. a subset of it.
+    /// This function turns that `&[u8]` into another `Bytes`, as if one had
+    /// called `self.slice()` with the offsets that correspond to `subset`.
     ///
     /// This operation is `O(1)`.
     ///
@@ -600,8 +599,8 @@ impl Bytes {
     ///
     /// # Panics
     ///
-    /// Requires that the given `sub` slice is in fact contained
-    /// within the `Bytes` buffer; otherwise this function will panic.
+    /// Requires that the given `sub` slice is in fact contained within the
+    /// `Bytes` buffer; otherwise this function will panic.
     pub fn slice_ref(&self, subset: &[u8]) -> Bytes {
         let bytes_p = self.as_ptr() as usize;
         let bytes_len = self.len();
