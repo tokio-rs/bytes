@@ -39,6 +39,9 @@ matrix:
     # 128 bit numbers
     - env: EXTRA_ARGS="--features i128"
 
+    # `Either` impls
+    - env: EXTRA_ARGS="--features either"
+
     # WASM support
     - rust: beta
       script:
