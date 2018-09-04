@@ -1,3 +1,8 @@
+# 0.4.10 (September 4, 2018)
+
+* impl `Buf` and `BufMut` for `Either` (#225).
+* Add `Bytes::slice_ref` (#208).
+
 # 0.4.9 (July 12, 2018)
 
 * Add 128 bit number support behind a feature flag (#209).
