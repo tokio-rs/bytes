@@ -864,6 +864,30 @@ impl Buf for &[u8] {
     }
 }
 
+impl<'a> Buf for io::Take<&'a [u8]> {
+    #[inline]
+    fn remaining(&self) -> usize {
+        let len = self.get_ref().len() as u64;
+        let limit = self.limit();
+        // The smaller of the two values will always fit in usize.
+        cmp::min(len, limit) as usize
+    }
+
+    fn bytes(&self) -> &[u8] {
+        &self.get_ref()[..self.remaining()]
+    }
+
+    fn advance(&mut self, cnt: usize) {
+        let remaining = self.remaining();
+        assert!(cnt <= remaining);
+        // Use the actual number of remaining bytes as new limit, even if limit
+        // was greater than remaining before.
+        self.set_limit((remaining - cnt) as u64);
+        let slice = self.get_mut();
+        *slice = &slice[cnt..];
+    }
+}
+
 impl Buf for Option<[u8; 1]> {
     fn remaining(&self) -> usize {
         if self.is_some() {
