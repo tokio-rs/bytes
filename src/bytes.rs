@@ -2438,7 +2438,7 @@ impl Inner {
         #[inline]
         fn imp(arc: &AtomicPtr<Shared>) -> usize {
             unsafe {
-                let p: &u8 = mem::transmute(arc);
+                let p: *const u8 = mem::transmute(arc);
                 (*p as usize) & KIND_MASK
             }
         }
@@ -2447,7 +2447,7 @@ impl Inner {
         #[inline]
         fn imp(arc: &AtomicPtr<Shared>) -> usize {
             unsafe {
-                let p: &usize = mem::transmute(arc);
+                let p: *const usize = mem::transmute(arc);
                 *p & KIND_MASK
             }
         }
