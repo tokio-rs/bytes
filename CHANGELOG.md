@@ -1,3 +1,9 @@
+# 0.4.11 (November 17, 2018)
+
+* Use raw pointers for potentially racy loads (#233).
+* Implement `BufRead` for `buf::Reader` (#232).
+* Documentation tweaks (#234).
+
 # 0.4.10 (September 4, 2018)
 
 * impl `Buf` and `BufMut` for `Either` (#225).
