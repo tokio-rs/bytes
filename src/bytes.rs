@@ -2428,6 +2428,8 @@ impl Inner {
         // All platforms have atomic "word" operations and won't randomly flip
         // bits, so even without any explicit atomic operations, reading the
         // flag will be correct.
+        // This is undefind behavior due to a data race, but experimental
+        // evidence shows that it works in practice.
         //
         // This function is very critical performance wise as it is called for
         // every operation. Performing an atomic load would mess with the
