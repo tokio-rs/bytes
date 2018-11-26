@@ -2429,6 +2429,10 @@ impl Inner {
         // bits, so even without any explicit atomic operations, reading the
         // flag will be correct.
         //
+        // This is undefind behavior due to a data race, but experimental
+        // evidence shows that it works in practice (discussion:
+        // https://internals.rust-lang.org/t/bit-wise-reasoning-for-atomic-accesses/8853).
+        //
         // This function is very critical performance wise as it is called for
         // every operation. Performing an atomic load would mess with the
         // compiler's ability to optimize. Simple benchmarks show up to a 10%
