@@ -2467,7 +2467,7 @@ impl Inner {
         // function.
         let prev = unsafe {
             let p: &AtomicPtr<Shared> = &self.arc;
-            let p: &usize = mem::transmute(p);
+            let p: *const usize = mem::transmute(p);
             *p
         };
 
