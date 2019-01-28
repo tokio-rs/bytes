@@ -273,7 +273,7 @@ pub struct BytesMut {
 // The rest of `arc`'s bytes are used as part of the inline buffer, which means
 // that those bytes need to be located next to the `ptr`, `len`, and `cap`
 // fields, which make up the rest of the inline buffer. This requires special
-// casing the layout of `Inner` depending on if the target platform is bit or
+// casing the layout of `Inner` depending on if the target platform is big or
 // little endian.
 //
 // On little endian platforms, the `arc` field must be the first field in the
