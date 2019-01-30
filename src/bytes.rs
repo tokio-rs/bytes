@@ -926,6 +926,18 @@ impl FromIterator<u8> for Bytes {
     }
 }
 
+impl<'a> FromIterator<&'a u8> for BytesMut {
+    fn from_iter<T: IntoIterator<Item = &'a u8>>(into_iter: T) -> Self {
+        BytesMut::from_iter(into_iter.into_iter().map(|b| *b))
+    }
+}
+
+impl<'a> FromIterator<&'a u8> for Bytes {
+    fn from_iter<T: IntoIterator<Item = &'a u8>>(into_iter: T) -> Self {
+        BytesMut::from_iter(into_iter).freeze()
+    }
+}
+
 impl PartialEq for Bytes {
     fn eq(&self, other: &Bytes) -> bool {
         self.inner.as_ref() == other.inner.as_ref()
