@@ -2586,35 +2586,38 @@ fn original_capacity_from_repr(repr: usize) -> usize {
 
 #[test]
 fn test_original_capacity_to_repr() {
-    for &cap in &[0, 1, 16, 1000] {
-        assert_eq!(0, original_capacity_to_repr(cap));
-    }
+    for i in 0..32 {
+      let cap = 1 << i;
 
-    for &cap in &[1024, 1025, 1100, 2000, 2047] {
-        assert_eq!(1, original_capacity_to_repr(cap));
-    }
+      let expected = if i < MIN_ORIGINAL_CAPACITY_WIDTH {
+        0
+      } else if i < MAX_ORIGINAL_CAPACITY_WIDTH {
+        i + 1 - MIN_ORIGINAL_CAPACITY_WIDTH
+      } else {
+        MAX_ORIGINAL_CAPACITY_WIDTH - MIN_ORIGINAL_CAPACITY_WIDTH
+      };
 
-    for &cap in &[2048, 2049] {
-        assert_eq!(2, original_capacity_to_repr(cap));
-    }
+      assert_eq!(original_capacity_to_repr(cap), expected);
 
-    // TODO: more
-
-    for &cap in &[65536, 65537, 68000, 1 << 17, 1 << 18, 1 << 20, 1 << 30] {
-        assert_eq!(7, original_capacity_to_repr(cap), "cap={}", cap);
+      if i > 0 {
+        assert_eq!(original_capacity_to_repr(cap + 1), expected);
+      }
     }
 }
 
 #[test]
 fn test_original_capacity_from_repr() {
     assert_eq!(0, original_capacity_from_repr(0));
-    assert_eq!(1024, original_capacity_from_repr(1));
-    assert_eq!(1024 * 2, original_capacity_from_repr(2));
-    assert_eq!(1024 * 4, original_capacity_from_repr(3));
-    assert_eq!(1024 * 8, original_capacity_from_repr(4));
-    assert_eq!(1024 * 16, original_capacity_from_repr(5));
-    assert_eq!(1024 * 32, original_capacity_from_repr(6));
-    assert_eq!(1024 * 64, original_capacity_from_repr(7));
+
+    let min_cap = 1 << MIN_ORIGINAL_CAPACITY_WIDTH;
+
+    assert_eq!(min_cap, original_capacity_from_repr(1));
+    assert_eq!(min_cap * 2, original_capacity_from_repr(2));
+    assert_eq!(min_cap * 4, original_capacity_from_repr(3));
+    assert_eq!(min_cap * 8, original_capacity_from_repr(4));
+    assert_eq!(min_cap * 16, original_capacity_from_repr(5));
+    assert_eq!(min_cap * 32, original_capacity_from_repr(6));
+    assert_eq!(min_cap * 64, original_capacity_from_repr(7));
 }
 
 unsafe impl Send for Inner {}
