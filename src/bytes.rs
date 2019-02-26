@@ -2586,22 +2586,33 @@ fn original_capacity_from_repr(repr: usize) -> usize {
 
 #[test]
 fn test_original_capacity_to_repr() {
-    for i in 0..32 {
-      let cap = 1 << i;
+    let max_width = 32;
 
-      let expected = if i < MIN_ORIGINAL_CAPACITY_WIDTH {
-        0
-      } else if i < MAX_ORIGINAL_CAPACITY_WIDTH {
-        i + 1 - MIN_ORIGINAL_CAPACITY_WIDTH
-      } else {
-        MAX_ORIGINAL_CAPACITY_WIDTH - MIN_ORIGINAL_CAPACITY_WIDTH
-      };
+    for width in 0..(max_width + 1) {
+        let cap = 1 << max_width - 1 >> max_width - width;
 
-      assert_eq!(original_capacity_to_repr(cap), expected);
+        let expected = if width < MIN_ORIGINAL_CAPACITY_WIDTH {
+            0
+        } else if width < MAX_ORIGINAL_CAPACITY_WIDTH {
+            width - MIN_ORIGINAL_CAPACITY_WIDTH
+        } else {
+            MAX_ORIGINAL_CAPACITY_WIDTH - MIN_ORIGINAL_CAPACITY_WIDTH
+        };
 
-      if i > 0 {
-        assert_eq!(original_capacity_to_repr(cap + 1), expected);
-      }
+        assert_eq!(original_capacity_to_repr(cap), expected);
+
+        if width > 1 {
+            assert_eq!(original_capacity_to_repr(cap + 1), expected);
+        }
+
+        //  MIN_ORIGINAL_CAPACITY_WIDTH must be bigger than 7 to pass tests below
+        if width == MIN_ORIGINAL_CAPACITY_WIDTH + 1 {
+            assert_eq!(original_capacity_to_repr(cap - 24), expected - 1);
+            assert_eq!(original_capacity_to_repr(cap + 76), expected);
+        } else if width == MIN_ORIGINAL_CAPACITY_WIDTH + 2 {
+            assert_eq!(original_capacity_to_repr(cap - 1), expected - 1);
+            assert_eq!(original_capacity_to_repr(cap - 48), expected - 1);
+        }
     }
 }
 
