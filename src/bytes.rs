@@ -2586,10 +2586,12 @@ fn original_capacity_from_repr(repr: usize) -> usize {
 
 #[test]
 fn test_original_capacity_to_repr() {
+    assert_eq!(original_capacity_to_repr(0), 0);
+
     let max_width = 32;
 
-    for width in 0..(max_width + 1) {
-        let cap = 1 << max_width - 1 >> max_width - width;
+    for width in 1..(max_width + 1) {
+        let cap = 1 << width - 1;
 
         let expected = if width < MIN_ORIGINAL_CAPACITY_WIDTH {
             0
