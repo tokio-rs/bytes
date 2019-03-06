@@ -1,3 +1,9 @@
+# 0.4.12 (March 6, 2018)
+
+### Added
+- Implement `FromIterator<&'a u8>` for `BytesMut`/`Bytes` (#244).
+- Implement `Buf` for `VecDeque` (#249).
+
 # 0.4.11 (November 17, 2018)
 
 * Use raw pointers for potentially racy loads (#233).
