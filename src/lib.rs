@@ -69,7 +69,7 @@
 //! and `BufMut` are infallible.
 
 #![deny(warnings, missing_docs, missing_debug_implementations)]
-#![doc(html_root_url = "https://docs.rs/bytes/0.4.11")]
+#![doc(html_root_url = "https://docs.rs/bytes/0.4.12")]
 
 extern crate byteorder;
 extern crate iovec;
