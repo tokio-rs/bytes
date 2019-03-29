@@ -1,4 +1,4 @@
-# 0.4.12 (March 6, 2018)
+# 0.4.12 (March 6, 2019)
 
 ### Added
 - Implement `FromIterator<&'a u8>` for `BytesMut`/`Bytes` (#244).
