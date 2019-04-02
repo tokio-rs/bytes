@@ -1265,6 +1265,8 @@ impl BytesMut {
     ///
     /// Panics if `at > len`.
     pub fn split_to(&mut self, at: usize) -> BytesMut {
+        assert!(at <= self.len());
+
         BytesMut {
             inner: self.inner.split_to(at),
         }
