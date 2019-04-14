@@ -1,8 +1,13 @@
 use super::{IntoBuf, Take, Reader, Iter, FromBuf, Chain};
 use byteorder::{BigEndian, ByteOrder, LittleEndian};
+#[cfg(feature = "iovec")]
 use iovec::IoVec;
+#[cfg(feature = "std")]
+use prelude::*;
 
-use std::{cmp, io, ptr};
+use core::{cmp, ptr};
+#[cfg(feature = "std")]
+use std::io;
 
 macro_rules! buf_get_impl {
     ($this:ident, $size:expr, $conv:path) => ({
@@ -146,6 +151,7 @@ pub trait Buf {
     /// with `dst` being a zero length slice.
     ///
     /// [`writev`]: http://man7.org/linux/man-pages/man2/readv.2.html
+    #[cfg(feature = "iovec")]
     fn bytes_vec<'a>(&'a self, dst: &mut [&'a IoVec]) -> usize {
         if dst.is_empty() {
             return 0;
@@ -1061,6 +1067,7 @@ impl<'a, T: Buf + ?Sized> Buf for &'a mut T {
         (**self).bytes()
     }
 
+    #[cfg(feature = "iovec")]
     fn bytes_vec<'b>(&'b self, dst: &mut [&'b IoVec]) -> usize {
         (**self).bytes_vec(dst)
     }
@@ -1070,6 +1077,7 @@ impl<'a, T: Buf + ?Sized> Buf for &'a mut T {
     }
 }
 
+#[cfg(feature = "std")]
 impl<T: Buf + ?Sized> Buf for Box<T> {
     fn remaining(&self) -> usize {
         (**self).remaining()
@@ -1079,6 +1087,7 @@ impl<T: Buf + ?Sized> Buf for Box<T> {
         (**self).bytes()
     }
 
+    #[cfg(feature = "iovec")]
     fn bytes_vec<'b>(&'b self, dst: &mut [&'b IoVec]) -> usize {
         (**self).bytes_vec(dst)
     }
@@ -1088,6 +1097,7 @@ impl<T: Buf + ?Sized> Buf for Box<T> {
     }
 }
 
+#[cfg(feature = "std")]
 impl<T: AsRef<[u8]>> Buf for io::Cursor<T> {
     fn remaining(&self) -> usize {
         let len = self.get_ref().as_ref().len();

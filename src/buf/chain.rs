@@ -1,4 +1,5 @@
 use {Buf, BufMut};
+#[cfg(feature = "iovec")]
 use iovec::IoVec;
 
 /// A `Chain` sequences two buffers.
@@ -177,6 +178,7 @@ impl<T, U> Buf for Chain<T, U>
         self.b.advance(cnt);
     }
 
+    #[cfg(feature = "iovec")]
     fn bytes_vec<'a>(&'a self, dst: &mut [&'a IoVec]) -> usize {
         let mut n = self.a.bytes_vec(dst);
         n += self.b.bytes_vec(&mut dst[n..]);
@@ -218,6 +220,7 @@ impl<T, U> BufMut for Chain<T, U>
         self.b.advance_mut(cnt);
     }
 
+    #[cfg(feature = "iovec")]
     unsafe fn bytes_vec_mut<'a>(&'a mut self, dst: &mut [&'a mut IoVec]) -> usize {
         let mut n = self.a.bytes_vec_mut(dst);
         n += self.b.bytes_vec_mut(&mut dst[n..]);

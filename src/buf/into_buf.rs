@@ -1,5 +1,8 @@
 use super::{Buf};
+#[cfg(feature = "std")]
+use prelude::*;
 
+#[cfg(feature = "std")]
 use std::io;
 
 /// Conversion into a `Buf`
@@ -55,6 +58,7 @@ impl<T: Buf> IntoBuf for T {
     }
 }
 
+#[cfg(feature = "std")]
 impl<'a> IntoBuf for &'a [u8] {
     type Buf = io::Cursor<&'a [u8]>;
 
@@ -63,6 +67,7 @@ impl<'a> IntoBuf for &'a [u8] {
     }
 }
 
+#[cfg(feature = "std")]
 impl<'a> IntoBuf for &'a mut [u8] {
     type Buf = io::Cursor<&'a mut [u8]>;
 
@@ -71,6 +76,7 @@ impl<'a> IntoBuf for &'a mut [u8] {
     }
 }
 
+#[cfg(feature = "std")]
 impl<'a> IntoBuf for &'a str {
     type Buf = io::Cursor<&'a [u8]>;
 
@@ -79,6 +85,7 @@ impl<'a> IntoBuf for &'a str {
     }
 }
 
+#[cfg(feature = "std")]
 impl IntoBuf for Vec<u8> {
     type Buf = io::Cursor<Vec<u8>>;
 
@@ -87,6 +94,7 @@ impl IntoBuf for Vec<u8> {
     }
 }
 
+#[cfg(feature = "std")]
 impl<'a> IntoBuf for &'a Vec<u8> {
     type Buf = io::Cursor<&'a [u8]>;
 
@@ -97,6 +105,7 @@ impl<'a> IntoBuf for &'a Vec<u8> {
 
 // Kind of annoying... but this impl is required to allow passing `&'static
 // [u8]` where for<'a> &'a T: IntoBuf is required.
+#[cfg(feature = "std")]
 impl<'a> IntoBuf for &'a &'static [u8] {
     type Buf = io::Cursor<&'static [u8]>;
 
@@ -105,6 +114,7 @@ impl<'a> IntoBuf for &'a &'static [u8] {
     }
 }
 
+#[cfg(feature = "std")]
 impl<'a> IntoBuf for &'a &'static str {
     type Buf = io::Cursor<&'static [u8]>;
 
@@ -113,6 +123,7 @@ impl<'a> IntoBuf for &'a &'static str {
     }
 }
 
+#[cfg(feature = "std")]
 impl IntoBuf for String {
     type Buf = io::Cursor<Vec<u8>>;
 
@@ -121,6 +132,7 @@ impl IntoBuf for String {
     }
 }
 
+#[cfg(feature = "std")]
 impl<'a> IntoBuf for &'a String {
     type Buf = io::Cursor<&'a [u8]>;
 

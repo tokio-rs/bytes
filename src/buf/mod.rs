@@ -24,6 +24,7 @@ mod into_buf;
 mod iter;
 mod reader;
 mod take;
+#[cfg(feature = "std")]
 mod vec_deque;
 mod writer;
 

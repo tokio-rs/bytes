@@ -1,8 +1,13 @@
 use super::{IntoBuf, Writer};
 use byteorder::{LittleEndian, ByteOrder, BigEndian};
+#[cfg(feature = "iovec")]
 use iovec::IoVec;
+#[cfg(feature = "std")]
+use prelude::*;
 
-use std::{cmp, io, ptr, usize};
+use core::{cmp, ptr, usize};
+#[cfg(feature = "std")]
+use std::io;
 
 /// A trait for values that provide sequential write access to bytes.
 ///
@@ -189,6 +194,7 @@ pub trait BufMut {
     /// with `dst` being a zero length slice.
     ///
     /// [`readv`]: http://man7.org/linux/man-pages/man2/readv.2.html
+    #[cfg(feature = "iovec")]
     unsafe fn bytes_vec_mut<'a>(&'a mut self, dst: &mut [&'a mut IoVec]) -> usize {
         if dst.is_empty() {
             return 0;
@@ -1072,6 +1078,7 @@ impl<'a, T: BufMut + ?Sized> BufMut for &'a mut T {
         (**self).bytes_mut()
     }
 
+    #[cfg(feature = "iovec")]
     unsafe fn bytes_vec_mut<'b>(&'b mut self, dst: &mut [&'b mut IoVec]) -> usize {
         (**self).bytes_vec_mut(dst)
     }
@@ -1081,6 +1088,7 @@ impl<'a, T: BufMut + ?Sized> BufMut for &'a mut T {
     }
 }
 
+#[cfg(feature = "std")]
 impl<T: BufMut + ?Sized> BufMut for Box<T> {
     fn remaining_mut(&self) -> usize {
         (**self).remaining_mut()
@@ -1099,6 +1107,7 @@ impl<T: BufMut + ?Sized> BufMut for Box<T> {
     }
 }
 
+#[cfg(feature = "std")]
 impl<T: AsMut<[u8]> + AsRef<[u8]>> BufMut for io::Cursor<T> {
     fn remaining_mut(&self) -> usize {
         use Buf;
@@ -1127,6 +1136,7 @@ impl<T: AsMut<[u8]> + AsRef<[u8]>> BufMut for io::Cursor<T> {
     }
 }
 
+#[cfg(feature = "std")]
 impl BufMut for Vec<u8> {
     #[inline]
     fn remaining_mut(&self) -> usize {
@@ -1148,7 +1158,7 @@ impl BufMut for Vec<u8> {
 
     #[inline]
     unsafe fn bytes_mut(&mut self) -> &mut [u8] {
-        use std::slice;
+        use core::slice;
 
         if self.capacity() == self.len() {
             self.reserve(64); // Grow the vec

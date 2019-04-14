@@ -1,6 +1,7 @@
 use {IntoBuf, Buf, BufMut};
 use buf::Iter;
 use debug;
+use prelude::*;
 
 use std::{cmp, fmt, mem, hash, ops, slice, ptr, usize};
 use std::borrow::{Borrow, BorrowMut};
@@ -1499,7 +1500,7 @@ impl BytesMut {
         }
 
         unsafe {
-            ptr = self.inner.ptr.offset(self.inner.len as isize); 
+            ptr = self.inner.ptr.offset(self.inner.len as isize);
         }
         if ptr == other.inner.ptr &&
            self.inner.kind() == KIND_ARC &&

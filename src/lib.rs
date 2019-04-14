@@ -70,9 +70,13 @@
 
 #![deny(warnings, missing_docs, missing_debug_implementations)]
 #![doc(html_root_url = "https://docs.rs/bytes/0.4.12")]
+#![no_std]
 
 extern crate byteorder;
+#[cfg(feature = "iovec")]
 extern crate iovec;
+#[cfg(feature = "std")]
+extern crate std;
 
 pub mod buf;
 pub use buf::{
@@ -88,9 +92,13 @@ pub use buf::{
     Take,
 };
 
+#[cfg(feature = "std")]
 mod bytes;
+#[cfg(feature = "std")]
 mod debug;
+#[cfg(feature = "std")]
 pub use bytes::{Bytes, BytesMut};
+mod prelude;
 
 #[deprecated]
 pub use byteorder::{ByteOrder, BigEndian, LittleEndian};

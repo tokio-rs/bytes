@@ -33,6 +33,10 @@ matrix:
     - env: RUST_TEST_THREADS=1 TARGET=powerpc-unknown-linux-gnu
     - env: RUST_TEST_THREADS=1 TARGET=powerpc64-unknown-linux-gnu
 
+    # Ensure crate compiles without default features (i.e. for no_std)
+    - env: EXTRA_ARGS="--no-default-features"
+      script: cargo build $EXTRA_ARGS
+
     # Serde implementation
     - env: EXTRA_ARGS="--features serde"
 

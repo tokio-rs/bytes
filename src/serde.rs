@@ -1,8 +1,9 @@
 extern crate serde;
 
-use std::{cmp, fmt};
+use core::{cmp, fmt};
 use self::serde::{Serialize, Serializer, Deserialize, Deserializer, de};
 use super::{Bytes, BytesMut};
+use prelude::*;
 
 macro_rules! serde_impl {
     ($ty:ident, $visitor_ty:ident) => (

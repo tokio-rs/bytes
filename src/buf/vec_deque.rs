@@ -24,6 +24,7 @@ impl Buf for VecDeque<u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use prelude::*;
 
     #[test]
     fn hello_world() {
