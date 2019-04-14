@@ -1,12 +1,18 @@
 extern crate bytes;
+#[cfg(feature = "iovec")]
 extern crate iovec;
 
-use bytes::{Buf, BufMut, Bytes, BytesMut};
+use bytes::{BufMut, BytesMut};
+#[cfg(feature = "std")]
+use bytes::{Buf, Bytes};
 use bytes::buf::Chain;
+#[cfg(feature = "iovec")]
 use iovec::IoVec;
+#[cfg(feature = "std")]
 use std::io::Cursor;
 
 #[test]
+#[cfg(feature = "std")]
 fn collect_two_bufs() {
     let a = Cursor::new(Bytes::from(&b"hello"[..]));
     let b = Cursor::new(Bytes::from(&b"world"[..]));
@@ -39,6 +45,7 @@ fn writing_chained() {
 }
 
 #[test]
+#[cfg(feature = "std")]
 fn iterating_two_bufs() {
     let a = Cursor::new(Bytes::from(&b"hello"[..]));
     let b = Cursor::new(Bytes::from(&b"world"[..]));
@@ -48,6 +55,7 @@ fn iterating_two_bufs() {
 }
 
 #[test]
+#[cfg(feature = "std")]
 fn vectored_read() {
     let a = Cursor::new(Bytes::from(&b"hello"[..]));
     let b = Cursor::new(Bytes::from(&b"world"[..]));

@@ -1,3 +1,6 @@
+#[cfg(all(feature = "alloc", not(feature = "std")))]
+use alloc::collections::vec_deque::VecDeque;
+#[cfg(feature = "std")]
 use std::collections::VecDeque;
 
 use super::Buf;

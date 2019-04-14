@@ -72,6 +72,8 @@
 #![doc(html_root_url = "https://docs.rs/bytes/0.4.12")]
 #![no_std]
 
+#[cfg(all(feature = "alloc", not(feature = "std")))]
+extern crate alloc;
 extern crate byteorder;
 #[cfg(feature = "iovec")]
 extern crate iovec;
@@ -92,13 +94,13 @@ pub use buf::{
     Take,
 };
 
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 mod bytes;
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 mod debug;
-#[cfg(feature = "std")]
-pub use bytes::{Bytes, BytesMut};
 mod prelude;
+#[cfg(feature = "alloc")]
+pub use bytes::{Bytes, BytesMut};
 
 #[deprecated]
 pub use byteorder::{ByteOrder, BigEndian, LittleEndian};

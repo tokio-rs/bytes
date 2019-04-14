@@ -1,14 +1,19 @@
-use {IntoBuf, Buf, BufMut};
+use {BufMut};
+#[cfg(feature = "std")]
+use {Buf, IntoBuf};
+#[cfg(feature = "std")]
 use buf::Iter;
 use debug;
 use prelude::*;
 
-use std::{cmp, fmt, mem, hash, ops, slice, ptr, usize};
-use std::borrow::{Borrow, BorrowMut};
+use core::{cmp, fmt, mem, hash, ops, slice, ptr, usize};
+use core::borrow::{Borrow, BorrowMut};
+use core::sync::atomic::{self, AtomicUsize, AtomicPtr};
+use core::sync::atomic::Ordering::{Relaxed, Acquire, Release, AcqRel};
+use core::iter::{FromIterator, Iterator};
+
+#[cfg(feature = "std")]
 use std::io::Cursor;
-use std::sync::atomic::{self, AtomicUsize, AtomicPtr};
-use std::sync::atomic::Ordering::{Relaxed, Acquire, Release, AcqRel};
-use std::iter::{FromIterator, Iterator};
 
 /// A reference counted contiguous slice of memory.
 ///
@@ -835,6 +840,7 @@ impl Bytes {
     }
 }
 
+#[cfg(feature = "std")]
 impl IntoBuf for Bytes {
     type Buf = Cursor<Self>;
 
@@ -843,6 +849,7 @@ impl IntoBuf for Bytes {
     }
 }
 
+#[cfg(feature = "std")]
 impl<'a> IntoBuf for &'a Bytes {
     type Buf = Cursor<Self>;
 
@@ -986,6 +993,7 @@ impl Borrow<[u8]> for Bytes {
     }
 }
 
+#[cfg(feature = "std")]
 impl IntoIterator for Bytes {
     type Item = u8;
     type IntoIter = Iter<Cursor<Bytes>>;
@@ -995,6 +1003,7 @@ impl IntoIterator for Bytes {
     }
 }
 
+#[cfg(feature = "std")]
 impl<'a> IntoIterator for &'a Bytes {
     type Item = u8;
     type IntoIter = Iter<Cursor<&'a Bytes>>;
@@ -1563,6 +1572,7 @@ impl BufMut for BytesMut {
     }
 }
 
+#[cfg(feature = "std")]
 impl IntoBuf for BytesMut {
     type Buf = Cursor<Self>;
 
@@ -1571,6 +1581,7 @@ impl IntoBuf for BytesMut {
     }
 }
 
+#[cfg(feature = "std")]
 impl<'a> IntoBuf for &'a BytesMut {
     type Buf = Cursor<&'a BytesMut>;
 
@@ -1736,6 +1747,7 @@ impl Clone for BytesMut {
     }
 }
 
+#[cfg(feature = "std")]
 impl IntoIterator for BytesMut {
     type Item = u8;
     type IntoIter = Iter<Cursor<BytesMut>>;
@@ -1745,6 +1757,7 @@ impl IntoIterator for BytesMut {
     }
 }
 
+#[cfg(feature = "std")]
 impl<'a> IntoIterator for &'a BytesMut {
     type Item = u8;
     type IntoIter = Iter<Cursor<&'a BytesMut>>;

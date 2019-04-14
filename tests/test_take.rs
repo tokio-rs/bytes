@@ -1,9 +1,12 @@
 extern crate bytes;
 
+#[cfg(feature = "std")]
 use bytes::Buf;
+#[cfg(feature = "std")]
 use std::io::Cursor;
 
 #[test]
+#[cfg(feature = "std")]
 fn long_take() {
     // Tests that take with a size greater than the buffer length will not
     // overrun the buffer. Regression test for #138.

@@ -1,7 +1,7 @@
 use {IntoBuf};
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 use prelude::*;
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 use {Buf, BufMut, Bytes, BytesMut};
 
 /// Conversion from a [`Buf`]
@@ -90,7 +90,7 @@ pub trait FromBuf {
     fn from_buf<T>(buf: T) -> Self where T: IntoBuf;
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 impl FromBuf for Vec<u8> {
     fn from_buf<T>(buf: T) -> Self
         where T: IntoBuf
@@ -102,7 +102,7 @@ impl FromBuf for Vec<u8> {
     }
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 impl FromBuf for Bytes {
     fn from_buf<T>(buf: T) -> Self
         where T: IntoBuf
@@ -111,7 +111,7 @@ impl FromBuf for Bytes {
     }
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 impl FromBuf for BytesMut {
     fn from_buf<T>(buf: T) -> Self
         where T: IntoBuf

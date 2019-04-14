@@ -2,7 +2,7 @@ use super::{IntoBuf, Take, Reader, Iter, FromBuf, Chain};
 use byteorder::{BigEndian, ByteOrder, LittleEndian};
 #[cfg(feature = "iovec")]
 use iovec::IoVec;
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 use prelude::*;
 
 use core::{cmp, ptr};
@@ -1077,7 +1077,7 @@ impl<'a, T: Buf + ?Sized> Buf for &'a mut T {
     }
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 impl<T: Buf + ?Sized> Buf for Box<T> {
     fn remaining(&self) -> usize {
         (**self).remaining()

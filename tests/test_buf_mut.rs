@@ -1,13 +1,20 @@
 extern crate bytes;
 extern crate byteorder;
+#[cfg(feature = "iovec")]
 extern crate iovec;
 
-use bytes::{BufMut, BytesMut};
+use bytes::BufMut;
+#[cfg(feature = "std")]
+use bytes::BytesMut;
+#[cfg(feature = "iovec")]
 use iovec::IoVec;
+#[cfg(feature = "std")]
 use std::usize;
+#[cfg(feature = "std")]
 use std::fmt::Write;
 
 #[test]
+#[cfg(feature = "std")]
 fn test_vec_as_mut_buf() {
     let mut buf = Vec::with_capacity(64);
 
@@ -61,6 +68,7 @@ fn test_vec_advance_mut() {
 }
 
 #[test]
+#[cfg(feature = "std")]
 fn test_clone() {
     let mut buf = BytesMut::with_capacity(100);
     buf.write_str("this is a test").unwrap();
@@ -71,6 +79,7 @@ fn test_clone() {
 }
 
 #[test]
+#[cfg(feature = "iovec")]
 fn test_bufs_vec_mut() {
     use std::mem;
 

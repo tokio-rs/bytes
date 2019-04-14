@@ -38,5 +38,6 @@ serde_test = "1.0"
 
 [features]
 default = ["std"]
+alloc = []
 i128 = ["byteorder/i128"]
-std = ["iovec"]
+std = ["alloc", "iovec"]

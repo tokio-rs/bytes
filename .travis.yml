@@ -37,6 +37,10 @@ matrix:
     - env: EXTRA_ARGS="--no-default-features"
       script: cargo build $EXTRA_ARGS
 
+    # `alloc` crate-based implementation
+    - env: EXTRA_ARGS="--no-default-features --features=alloc --lib --tests"
+      rust: nightly # TODO: test 'alloc' on stable rust when it is fully stabilized
+
     # Serde implementation
     - env: EXTRA_ARGS="--features serde"
 

@@ -24,7 +24,7 @@ mod into_buf;
 mod iter;
 mod reader;
 mod take;
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 mod vec_deque;
 mod writer;
 

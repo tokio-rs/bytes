@@ -1,6 +1,8 @@
 extern crate bytes;
 
-use bytes::{Bytes, BytesMut, BufMut, IntoBuf};
+use bytes::{Bytes, BytesMut, BufMut};
+#[cfg(feature = "std")]
+use bytes::IntoBuf;
 
 const LONG: &'static [u8] = b"mary had a little lamb, little lamb, little lamb";
 const SHORT: &'static [u8] = b"hello world";
@@ -166,6 +168,7 @@ fn split_off_uninitialized() {
 }
 
 #[test]
+#[cfg(feature = "std")]
 fn split_off_to_loop() {
     let s = b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
@@ -299,6 +302,7 @@ fn fns_defined_for_bytes_mut() {
 }
 
 #[test]
+#[cfg(feature = "std")]
 fn mut_into_buf() {
     let mut v = vec![0, 0, 0, 0];
     let s = &mut v[..];
@@ -306,6 +310,7 @@ fn mut_into_buf() {
 }
 
 #[test]
+#[cfg(feature = "std")]
 fn reserve_convert() {
     // Inline -> Vec
     let mut bytes = BytesMut::with_capacity(8);
@@ -341,6 +346,7 @@ fn reserve_convert() {
 }
 
 #[test]
+#[cfg(feature = "std")]
 fn reserve_growth() {
     let mut bytes = BytesMut::with_capacity(64);
     bytes.put("hello world");
@@ -385,6 +391,7 @@ fn reserve_max_original_capacity_value() {
 // within the program that this actually recycles memory. Instead, just exercise
 // the code path to ensure that the results are correct.
 #[test]
+#[cfg(feature = "std")]
 fn reserve_vec_recycling() {
     let mut bytes = BytesMut::from(Vec::with_capacity(16));
     assert_eq!(bytes.capacity(), 16);
@@ -432,6 +439,7 @@ fn reserve_in_arc_nonunique_does_not_overallocate() {
 }
 
 #[test]
+#[cfg(feature = "std")]
 fn inline_storage() {
     let mut bytes = BytesMut::with_capacity(inline_cap());
     let zero = [0u8; 64];
@@ -524,7 +532,7 @@ fn advance_past_len() {
 #[test]
 // Only run these tests on little endian systems. CI uses qemu for testing
 // little endian... and qemu doesn't really support threading all that well.
-#[cfg(target_endian = "little")]
+#[cfg(all(target_endian = "little", feature = "std"))]
 fn stress() {
     // Tests promoting a buffer from a vec -> shared in a concurrent situation
     use std::sync::{Arc, Barrier};

@@ -1,10 +1,12 @@
 extern crate bytes;
 
+#[cfg(feature = "std")]
 use std::io::{BufRead, Cursor, Read};
-
+#[cfg(feature = "std")]
 use bytes::Buf;
 
 #[test]
+#[cfg(feature = "std")]
 fn read() {
     let buf1 = Cursor::new(b"hello ");
     let buf2 = Cursor::new(b"world");
@@ -15,6 +17,7 @@ fn read() {
 }
 
 #[test]
+#[cfg(feature = "std")]
 fn buf_read() {
     let buf1 = Cursor::new(b"hell");
     let buf2 = Cursor::new(b"o\nworld");
