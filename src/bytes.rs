@@ -1220,22 +1220,29 @@ impl BytesMut {
     /// let mut buf = BytesMut::with_capacity(1024);
     /// buf.put(&b"hello world"[..]);
     ///
-    /// let other = buf.take();
+    /// let other = buf.split();
     ///
     /// assert!(buf.is_empty());
     /// assert_eq!(1013, buf.capacity());
     ///
     /// assert_eq!(other, b"hello world"[..]);
     /// ```
-    pub fn take(&mut self) -> BytesMut {
+    pub fn split(&mut self) -> BytesMut {
         let len = self.len();
         self.split_to(len)
     }
 
-    #[deprecated(since = "0.4.1", note = "use take instead")]
+    #[deprecated(since = "0.4.13", note = "use split instead")]
+    #[doc(hidden)]
+    // Name conflict with `Buf::take()`
+    pub fn take(&mut self) -> BytesMut {
+        self.split()
+    }
+
+    #[deprecated(since = "0.4.1", note = "use split instead")]
     #[doc(hidden)]
     pub fn drain(&mut self) -> BytesMut {
-        self.take()
+        self.split()
     }
 
     /// Splits the buffer into two at the given index.

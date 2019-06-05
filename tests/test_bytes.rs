@@ -344,7 +344,7 @@ fn reserve_convert() {
 fn reserve_growth() {
     let mut bytes = BytesMut::with_capacity(64);
     bytes.put("hello world");
-    let _ = bytes.take();
+    let _ = bytes.split();
 
     bytes.reserve(65);
     assert_eq!(bytes.capacity(), 128);
@@ -358,7 +358,7 @@ fn reserve_allocates_at_least_original_capacity() {
         bytes.put(i as u8);
     }
 
-    let _other = bytes.take();
+    let _other = bytes.split();
 
     bytes.reserve(16);
     assert_eq!(bytes.capacity(), 1024);
@@ -374,7 +374,7 @@ fn reserve_max_original_capacity_value() {
         bytes.put(0u8);
     }
 
-    let _other = bytes.take();
+    let _other = bytes.split();
 
     bytes.reserve(16);
     assert_eq!(bytes.capacity(), 64 * 1024);
@@ -398,7 +398,7 @@ fn reserve_vec_recycling() {
 #[test]
 fn reserve_in_arc_unique_does_not_overallocate() {
     let mut bytes = BytesMut::with_capacity(1000);
-    bytes.take();
+    bytes.split();
 
     // now bytes is Arc and refcount == 1
 
@@ -410,7 +410,7 @@ fn reserve_in_arc_unique_does_not_overallocate() {
 #[test]
 fn reserve_in_arc_unique_doubles() {
     let mut bytes = BytesMut::with_capacity(1000);
-    bytes.take();
+    bytes.split();
 
     // now bytes is Arc and refcount == 1
 
@@ -422,7 +422,7 @@ fn reserve_in_arc_unique_doubles() {
 #[test]
 fn reserve_in_arc_nonunique_does_not_overallocate() {
     let mut bytes = BytesMut::with_capacity(1000);
-    let _copy = bytes.take();
+    let _copy = bytes.split();
 
     // now bytes is Arc and refcount == 2
 
