@@ -1151,4 +1151,7 @@ impl Buf for Option<[u8; 1]> {
 
 // The existance of this function makes the compiler catch if the Buf
 // trait is "object-safe" or not.
+//
+// XXX: The allow() is required while our minimum Rust version is less than 1.26.
+#[allow(warnings)]
 fn _assert_trait_object(_b: &Buf) {}
