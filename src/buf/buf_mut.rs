@@ -1083,4 +1083,4 @@ impl BufMut for Vec<u8> {
 
 // The existance of this function makes the compiler catch if the BufMut
 // trait is "object-safe" or not.
-fn _assert_trait_object(_b: &BufMut) {}
+fn _assert_trait_object(_b: &dyn BufMut) {}
