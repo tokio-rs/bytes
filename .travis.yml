@@ -19,7 +19,7 @@ matrix:
     #
     # This job will also build and deploy the docs to gh-pages.
     - env: TARGET=x86_64-unknown-linux-gnu
-      rust: 1.15.0
+      rust: 1.26.0
       after_success:
         - |
             pip install 'travis-cargo<0.2' --user &&

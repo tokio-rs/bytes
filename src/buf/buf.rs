@@ -1070,4 +1070,4 @@ impl Buf for Option<[u8; 1]> {
 
 // The existance of this function makes the compiler catch if the Buf
 // trait is "object-safe" or not.
-fn _assert_trait_object(_b: &Buf) {}
+fn _assert_trait_object(_b: &dyn Buf) {}
