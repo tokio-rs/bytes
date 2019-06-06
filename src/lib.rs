@@ -96,3 +96,7 @@ pub use bytes::{Bytes, BytesMut};
 #[cfg(feature = "serde")]
 #[doc(hidden)]
 pub mod serde;
+
+// Optional `Either` support
+#[cfg(feature = "either")]
+mod either;

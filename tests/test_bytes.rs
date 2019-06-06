@@ -258,15 +258,10 @@ fn split_to_oob_mut() {
 }
 
 #[test]
+#[should_panic]
 fn split_to_uninitialized() {
     let mut bytes = BytesMut::with_capacity(1024);
-    let other = bytes.split_to(128);
-
-    assert_eq!(bytes.len(), 0);
-    assert_eq!(bytes.capacity(), 896);
-
-    assert_eq!(other.len(), 0);
-    assert_eq!(other.capacity(), 128);
+    let _other = bytes.split_to(128);
 }
 
 #[test]
@@ -850,4 +845,58 @@ fn from_iter_no_size_hint() {
         .collect();
 
     assert_eq!(&actual[..], &expect[..]);
+}
+
+fn test_slice_ref(bytes: &Bytes, start: usize, end: usize, expected: &[u8]) {
+    let slice = &(bytes.as_ref()[start..end]);
+    let sub = bytes.slice_ref(&slice);
+    assert_eq!(&sub[..], expected);
+}
+
+#[test]
+fn slice_ref_works() {
+    let bytes = Bytes::from(&b"012345678"[..]);
+
+    test_slice_ref(&bytes, 0, 0, b"");
+    test_slice_ref(&bytes, 0, 3, b"012");
+    test_slice_ref(&bytes, 2, 6, b"2345");
+    test_slice_ref(&bytes, 7, 9, b"78");
+    test_slice_ref(&bytes, 9, 9, b"");
+}
+
+
+#[test]
+fn slice_ref_empty() {
+    let bytes = Bytes::from(&b""[..]);
+    let slice = &(bytes.as_ref()[0..0]);
+
+    let sub = bytes.slice_ref(&slice);
+    assert_eq!(&sub[..], b"");
+}
+
+#[test]
+#[should_panic]
+fn slice_ref_catches_not_a_subset() {
+    let bytes = Bytes::from(&b"012345678"[..]);
+    let slice = &b"012345"[0..4];
+
+    bytes.slice_ref(slice);
+}
+
+#[test]
+#[should_panic]
+fn slice_ref_catches_not_an_empty_subset() {
+    let bytes = Bytes::from(&b"012345678"[..]);
+    let slice = &b""[0..0];
+
+    bytes.slice_ref(slice);
+}
+
+#[test]
+#[should_panic]
+fn empty_slice_ref_catches_not_an_empty_subset() {
+    let bytes = Bytes::from(&b""[..]);
+    let slice = &b""[0..0];
+
+    bytes.slice_ref(slice);
 }
