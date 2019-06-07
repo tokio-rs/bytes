@@ -2,7 +2,7 @@ use super::{IntoBuf, Writer};
 use byteorder::{LittleEndian, ByteOrder, BigEndian};
 use iovec::IoVecMut;
 
-use std::{cmp, io, ptr, usize};
+use std::{cmp, ptr, usize};
 
 /// A trait for values that provide sequential write access to bytes.
 ///
@@ -34,10 +34,10 @@ pub trait BufMut {
     /// # Examples
     ///
     /// ```
-    /// use bytes::{BufMut, BytesMut};
+    /// use bytes::BufMut;
     ///
-    /// let mut src = [0u8; 10];
-    /// let mut buf = BytesMut::from(&src[..]);
+    /// let mut dst = [0; 10];
+    /// let mut buf = &mut dst[..];
     ///
     /// let original_remaining = buf.remaining_mut();
     /// buf.put("hello");
@@ -104,10 +104,9 @@ pub trait BufMut {
     ///
     /// ```
     /// use bytes::BufMut;
-    /// use std::io::Cursor;
     ///
     /// let mut dst = [0; 5];
-    /// let mut buf = Cursor::new(&mut dst);
+    /// let mut buf = &mut dst[..];
     ///
     /// assert!(buf.has_remaining_mut());
     ///
@@ -254,12 +253,11 @@ pub trait BufMut {
     ///
     /// ```
     /// use bytes::BufMut;
-    /// use std::io::Cursor;
     ///
     /// let mut dst = [0; 6];
     ///
     /// {
-    ///     let mut buf = Cursor::new(&mut dst);
+    ///     let mut buf = &mut dst[..];
     ///     buf.put_slice(b"hello");
     ///
     ///     assert_eq!(1, buf.remaining_mut());
@@ -1018,31 +1016,22 @@ impl<T: BufMut + ?Sized> BufMut for Box<T> {
     }
 }
 
-impl<T: AsMut<[u8]> + AsRef<[u8]>> BufMut for io::Cursor<T> {
+impl<'a> BufMut for &'a mut [u8] {
+    #[inline]
     fn remaining_mut(&self) -> usize {
-        use Buf;
-        self.remaining()
+        self.len()
     }
 
-    /// Advance the internal cursor of the BufMut
-    unsafe fn advance_mut(&mut self, cnt: usize) {
-        use Buf;
-        self.advance(cnt);
-    }
-
-    /// Returns a mutable slice starting at the current BufMut position and of
-    /// length between 0 and `BufMut::remaining()`.
-    ///
-    /// The returned byte slice may represent uninitialized memory.
+    #[inline]
     unsafe fn bytes_mut(&mut self) -> &mut [u8] {
-        let len = self.get_ref().as_ref().len();
-        let pos = self.position() as usize;
+        self
+    }
 
-        if pos >= len {
-            return Default::default();
-        }
-
-        &mut (self.get_mut().as_mut())[pos..]
+    #[inline]
+    unsafe fn advance_mut(&mut self, cnt: usize) {
+        // Lifetime dance taken from `impl Write for &mut [u8]`.
+        let (_, b) = ::std::mem::replace(self, &mut []).split_at_mut(cnt);
+        *self = b;
     }
 }
 

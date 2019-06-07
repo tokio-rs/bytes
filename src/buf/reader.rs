@@ -25,11 +25,10 @@ impl<B: Buf> Reader<B> {
     ///
     /// ```rust
     /// use bytes::Buf;
-    /// use std::io::{self, Cursor};
     ///
-    /// let mut buf = Cursor::new(b"hello world").reader();
+    /// let mut buf = b"hello world".reader();
     ///
-    /// assert_eq!(0, buf.get_ref().position());
+    /// assert_eq!(b"hello world", buf.get_ref());
     /// ```
     pub fn get_ref(&self) -> &B {
         &self.buf
@@ -38,21 +37,6 @@ impl<B: Buf> Reader<B> {
     /// Gets a mutable reference to the underlying `Buf`.
     ///
     /// It is inadvisable to directly read from the underlying `Buf`.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use bytes::Buf;
-    /// use std::io::{self, Cursor};
-    ///
-    /// let mut buf = Cursor::new(b"hello world").reader();
-    /// let mut dst = vec![];
-    ///
-    /// buf.get_mut().set_position(2);
-    /// io::copy(&mut buf, &mut dst).unwrap();
-    ///
-    /// assert_eq!(*dst, b"llo world"[..]);
-    /// ```
     pub fn get_mut(&mut self) -> &mut B {
         &mut self.buf
     }
@@ -63,9 +47,9 @@ impl<B: Buf> Reader<B> {
     ///
     /// ```rust
     /// use bytes::Buf;
-    /// use std::io::{self, Cursor};
+    /// use std::io;
     ///
-    /// let mut buf = Cursor::new(b"hello world").reader();
+    /// let mut buf = b"hello world".reader();
     /// let mut dst = vec![];
     ///
     /// io::copy(&mut buf, &mut dst).unwrap();

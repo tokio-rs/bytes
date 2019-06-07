@@ -4,11 +4,10 @@ extern crate iovec;
 
 use bytes::Buf;
 use iovec::IoVec;
-use std::io::Cursor;
 
 #[test]
 fn test_fresh_cursor_vec() {
-    let mut buf = Cursor::new(b"hello".to_vec());
+    let mut buf = &b"hello"[..];
 
     assert_eq!(buf.remaining(), 5);
     assert_eq!(buf.bytes(), b"hello");
@@ -26,27 +25,28 @@ fn test_fresh_cursor_vec() {
 
 #[test]
 fn test_get_u8() {
-    let mut buf = Cursor::new(b"\x21zomg");
+    let mut buf = &b"\x21zomg"[..];
     assert_eq!(0x21, buf.get_u8());
 }
 
 #[test]
 fn test_get_u16() {
-    let buf = b"\x21\x54zomg";
-    assert_eq!(0x2154, Cursor::new(buf).get_u16());
-    assert_eq!(0x5421, Cursor::new(buf).get_u16_le());
+    let mut buf = &b"\x21\x54zomg"[..];
+    assert_eq!(0x2154, buf.get_u16());
+    let mut buf = &b"\x21\x54zomg"[..];
+    assert_eq!(0x5421, buf.get_u16_le());
 }
 
 #[test]
 #[should_panic]
 fn test_get_u16_buffer_underflow() {
-    let mut buf = Cursor::new(b"\x21");
+    let mut buf = &b"\x21"[..];
     buf.get_u16();
 }
 
 #[test]
 fn test_bufs_vec() {
-    let buf = Cursor::new(b"hello world");
+    let buf = &b"hello world"[..];
 
     let b1: &[u8] = &mut [0];
     let b2: &[u8] = &mut [0];

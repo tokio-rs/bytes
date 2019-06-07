@@ -1,4 +1,4 @@
-use {Buf, BufMut};
+use {Buf, BufMut, IntoBuf};
 use buf::IntoIter;
 use debug;
 
@@ -1058,12 +1058,12 @@ impl IntoIterator for Bytes {
     }
 }
 
-impl<'a> IntoIterator for &'a mut Bytes {
-    type Item = u8;
-    type IntoIter = IntoIter<&'a mut Bytes>;
+impl<'a> IntoIterator for &'a Bytes {
+    type Item = &'a u8;
+    type IntoIter = ::std::slice::Iter<'a, u8>;
 
     fn into_iter(self) -> Self::IntoIter {
-        IntoIter::new(self)
+        self.as_ref().into_iter()
     }
 }
 
@@ -1636,6 +1636,14 @@ impl BufMut for BytesMut {
     }
 }
 
+impl<'a> IntoBuf for &'a BytesMut {
+    type Buf = &'a [u8];
+
+    fn into_buf(self) -> Self::Buf {
+        self.as_ref()
+    }
+}
+
 impl AsRef<[u8]> for BytesMut {
     #[inline]
     fn as_ref(&self) -> &[u8] {
@@ -1807,12 +1815,12 @@ impl IntoIterator for BytesMut {
     }
 }
 
-impl<'a> IntoIterator for &'a mut BytesMut {
-    type Item = u8;
-    type IntoIter = IntoIter<&'a mut BytesMut>;
+impl<'a> IntoIterator for &'a BytesMut {
+    type Item = &'a u8;
+    type IntoIter = ::std::slice::Iter<'a, u8>;
 
     fn into_iter(self) -> Self::IntoIter {
-        IntoIter::new(self)
+        self.as_ref().into_iter()
     }
 }
 
