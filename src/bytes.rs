@@ -2,8 +2,9 @@ use {Buf, BufMut, IntoBuf};
 use buf::IntoIter;
 use debug;
 
-use std::{cmp, fmt, mem, hash, ops, slice, ptr, usize};
+use std::{cmp, fmt, mem, hash, slice, ptr, usize};
 use std::borrow::{Borrow, BorrowMut};
+use std::ops::{Deref, DerefMut, RangeBounds};
 use std::sync::atomic::{self, AtomicUsize, AtomicPtr};
 use std::sync::atomic::Ordering::{Relaxed, Acquire, Release, AcqRel};
 use std::iter::{FromIterator, Iterator};
@@ -23,7 +24,7 @@ use std::iter::{FromIterator, Iterator};
 /// use bytes::Bytes;
 ///
 /// let mut mem = Bytes::from(&b"Hello world"[..]);
-/// let a = mem.slice(0, 5);
+/// let a = mem.slice(0..5);
 ///
 /// assert_eq!(&a[..], b"Hello");
 ///
@@ -498,7 +499,7 @@ impl Bytes {
         self.inner.is_inline()
     }
 
-    /// Returns a slice of self for the index range `[begin..end)`.
+    /// Returns a slice of self for the provided range.
     ///
     /// This will increment the reference count for the underlying memory and
     /// return a new `Bytes` handle set to the slice.
@@ -511,7 +512,7 @@ impl Bytes {
     /// use bytes::Bytes;
     ///
     /// let a = Bytes::from(&b"hello world"[..]);
-    /// let b = a.slice(2, 5);
+    /// let b = a.slice(2..5);
     ///
     /// assert_eq!(&b[..], b"llo");
     /// ```
@@ -520,9 +521,25 @@ impl Bytes {
     ///
     /// Requires that `begin <= end` and `end <= self.len()`, otherwise slicing
     /// will panic.
-    pub fn slice(&self, begin: usize, end: usize) -> Bytes {
+    pub fn slice(&self, range: impl RangeBounds<usize>) -> Bytes {
+        use std::ops::Bound;
+
+        let len = self.len();
+
+        let begin = match range.start_bound() {
+            Bound::Included(&n) => n,
+            Bound::Excluded(&n) => n + 1,
+            Bound::Unbounded => 0,
+        };
+
+        let end = match range.end_bound() {
+            Bound::Included(&n) => n + 1,
+            Bound::Excluded(&n) => n,
+            Bound::Unbounded => len,
+        };
+
         assert!(begin <= end);
-        assert!(end <= self.len());
+        assert!(end <= len);
 
         if end - begin <= INLINE_CAP {
             return Bytes::from(&self[begin..end]);
@@ -536,57 +553,6 @@ impl Bytes {
         }
 
         ret
-    }
-
-    /// Returns a slice of self for the index range `[begin..self.len())`.
-    ///
-    /// This will increment the reference count for the underlying memory and
-    /// return a new `Bytes` handle set to the slice.
-    ///
-    /// This operation is `O(1)` and is equivalent to `self.slice(begin,
-    /// self.len())`.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use bytes::Bytes;
-    ///
-    /// let a = Bytes::from(&b"hello world"[..]);
-    /// let b = a.slice_from(6);
-    ///
-    /// assert_eq!(&b[..], b"world");
-    /// ```
-    ///
-    /// # Panics
-    ///
-    /// Requires that `begin <= self.len()`, otherwise slicing will panic.
-    pub fn slice_from(&self, begin: usize) -> Bytes {
-        self.slice(begin, self.len())
-    }
-
-    /// Returns a slice of self for the index range `[0..end)`.
-    ///
-    /// This will increment the reference count for the underlying memory and
-    /// return a new `Bytes` handle set to the slice.
-    ///
-    /// This operation is `O(1)` and is equivalent to `self.slice(0, end)`.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use bytes::Bytes;
-    ///
-    /// let a = Bytes::from(&b"hello world"[..]);
-    /// let b = a.slice_to(5);
-    ///
-    /// assert_eq!(&b[..], b"hello");
-    /// ```
-    ///
-    /// # Panics
-    ///
-    /// Requires that `end <= self.len()`, otherwise slicing will panic.
-    pub fn slice_to(&self, end: usize) -> Bytes {
-        self.slice(0, end)
     }
 
     /// Returns a slice of self that is equivalent to the given `subset`.
@@ -626,7 +592,7 @@ impl Bytes {
 
         let sub_offset = sub_p - bytes_p;
 
-        self.slice(sub_offset, sub_offset + sub_len)
+        self.slice(sub_offset..(sub_offset + sub_len))
     }
 
     /// Splits the bytes into two at the given index.
@@ -924,7 +890,7 @@ impl AsRef<[u8]> for Bytes {
     }
 }
 
-impl ops::Deref for Bytes {
+impl Deref for Bytes {
     type Target = [u8];
 
     #[inline]
@@ -1651,7 +1617,7 @@ impl AsRef<[u8]> for BytesMut {
     }
 }
 
-impl ops::Deref for BytesMut {
+impl Deref for BytesMut {
     type Target = [u8];
 
     #[inline]
@@ -1666,7 +1632,7 @@ impl AsMut<[u8]> for BytesMut {
     }
 }
 
-impl ops::DerefMut for BytesMut {
+impl DerefMut for BytesMut {
     #[inline]
     fn deref_mut(&mut self) -> &mut [u8] {
         self.inner.as_mut()
