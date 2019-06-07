@@ -109,20 +109,20 @@ macro_rules! bench {
             b.iter(|| {
                 for i in 0..8 {
                     bufs[i].reset();
-                    let mut buf: &mut Buf =  &mut bufs[i]; // type erasure
+                    let buf: &mut Buf =  &mut bufs[i]; // type erasure
                     test::black_box(buf.$method($($arg,)*));
                 }
             })
         }
     );
-    ($fname:ident, cursor, $method:ident $(,$arg:expr)*) => (
+    ($fname:ident, slice, $method:ident $(,$arg:expr)*) => (
         #[bench]
         fn $fname(b: &mut Bencher) {
             // buf must be long enough for one read of 8 bytes starting at pos 7
-            let mut buf = [1u8; 8+7];
+            let arr = [1u8; 8+7];
             b.iter(|| {
                 for i in 0..8 {
-                    buf.set_position(i);
+                    let mut buf = &arr[i..];
                     let buf = &mut buf as &mut Buf; // type erasure
                     test::black_box(buf.$method($($arg,)*));
                 }
@@ -146,7 +146,7 @@ macro_rules! bench {
 
 macro_rules! bench_group {
     ($method:ident $(,$arg:expr)*) => (
-        bench!(cursor, cursor, $method $(,$arg)*);
+        bench!(slice, slice, $method $(,$arg)*);
         bench!(tbuf_1,        testbuf TestBuf  &[],  $method $(,$arg)*);
         bench!(tbuf_1_costly, testbuf TestBufC &[],  $method $(,$arg)*);
         bench!(tbuf_2,        testbuf TestBuf  &[1], $method $(,$arg)*);
