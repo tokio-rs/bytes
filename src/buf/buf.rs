@@ -1,8 +1,7 @@
 use super::{IntoBuf, Take, Reader, FromBuf, Chain};
 use byteorder::{BigEndian, ByteOrder, LittleEndian};
-use iovec::IoVec;
 
-use std::{cmp, ptr};
+use std::{cmp, io::IoSlice, ptr};
 
 macro_rules! buf_get_impl {
     ($this:ident, $size:expr, $conv:path) => ({
@@ -119,14 +118,14 @@ pub trait Buf {
     /// Fills `dst` with potentially multiple slices starting at `self`'s
     /// current position.
     ///
-    /// If the `Buf` is backed by disjoint slices of bytes, `bytes_vec` enables
-    /// fetching more than one slice at once. `dst` is a slice of `IoVec`
+    /// If the `Buf` is backed by disjoint slices of bytes, `bytes_vectored` enables
+    /// fetching more than one slice at once. `dst` is a slice of `IoSlice`
     /// references, enabling the slice to be directly used with [`writev`]
     /// without any further conversion. The sum of the lengths of all the
     /// buffers in `dst` will be less than or equal to `Buf::remaining()`.
     ///
     /// The entries in `dst` will be overwritten, but the data **contained** by
-    /// the slices **will not** be modified. If `bytes_vec` does not fill every
+    /// the slices **will not** be modified. If `bytes_vectored` does not fill every
     /// entry in `dst`, then `dst` is guaranteed to contain all remaining slices
     /// in `self.
     ///
@@ -136,20 +135,20 @@ pub trait Buf {
     /// # Implementer notes
     ///
     /// This function should never panic. Once the end of the buffer is reached,
-    /// i.e., `Buf::remaining` returns 0, calls to `bytes_vec` must return 0
+    /// i.e., `Buf::remaining` returns 0, calls to `bytes_vectored` must return 0
     /// without mutating `dst`.
     ///
     /// Implementations should also take care to properly handle being called
     /// with `dst` being a zero length slice.
     ///
     /// [`writev`]: http://man7.org/linux/man-pages/man2/readv.2.html
-    fn bytes_vec<'a>(&'a self, dst: &mut [IoVec<'a>]) -> usize {
+    fn bytes_vectored<'a>(&'a self, dst: &mut [IoSlice<'a>]) -> usize {
         if dst.is_empty() {
             return 0;
         }
 
         if self.has_remaining() {
-            dst[0] = self.bytes().into();
+            dst[0] = IoSlice::new(self.bytes());
             1
         } else {
             0
@@ -926,8 +925,8 @@ impl<'a, T: Buf + ?Sized> Buf for &'a mut T {
         (**self).bytes()
     }
 
-    fn bytes_vec<'b>(&'b self, dst: &mut [IoVec<'b>]) -> usize {
-        (**self).bytes_vec(dst)
+    fn bytes_vectored<'b>(&'b self, dst: &mut [IoSlice<'b>]) -> usize {
+        (**self).bytes_vectored(dst)
     }
 
     fn advance(&mut self, cnt: usize) {
@@ -944,8 +943,8 @@ impl<T: Buf + ?Sized> Buf for Box<T> {
         (**self).bytes()
     }
 
-    fn bytes_vec<'b>(&'b self, dst: &mut [IoVec<'b>]) -> usize {
-        (**self).bytes_vec(dst)
+    fn bytes_vectored<'b>(&'b self, dst: &mut [IoSlice<'b>]) -> usize {
+        (**self).bytes_vectored(dst)
     }
 
     fn advance(&mut self, cnt: usize) {

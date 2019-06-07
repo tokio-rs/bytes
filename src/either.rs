@@ -4,7 +4,7 @@ use {Buf, BufMut};
 
 use self::either::Either;
 use self::either::Either::*;
-use iovec::{IoVec, IoVecMut};
+use std::io::{IoSlice, IoSliceMut};
 
 impl<L, R> Buf for Either<L, R>
 where
@@ -25,10 +25,10 @@ where
         }
     }
 
-    fn bytes_vec<'a>(&'a self, dst: &mut [IoVec<'a>]) -> usize {
+    fn bytes_vectored<'a>(&'a self, dst: &mut [IoSlice<'a>]) -> usize {
         match *self {
-            Left(ref b) => b.bytes_vec(dst),
-            Right(ref b) => b.bytes_vec(dst),
+            Left(ref b) => b.bytes_vectored(dst),
+            Right(ref b) => b.bytes_vectored(dst),
         }
     }
 
@@ -66,10 +66,10 @@ where
         }
     }
 
-    unsafe fn bytes_vec_mut<'a>(&'a mut self, dst: &mut [IoVecMut<'a>]) -> usize {
+    unsafe fn bytes_vectored_mut<'a>(&'a mut self, dst: &mut [IoSliceMut<'a>]) -> usize {
         match *self {
-            Left(ref mut b) => b.bytes_vec_mut(dst),
-            Right(ref mut b) => b.bytes_vec_mut(dst),
+            Left(ref mut b) => b.bytes_vectored_mut(dst),
+            Right(ref mut b) => b.bytes_vectored_mut(dst),
         }
     }
 
