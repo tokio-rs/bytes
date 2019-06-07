@@ -87,8 +87,7 @@ pub use bytes::{Bytes, BytesMut};
 
 // Optional Serde support
 #[cfg(feature = "serde")]
-#[doc(hidden)]
-pub mod serde;
+mod serde;
 
 // Optional `Either` support
 #[cfg(feature = "either")]
