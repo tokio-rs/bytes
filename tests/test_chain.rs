@@ -1,9 +1,8 @@
 extern crate bytes;
-extern crate iovec;
 
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 use bytes::buf::Chain;
-use iovec::IoVec;
+use std::io::IoSlice;
 
 #[test]
 fn collect_two_bufs() {
@@ -54,68 +53,84 @@ fn vectored_read() {
     let mut buf = a.chain(b);
 
     {
-        let b1: &[u8] = &mut [0];
-        let b2: &[u8] = &mut [0];
-        let b3: &[u8] = &mut [0];
-        let b4: &[u8] = &mut [0];
-        let mut iovecs: [IoVec; 4] =
-            [b1.into(), b2.into(), b3.into(), b4.into()];
+        let b1: &[u8] = &mut [];
+        let b2: &[u8] = &mut [];
+        let b3: &[u8] = &mut [];
+        let b4: &[u8] = &mut [];
+        let mut iovecs = [
+            IoSlice::new(b1),
+            IoSlice::new(b2),
+            IoSlice::new(b3),
+            IoSlice::new(b4),
+        ];
 
-        assert_eq!(2, buf.bytes_vec(&mut iovecs));
+        assert_eq!(2, buf.bytes_vectored(&mut iovecs));
         assert_eq!(iovecs[0][..], b"hello"[..]);
         assert_eq!(iovecs[1][..], b"world"[..]);
-        assert_eq!(iovecs[2][..], b"\0"[..]);
-        assert_eq!(iovecs[3][..], b"\0"[..]);
+        assert_eq!(iovecs[2][..], b""[..]);
+        assert_eq!(iovecs[3][..], b""[..]);
     }
 
     buf.advance(2);
 
     {
-        let b1: &[u8] = &mut [0];
-        let b2: &[u8] = &mut [0];
-        let b3: &[u8] = &mut [0];
-        let b4: &[u8] = &mut [0];
-        let mut iovecs: [IoVec; 4] =
-            [b1.into(), b2.into(), b3.into(), b4.into()];
+        let b1: &[u8] = &mut [];
+        let b2: &[u8] = &mut [];
+        let b3: &[u8] = &mut [];
+        let b4: &[u8] = &mut [];
+        let mut iovecs = [
+            IoSlice::new(b1),
+            IoSlice::new(b2),
+            IoSlice::new(b3),
+            IoSlice::new(b4),
+        ];
 
-        assert_eq!(2, buf.bytes_vec(&mut iovecs));
+        assert_eq!(2, buf.bytes_vectored(&mut iovecs));
         assert_eq!(iovecs[0][..], b"llo"[..]);
         assert_eq!(iovecs[1][..], b"world"[..]);
-        assert_eq!(iovecs[2][..], b"\0"[..]);
-        assert_eq!(iovecs[3][..], b"\0"[..]);
+        assert_eq!(iovecs[2][..], b""[..]);
+        assert_eq!(iovecs[3][..], b""[..]);
     }
 
     buf.advance(3);
 
     {
-        let b1: &[u8] = &mut [0];
-        let b2: &[u8] = &mut [0];
-        let b3: &[u8] = &mut [0];
-        let b4: &[u8] = &mut [0];
-        let mut iovecs: [IoVec; 4] =
-            [b1.into(), b2.into(), b3.into(), b4.into()];
+        let b1: &[u8] = &mut [];
+        let b2: &[u8] = &mut [];
+        let b3: &[u8] = &mut [];
+        let b4: &[u8] = &mut [];
+        let mut iovecs = [
+            IoSlice::new(b1),
+            IoSlice::new(b2),
+            IoSlice::new(b3),
+            IoSlice::new(b4),
+        ];
 
-        assert_eq!(1, buf.bytes_vec(&mut iovecs));
+        assert_eq!(1, buf.bytes_vectored(&mut iovecs));
         assert_eq!(iovecs[0][..], b"world"[..]);
-        assert_eq!(iovecs[1][..], b"\0"[..]);
-        assert_eq!(iovecs[2][..], b"\0"[..]);
-        assert_eq!(iovecs[3][..], b"\0"[..]);
+        assert_eq!(iovecs[1][..], b""[..]);
+        assert_eq!(iovecs[2][..], b""[..]);
+        assert_eq!(iovecs[3][..], b""[..]);
     }
 
     buf.advance(3);
 
     {
-        let b1: &[u8] = &mut [0];
-        let b2: &[u8] = &mut [0];
-        let b3: &[u8] = &mut [0];
-        let b4: &[u8] = &mut [0];
-        let mut iovecs: [IoVec; 4] =
-            [b1.into(), b2.into(), b3.into(), b4.into()];
+        let b1: &[u8] = &mut [];
+        let b2: &[u8] = &mut [];
+        let b3: &[u8] = &mut [];
+        let b4: &[u8] = &mut [];
+        let mut iovecs = [
+            IoSlice::new(b1),
+            IoSlice::new(b2),
+            IoSlice::new(b3),
+            IoSlice::new(b4),
+        ];
 
-        assert_eq!(1, buf.bytes_vec(&mut iovecs));
+        assert_eq!(1, buf.bytes_vectored(&mut iovecs));
         assert_eq!(iovecs[0][..], b"ld"[..]);
-        assert_eq!(iovecs[1][..], b"\0"[..]);
-        assert_eq!(iovecs[2][..], b"\0"[..]);
-        assert_eq!(iovecs[3][..], b"\0"[..]);
+        assert_eq!(iovecs[1][..], b""[..]);
+        assert_eq!(iovecs[2][..], b""[..]);
+        assert_eq!(iovecs[3][..], b""[..]);
     }
 }

@@ -1,9 +1,8 @@
 extern crate bytes;
 extern crate byteorder;
-extern crate iovec;
 
 use bytes::Buf;
-use iovec::IoVec;
+use std::io::IoSlice;
 
 #[test]
 fn test_fresh_cursor_vec() {
@@ -48,11 +47,10 @@ fn test_get_u16_buffer_underflow() {
 fn test_bufs_vec() {
     let buf = &b"hello world"[..];
 
-    let b1: &[u8] = &mut [0];
-    let b2: &[u8] = &mut [0];
+    let b1: &[u8] = &mut [];
+    let b2: &[u8] = &mut [];
 
-    let mut dst: [IoVec; 2] =
-        [b1.into(), b2.into()];
+    let mut dst = [IoSlice::new(b1), IoSlice::new(b2)];
 
-    assert_eq!(1, buf.bytes_vec(&mut dst[..]));
+    assert_eq!(1, buf.bytes_vectored(&mut dst[..]));
 }

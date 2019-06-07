@@ -1,11 +1,10 @@
 extern crate bytes;
 extern crate byteorder;
-extern crate iovec;
 
 use bytes::{BufMut, BytesMut};
-use iovec::IoVecMut;
 use std::usize;
 use std::fmt::Write;
+use std::io::IoSliceMut;
 
 #[test]
 fn test_vec_as_mut_buf() {
@@ -72,13 +71,13 @@ fn test_clone() {
 
 #[test]
 fn test_bufs_vec_mut() {
-    use std::mem;
-
     let mut buf = BytesMut::from(&b"hello world"[..]);
+    let b1: &mut [u8] = &mut [];
+    let b2: &mut [u8] = &mut [];
+    let mut dst = [IoSliceMut::new(b1), IoSliceMut::new(b2)];
 
     unsafe {
-        let mut dst: [IoVecMut; 2] = mem::zeroed();
-        assert_eq!(1, buf.bytes_vec_mut(&mut dst[..]));
+        assert_eq!(1, buf.bytes_vectored_mut(&mut dst[..]));
     }
 }
 
