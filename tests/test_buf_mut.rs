@@ -81,3 +81,10 @@ fn test_bufs_vec_mut() {
         assert_eq!(1, buf.bytes_vec_mut(&mut dst[..]));
     }
 }
+
+#[test]
+fn test_mut_slice() {
+    let mut v = vec![0, 0, 0, 0];
+    let mut s = &mut v[..];
+    s.put_u32(42);
+}

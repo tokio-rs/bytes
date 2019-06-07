@@ -25,9 +25,9 @@ impl<T> Take<T> {
     /// # Examples
     ///
     /// ```rust
-    /// use bytes::{Buf, BufMut, Bytes};
+    /// use bytes::{Buf, BufMut};
     ///
-    /// let mut buf = Bytes::from_static(b"hello world").take(2);
+    /// let mut buf = b"hello world".take(2);
     /// let mut dst = vec![];
     ///
     /// dst.put(&mut buf);
@@ -50,9 +50,9 @@ impl<T> Take<T> {
     /// # Examples
     ///
     /// ```rust
-    /// use bytes::{Buf, BufMut, Bytes};
+    /// use bytes::{Buf, BufMut};
     ///
-    /// let mut buf = Bytes::from_static(b"hello world").take(2);
+    /// let mut buf = b"hello world".take(2);
     ///
     /// assert_eq!(11, buf.get_ref().remaining());
     /// ```
@@ -67,9 +67,9 @@ impl<T> Take<T> {
     /// # Examples
     ///
     /// ```rust
-    /// use bytes::{Buf, BufMut, Bytes};
+    /// use bytes::{Buf, BufMut};
     ///
-    /// let mut buf = Bytes::from_static(b"hello world").take(2);
+    /// let mut buf = b"hello world".take(2);
     /// let mut dst = vec![];
     ///
     /// buf.get_mut().advance(2);
@@ -91,9 +91,9 @@ impl<T> Take<T> {
     /// # Examples
     ///
     /// ```rust
-    /// use bytes::{Buf, Bytes};
+    /// use bytes::Buf;
     ///
-    /// let mut buf = Bytes::from_static(b"hello world").take(2);
+    /// let mut buf = b"hello world".take(2);
     ///
     /// assert_eq!(2, buf.limit());
     /// assert_eq!(b'h', buf.get_u8());
@@ -113,9 +113,9 @@ impl<T> Take<T> {
     /// # Examples
     ///
     /// ```rust
-    /// use bytes::{Buf, BufMut, Bytes};
+    /// use bytes::{Buf, BufMut};
     ///
-    /// let mut buf = Bytes::from_static(b"hello world").take(2);
+    /// let mut buf = b"hello world".take(2);
     /// let mut dst = vec![];
     ///
     /// dst.put(&mut buf);

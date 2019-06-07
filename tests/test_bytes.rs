@@ -1,6 +1,6 @@
 extern crate bytes;
 
-use bytes::{Bytes, BytesMut, Buf, BufMut, IntoBuf};
+use bytes::{Bytes, BytesMut, Buf, BufMut};
 
 const LONG: &'static [u8] = b"mary had a little lamb, little lamb, little lamb";
 const SHORT: &'static [u8] = b"hello world";
@@ -181,11 +181,11 @@ fn split_off_to_loop() {
         }
         {
             let mut bytes = BytesMut::from(&s[..]);
-            let mut off = bytes.split_off(i);
+            let off = bytes.split_off(i);
             assert_eq!(i, bytes.len());
             let mut sum = Vec::new();
-            sum.extend(&mut bytes);
-            sum.extend(&mut off);
+            sum.extend(&bytes);
+            sum.extend(&off);
             assert_eq!(&s[..], &sum[..]);
         }
         {
@@ -199,11 +199,11 @@ fn split_off_to_loop() {
         }
         {
             let mut bytes = BytesMut::from(&s[..]);
-            let mut off = bytes.split_to(i);
+            let off = bytes.split_to(i);
             assert_eq!(i, off.len());
             let mut sum = Vec::new();
-            sum.extend(&mut off);
-            sum.extend(&mut bytes);
+            sum.extend(&off);
+            sum.extend(&bytes);
             assert_eq!(&s[..], &sum[..]);
         }
     }
@@ -294,15 +294,8 @@ fn fns_defined_for_bytes_mut() {
     bytes.as_mut_ptr();
 
     // Iterator
-    let v: Vec<u8> = bytes.iter().map(|b| *b).collect();
+    let v: Vec<u8> = bytes.as_ref().iter().cloned().collect();
     assert_eq!(&v[..], bytes);
-}
-
-#[test]
-fn mut_into_buf() {
-    let mut v = vec![0, 0, 0, 0];
-    let s = &mut v[..];
-    s.into_buf().put_u32_le(42);
 }
 
 #[test]

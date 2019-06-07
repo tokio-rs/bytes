@@ -4,12 +4,11 @@ extern crate iovec;
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 use bytes::buf::Chain;
 use iovec::IoVec;
-use std::io::Cursor;
 
 #[test]
 fn collect_two_bufs() {
-    let a = Cursor::new(Bytes::from(&b"hello"[..]));
-    let b = Cursor::new(Bytes::from(&b"world"[..]));
+    let a = Bytes::from(&b"hello"[..]);
+    let b = Bytes::from(&b"world"[..]);
 
     let res: Vec<u8> = a.chain(b).collect();
     assert_eq!(res, &b"helloworld"[..]);
@@ -49,8 +48,8 @@ fn iterating_two_bufs() {
 
 #[test]
 fn vectored_read() {
-    let a = Cursor::new(Bytes::from(&b"hello"[..]));
-    let b = Cursor::new(Bytes::from(&b"world"[..]));
+    let a = Bytes::from(&b"hello"[..]);
+    let b = Bytes::from(&b"world"[..]);
 
     let mut buf = a.chain(b);
 

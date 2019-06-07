@@ -1,13 +1,13 @@
 extern crate bytes;
 
-use std::io::{BufRead, Cursor, Read};
+use std::io::{BufRead, Read};
 
 use bytes::Buf;
 
 #[test]
 fn read() {
-    let buf1 = Cursor::new(b"hello ");
-    let buf2 = Cursor::new(b"world");
+    let buf1 = &b"hello "[..];
+    let buf2 = &b"world"[..];
     let buf = Buf::chain(buf1, buf2); // Disambiguate with Read::chain
     let mut buffer = Vec::new();
     buf.reader().read_to_end(&mut buffer).unwrap();
@@ -16,8 +16,8 @@ fn read() {
 
 #[test]
 fn buf_read() {
-    let buf1 = Cursor::new(b"hell");
-    let buf2 = Cursor::new(b"o\nworld");
+    let buf1 = &b"hell"[..];
+    let buf2 = &b"o\nworld"[..];
     let mut reader = Buf::chain(buf1, buf2).reader();
     let mut line = String::new();
     reader.read_line(&mut line).unwrap();

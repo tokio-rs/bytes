@@ -5,7 +5,6 @@ extern crate test;
 
 use test::Bencher;
 use bytes::Buf;
-use std::io::Cursor;
 
 /// Dummy Buf implementation
 struct TestBuf {
@@ -120,7 +119,7 @@ macro_rules! bench {
         #[bench]
         fn $fname(b: &mut Bencher) {
             // buf must be long enough for one read of 8 bytes starting at pos 7
-            let mut buf = Cursor::new(vec![1u8; 8+7]);
+            let mut buf = [1u8; 8+7];
             b.iter(|| {
                 for i in 0..8 {
                     buf.set_position(i);
