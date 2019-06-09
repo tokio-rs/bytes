@@ -31,7 +31,7 @@ macro_rules! serde_impl {
                 let len = cmp::min(seq.size_hint().unwrap_or(0), 4096);
                 let mut values = Vec::with_capacity(len);
 
-                while let Some(value) = try!(seq.next_element()) {
+                while let Some(value) = seq.next_element()? {
                     values.push(value);
                 }
 
