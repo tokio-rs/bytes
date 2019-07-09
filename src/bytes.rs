@@ -722,7 +722,7 @@ impl Bytes {
     ///
     /// This will only succeed if there are no other outstanding references to
     /// the underlying chunk of memory. `Bytes` handles that contain inlined
-    /// bytes will always be convertable to `BytesMut`.
+    /// bytes will always be convertible to `BytesMut`.
     ///
     /// # Examples
     ///
@@ -2505,7 +2505,7 @@ impl Inner {
         // bits, so even without any explicit atomic operations, reading the
         // flag will be correct.
         //
-        // This is undefind behavior due to a data race, but experimental
+        // This is undefined behavior due to a data race, but experimental
         // evidence shows that it works in practice (discussion:
         // https://internals.rust-lang.org/t/bit-wise-reasoning-for-atomic-accesses/8853).
         //
