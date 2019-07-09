@@ -16,7 +16,7 @@ macro_rules! buf_get_impl {
             }
         };
         if let Some(ret) = ret {
-             // if the direct convertion was possible, advance and return
+             // if the direct conversion was possible, advance and return
             $this.advance($size);
             return ret;
         } else {
@@ -792,7 +792,7 @@ pub trait Buf {
     /// Transforms a `Buf` into a concrete buffer.
     ///
     /// `collect()` can operate on any value that implements `Buf`, and turn it
-    /// into the relevent concrete buffer type.
+    /// into the relevant concrete buffer type.
     ///
     /// # Examples
     ///
@@ -997,6 +997,6 @@ impl Buf for Option<[u8; 1]> {
     }
 }
 
-// The existance of this function makes the compiler catch if the Buf
+// The existence of this function makes the compiler catch if the Buf
 // trait is "object-safe" or not.
 fn _assert_trait_object(_b: &dyn Buf) {}

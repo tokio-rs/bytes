@@ -5,7 +5,7 @@ use std::io::{IoSlice, IoSliceMut};
 /// A `Chain` sequences two buffers.
 ///
 /// `Chain` is an adapter that links two underlying buffers and provides a
-/// continous view across both buffers. It is able to sequence either immutable
+/// continuous view across both buffers. It is able to sequence either immutable
 /// buffers ([`Buf`] values) or mutable buffers ([`BufMut`] values).
 ///
 /// This struct is generally created by calling [`Buf::chain`]. Please see that

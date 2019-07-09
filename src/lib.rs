@@ -9,7 +9,7 @@
 //!
 //! # `Bytes`
 //!
-//! `Bytes` is an efficient container for storing and operating on continguous
+//! `Bytes` is an efficient container for storing and operating on contiguous
 //! slices of memory. It is intended for use primarily in networking code, but
 //! could have applications elsewhere as well.
 //!

@@ -65,7 +65,7 @@ fn test_clone() {
     buf.write_str("this is a test").unwrap();
     let buf2 = buf.clone();
 
-    buf.write_str(" of our emergecy broadcast system").unwrap();
+    buf.write_str(" of our emergency broadcast system").unwrap();
     assert!(buf != buf2);
 }
 

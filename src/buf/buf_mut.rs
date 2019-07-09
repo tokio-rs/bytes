@@ -942,7 +942,7 @@ pub trait BufMut {
     ///     // Adapt reference to `std::io::Write`.
     ///     let mut writer = reference.writer();
     ///
-    ///     // Use the buffer as a writter
+    ///     // Use the buffer as a writer
     ///     io::Write::write(&mut writer, &b"hello world"[..]).unwrap();
     /// } // drop our &mut reference so that we can use `buf` again
     ///
@@ -1069,6 +1069,6 @@ impl BufMut for Vec<u8> {
     }
 }
 
-// The existance of this function makes the compiler catch if the BufMut
+// The existence of this function makes the compiler catch if the BufMut
 // trait is "object-safe" or not.
 fn _assert_trait_object(_b: &dyn BufMut) {}
