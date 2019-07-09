@@ -21,7 +21,6 @@
 
 * Add 128 bit number support behind a feature flag (#209).
 * Implement `IntoBuf` for `&mut [u8]`
->>>>>>> v0.4.x
 
 # 0.4.8 (May 25, 2018)
 
