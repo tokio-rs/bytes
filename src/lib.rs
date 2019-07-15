@@ -90,6 +90,7 @@ pub use buf::{
 
 mod bytes;
 mod debug;
+mod hex;
 pub use bytes::{Bytes, BytesMut};
 
 #[deprecated]
