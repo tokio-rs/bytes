@@ -1,7 +1,5 @@
-extern crate serde;
-
 use std::{cmp, fmt};
-use self::serde::{Serialize, Serializer, Deserialize, Deserializer, de};
+use serde::{Serialize, Serializer, Deserialize, Deserializer, de};
 use super::{Bytes, BytesMut};
 
 macro_rules! serde_impl {
@@ -20,7 +18,7 @@ macro_rules! serde_impl {
         impl<'de> de::Visitor<'de> for $visitor_ty {
             type Value = $ty;
 
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
                 formatter.write_str("byte array")
             }
 

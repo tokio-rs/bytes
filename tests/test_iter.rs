@@ -1,6 +1,6 @@
-extern crate bytes;
+#![deny(warnings, rust_2018_idioms)]
 
-use bytes::{Bytes};
+use bytes::Bytes;
 
 #[test]
 fn iter_len() {

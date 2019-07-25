@@ -1,4 +1,4 @@
-use BufMut;
+use crate::BufMut;
 
 use std::{cmp, io};
 

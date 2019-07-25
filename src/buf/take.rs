@@ -1,4 +1,4 @@
-use {Buf};
+use crate::Buf;
 
 use std::cmp;
 

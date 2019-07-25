@@ -1,4 +1,4 @@
-use {Buf, BufMut, IntoBuf, Bytes, BytesMut};
+use crate::{Buf, BufMut, IntoBuf, Bytes, BytesMut};
 
 /// Conversion from a [`Buf`]
 ///

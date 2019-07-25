@@ -1,5 +1,4 @@
-extern crate bytes;
-extern crate byteorder;
+#![deny(warnings, rust_2018_idioms)]
 
 use bytes::{BufMut, BytesMut};
 use std::usize;

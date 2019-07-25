@@ -1,9 +1,7 @@
-extern crate either;
+use crate::{Buf, BufMut};
 
-use {Buf, BufMut};
-
-use self::either::Either;
-use self::either::Either::*;
+use either::Either;
+use either::Either::*;
 use std::io::{IoSlice, IoSliceMut};
 
 impl<L, R> Buf for Either<L, R>

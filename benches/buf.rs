@@ -1,6 +1,6 @@
 #![feature(test)]
+#![deny(warnings, rust_2018_idioms)]
 
-extern crate bytes;
 extern crate test;
 
 use test::Bencher;
@@ -109,7 +109,7 @@ macro_rules! bench {
             b.iter(|| {
                 for i in 0..8 {
                     bufs[i].reset();
-                    let buf: &mut Buf =  &mut bufs[i]; // type erasure
+                    let buf: &mut dyn Buf =  &mut bufs[i]; // type erasure
                     test::black_box(buf.$method($($arg,)*));
                 }
             })
@@ -123,7 +123,7 @@ macro_rules! bench {
             b.iter(|| {
                 for i in 0..8 {
                     let mut buf = &arr[i..];
-                    let buf = &mut buf as &mut Buf; // type erasure
+                    let buf = &mut buf as &mut dyn Buf; // type erasure
                     test::black_box(buf.$method($($arg,)*));
                 }
             })
@@ -136,7 +136,7 @@ macro_rules! bench {
             b.iter(|| {
                 for _ in 0..8 {
                     let mut buf = Some(data);
-                    let buf = &mut buf as &mut Buf; // type erasure
+                    let buf = &mut buf as &mut dyn Buf; // type erasure
                     test::black_box(buf.get_u8());
                 }
             })
