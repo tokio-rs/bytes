@@ -1,6 +1,6 @@
 #![feature(test)]
+#![deny(warnings, rust_2018_idioms)]
 
-extern crate bytes;
 extern crate test;
 
 use test::Bencher;
@@ -201,7 +201,7 @@ fn slice_empty(b: &mut Bencher) {
     b.iter(|| {
         let b = Bytes::from(vec![17; 1024]).clone();
         for i in 0..1000 {
-            test::black_box(b.slice(i % 100, i % 100));
+            test::black_box(b.slice(i % 100..i % 100));
         }
     })
 }
@@ -212,7 +212,7 @@ fn slice_short_from_arc(b: &mut Bencher) {
         // `clone` is to convert to ARC
         let b = Bytes::from(vec![17; 1024]).clone();
         for i in 0..1000 {
-            test::black_box(b.slice(1, 2 + i % 10));
+            test::black_box(b.slice(1..2 + i % 10));
         }
     })
 }
@@ -231,7 +231,7 @@ fn slice_avg_le_inline_from_arc(b: &mut Bencher) {
         for i in 0..1000 {
             // [1, INLINE_CAP]
             let len = 1 + i % (INLINE_CAP - 1);
-            test::black_box(b.slice(i % 10, i % 10 + len));
+            test::black_box(b.slice(i % 10..i % 10 + len));
         }
     })
 }
@@ -244,7 +244,7 @@ fn slice_large_le_inline_from_arc(b: &mut Bencher) {
         for i in 0..1000 {
             // [INLINE_CAP - 10, INLINE_CAP]
             let len = INLINE_CAP - 9 + i % 10;
-            test::black_box(b.slice(i % 10, i % 10 + len));
+            test::black_box(b.slice(i % 10..i % 10 + len));
         }
     })
 }

@@ -1,5 +1,5 @@
 use super::{Buf};
-use ::BytesMut;
+use crate::BytesMut;
 
 /// Conversion into a `Buf`
 ///

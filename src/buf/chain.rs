@@ -1,5 +1,5 @@
-use {Buf, BufMut};
-use buf::IntoIter;
+use crate::{Buf, BufMut};
+use crate::buf::IntoIter;
 use std::io::{IoSlice, IoSliceMut};
 
 /// A `Chain` sequences two buffers.

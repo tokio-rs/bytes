@@ -68,13 +68,11 @@
 //! perform a syscall, which has the potential of failing. Operations on `Buf`
 //! and `BufMut` are infallible.
 
-#![deny(warnings, missing_docs, missing_debug_implementations)]
+#![deny(warnings, missing_docs, missing_debug_implementations, rust_2018_idioms)]
 #![doc(html_root_url = "https://docs.rs/bytes/0.5.0")]
 
-extern crate byteorder;
-
 pub mod buf;
-pub use buf::{
+pub use crate::buf::{
     Buf,
     BufMut,
     IntoBuf,
@@ -82,7 +80,7 @@ pub use buf::{
 
 mod bytes;
 mod debug;
-pub use bytes::{Bytes, BytesMut};
+pub use crate::bytes::{Bytes, BytesMut};
 
 // Optional Serde support
 #[cfg(feature = "serde")]

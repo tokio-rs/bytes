@@ -1,6 +1,6 @@
-use {Buf, BufMut, IntoBuf};
-use buf::IntoIter;
-use debug;
+use crate::{Buf, BufMut, IntoBuf};
+use crate::buf::IntoIter;
+use crate::debug;
 
 use std::{cmp, fmt, mem, hash, slice, ptr, usize};
 use std::borrow::{Borrow, BorrowMut};
@@ -852,7 +852,7 @@ impl Bytes {
     /// assert_eq!(iter.next().map(|b| *b), Some(b'c'));
     /// assert_eq!(iter.next(), None);
     /// ```
-    pub fn iter<'a>(&'a self) -> ::std::slice::Iter<'a, u8> {
+    pub fn iter<'a>(&'a self) -> std::slice::Iter<'a, u8> {
         self.bytes().iter()
     }
 }
@@ -997,7 +997,7 @@ impl Default for Bytes {
 }
 
 impl fmt::Debug for Bytes {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Debug::fmt(&debug::BsDebug(&self.inner.as_ref()), fmt)
     }
 }
@@ -1026,7 +1026,7 @@ impl IntoIterator for Bytes {
 
 impl<'a> IntoIterator for &'a Bytes {
     type Item = &'a u8;
-    type IntoIter = ::std::slice::Iter<'a, u8>;
+    type IntoIter = std::slice::Iter<'a, u8>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.as_ref().into_iter()
@@ -1534,7 +1534,7 @@ impl BytesMut {
     /// assert_eq!(iter.next().map(|b| *b), Some(b'c'));
     /// assert_eq!(iter.next(), None);
     /// ```
-    pub fn iter<'a>(&'a self) -> ::std::slice::Iter<'a, u8> {
+    pub fn iter<'a>(&'a self) -> std::slice::Iter<'a, u8> {
         self.bytes().iter()
     }
 }
@@ -1725,7 +1725,7 @@ impl Default for BytesMut {
 }
 
 impl fmt::Debug for BytesMut {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Debug::fmt(&debug::BsDebug(&self.inner.as_ref()), fmt)
     }
 }
@@ -1761,7 +1761,7 @@ impl fmt::Write for BytesMut {
     }
 
     #[inline]
-    fn write_fmt(&mut self, args: fmt::Arguments) -> fmt::Result {
+    fn write_fmt(&mut self, args: fmt::Arguments<'_>) -> fmt::Result {
         fmt::write(self, args)
     }
 }
@@ -1783,7 +1783,7 @@ impl IntoIterator for BytesMut {
 
 impl<'a> IntoIterator for &'a BytesMut {
     type Item = &'a u8;
-    type IntoIter = ::std::slice::Iter<'a, u8>;
+    type IntoIter = std::slice::Iter<'a, u8>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.as_ref().into_iter()
@@ -2818,25 +2818,25 @@ impl<'a, T: ?Sized> PartialOrd<&'a T> for BytesMut
     }
 }
 
-impl<'a> PartialEq<BytesMut> for &'a [u8] {
+impl PartialEq<BytesMut> for &[u8] {
     fn eq(&self, other: &BytesMut) -> bool {
         *other == *self
     }
 }
 
-impl<'a> PartialOrd<BytesMut> for &'a [u8] {
+impl PartialOrd<BytesMut> for &[u8] {
     fn partial_cmp(&self, other: &BytesMut) -> Option<cmp::Ordering> {
         other.partial_cmp(self)
     }
 }
 
-impl<'a> PartialEq<BytesMut> for &'a str {
+impl PartialEq<BytesMut> for &str {
     fn eq(&self, other: &BytesMut) -> bool {
         *other == *self
     }
 }
 
-impl<'a> PartialOrd<BytesMut> for &'a str {
+impl PartialOrd<BytesMut> for &str {
     fn partial_cmp(&self, other: &BytesMut) -> Option<cmp::Ordering> {
         other.partial_cmp(self)
     }
@@ -2938,25 +2938,25 @@ impl PartialOrd<Bytes> for String {
     }
 }
 
-impl<'a> PartialEq<Bytes> for &'a [u8] {
+impl PartialEq<Bytes> for &[u8] {
     fn eq(&self, other: &Bytes) -> bool {
         *other == *self
     }
 }
 
-impl<'a> PartialOrd<Bytes> for &'a [u8] {
+impl PartialOrd<Bytes> for &[u8] {
     fn partial_cmp(&self, other: &Bytes) -> Option<cmp::Ordering> {
         other.partial_cmp(self)
     }
 }
 
-impl<'a> PartialEq<Bytes> for &'a str {
+impl PartialEq<Bytes> for &str {
     fn eq(&self, other: &Bytes) -> bool {
         *other == *self
     }
 }
 
-impl<'a> PartialOrd<Bytes> for &'a str {
+impl PartialOrd<Bytes> for &str {
     fn partial_cmp(&self, other: &Bytes) -> Option<cmp::Ordering> {
         other.partial_cmp(self)
     }

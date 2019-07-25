@@ -22,6 +22,7 @@ exclude       = [
     "test/**/*"
 ]
 categories = ["network-programming", "data-structures"]
+edition = "2018"
 
 publish = false
 

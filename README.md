@@ -19,8 +19,6 @@ bytes = "0.4.12"
 Next, add this to your crate:
 
 ```rust
-extern crate bytes;
-
 use bytes::{Bytes, BytesMut, Buf, BufMut};
 ```
 
