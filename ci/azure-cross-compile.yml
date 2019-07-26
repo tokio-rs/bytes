@@ -32,12 +32,12 @@ jobs:
       parameters:
         rust_version: stable
 
-    - script: rustup target add $(target)
-      displayName: Add target
+    - script: cargo install cross
+      displayName: Install cross
 
-    - script: cargo build --target $(target)
-      displayName: cargo build
+    - script: cross build --target $(target)
+      displayName: cross build
 
     - ${{ if parameters.tests }}:
-      - script: cargo test --target $(target)
-        displayName: cargo test
+      - script: cross test --target $(target)
+        displayName: cross test
