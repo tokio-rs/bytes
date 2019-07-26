@@ -979,7 +979,7 @@ pub trait BufMut {
     }
 }
 
-impl<'a, T: BufMut + ?Sized> BufMut for &'a mut T {
+impl<T: BufMut + ?Sized> BufMut for &mut T {
     fn remaining_mut(&self) -> usize {
         (**self).remaining_mut()
     }
@@ -1015,7 +1015,7 @@ impl<T: BufMut + ?Sized> BufMut for Box<T> {
     }
 }
 
-impl<'a> BufMut for &'a mut [u8] {
+impl BufMut for &mut [u8] {
     #[inline]
     fn remaining_mut(&self) -> usize {
         self.len()
@@ -1029,7 +1029,7 @@ impl<'a> BufMut for &'a mut [u8] {
     #[inline]
     unsafe fn advance_mut(&mut self, cnt: usize) {
         // Lifetime dance taken from `impl Write for &mut [u8]`.
-        let (_, b) = ::std::mem::replace(self, &mut []).split_at_mut(cnt);
+        let (_, b) = std::mem::replace(self, &mut []).split_at_mut(cnt);
         *self = b;
     }
 }

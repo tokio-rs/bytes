@@ -1,4 +1,4 @@
-use Buf;
+use crate::Buf;
 
 /// Iterator over the bytes contained by the buffer.
 ///

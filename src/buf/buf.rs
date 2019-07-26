@@ -916,7 +916,7 @@ pub trait Buf {
     }
 }
 
-impl<'a, T: Buf + ?Sized> Buf for &'a mut T {
+impl<T: Buf + ?Sized> Buf for &mut T {
     fn remaining(&self) -> usize {
         (**self).remaining()
     }
@@ -952,7 +952,7 @@ impl<T: Buf + ?Sized> Buf for Box<T> {
     }
 }
 
-impl<'a> Buf for &'a [u8] {
+impl Buf for &[u8] {
     #[inline]
     fn remaining(&self) -> usize {
         self.len()
