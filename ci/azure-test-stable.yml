@@ -10,9 +10,6 @@ jobs:
       rust_version: stable
       os_name: ${{ parameters.os_name }}
 
-  - script: rustup target add ${{ parameters.target }}
-    displayName: Add target
-
   - script: cross build --target ${{ parameters.target }}
     displayName: Build
 
