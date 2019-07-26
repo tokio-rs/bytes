@@ -8,11 +8,10 @@ jobs:
   - template: azure-install-rust.yml
     parameters:
       rust_version: stable
-      os_name: ${{ parameters.os_name }}
 
-  - script: cross build --target ${{ parameters.target }}
-    displayName: Build
+  - script: cargo build
+    displayName: cargo build
 
   - ${{ if parameters.test }}:
-    - script: cross test --target ${{ parameters.target }}
-      displayName: Test
+    - script: cargo test
+      displayName: cargo test
