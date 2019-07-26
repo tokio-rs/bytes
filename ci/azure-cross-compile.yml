@@ -12,14 +12,14 @@ jobs:
         target: i686-unknown-linux-gnu
       armv7:
         target: armv7-unknown-linux-gnueabihf
-      powerpc:
-        target: powerpc-unknown-linux-gnu
-        env:
-          RUST_TEST_THREADS: 1
-      powerpc64:
-        target: powerpc64-unknown-linux-gnu
-        env:
-          RUST_TEST_THREADS: 1
+      # powerpc:
+      #   target: powerpc-unknown-linux-gnu
+      #   env:
+      #     RUST_TEST_THREADS: 1
+      # powerpc64:
+      #   target: powerpc64-unknown-linux-gnu
+      #   env:
+      #     RUST_TEST_THREADS: 1
   pool:
     vmImage: $(vmImage)
 
@@ -34,6 +34,6 @@ jobs:
     - script: cargo build --target $(target)
       displayName: cargo build
 
-    - ${{ if parameters.test }}:
+    - ${{ if parameters.tests }}:
       - script: cargo test --target $(target)
         displayName: cargo test

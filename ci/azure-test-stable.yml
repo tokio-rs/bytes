@@ -26,6 +26,6 @@ jobs:
   - script: cargo build
     displayName: cargo build
 
-  - ${{ if parameters.test }}:
+  - ${{ if parameters.tests }}:
     - script: cargo test
       displayName: cargo test
