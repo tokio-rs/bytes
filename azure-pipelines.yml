@@ -10,4 +10,14 @@ jobs:
   parameters:
     name: minrust
     rust_version: 1.36.0
-    test: true
+
+# Stable
+- template: ci/azure-test-stable.yml
+  parameters:
+    name: stable
+    cross: true
+
+# Run tests on some extra platforms
+- template: ci/azure-cross-compile.yml
+  parameters:
+    name: cross

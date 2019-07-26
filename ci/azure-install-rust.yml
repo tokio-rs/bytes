@@ -13,22 +13,20 @@ steps:
     condition: not(eq(variables['Agent.OS'], 'Windows_NT'))
 
   # Windows.
-  # - script: |
-  #     curl -sSf -o rustup-init.exe https://win.rustup.rs
-  #     rustup-init.exe -y --default-toolchain none
-  #     set PATH=%PATH%;%USERPROFILE%\.cargo\bin
-  #     rustup toolchain install %RUSTUP_TOOLCHAIN%
-  #     rustup default %RUSTUP_TOOLCHAIN%
-  #     echo "##vso[task.setvariable variable=PATH;]%PATH%;%USERPROFILE%\.cargo\bin"
-  #   env:
-  #     RUSTUP_TOOLCHAIN: ${{parameters.rust_version}}
-  #   displayName: "Install rust (windows)"
-  #   condition: eq(variables['Agent.OS'], 'Windows_NT')
+  - script: |
+      curl -sSf -o rustup-init.exe https://win.rustup.rs
+      rustup-init.exe -y --default-toolchain none
+      set PATH=%PATH%;%USERPROFILE%\.cargo\bin
+      rustup toolchain install %RUSTUP_TOOLCHAIN%
+      rustup default %RUSTUP_TOOLCHAIN%
+      echo "##vso[task.setvariable variable=PATH;]%PATH%;%USERPROFILE%\.cargo\bin"
+    env:
+      RUSTUP_TOOLCHAIN: ${{parameters.rust_version}}
+    displayName: "Install rust (windows)"
+    condition: eq(variables['Agent.OS'], 'Windows_NT')
 
   # All platforms.
   - script: |
-        rustup toolchain install nightly
-        rustup update
         rustup toolchain list
         rustc -Vv
         cargo -V
