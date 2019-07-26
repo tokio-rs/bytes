@@ -1,19 +1,14 @@
-# Starter pipeline
-# Start with a minimal pipeline that you can customize to build and deploy your code.
-# Add steps that build, run tests, deploy, and more:
-# https://aka.ms/yaml
+trigger: ["master"]
+pr: ["master"]
 
-trigger:
-- master
-
-pool:
-  vmImage: 'ubuntu-latest'
-
-steps:
-- script: echo Hello, world!
-  displayName: 'Run a one-line script'
-
-- script: |
-    echo Add other tasks to build, test, and deploy your project.
-    echo See https://aka.ms/yaml
-  displayName: 'Run a multi-line script'
+jobs:
+# Run build on oldest supported rust version. Do not change the rust
+# version without a Github issue first.
+#
+# This job will also build and deploy the docs to gh-pages.
+- template: ci/azure-test-stable.yml
+  parameters:
+    name: minrust
+    rust_version: 1.36.0
+    os_name: linux
+    test: true

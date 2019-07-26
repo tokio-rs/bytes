@@ -2,10 +2,10 @@ set -ex
 
 main() {
     curl https://sh.rustup.rs -sSf | \
-        sh -s -- -y --default-toolchain $TRAVIS_RUST_VERSION
+        sh -s -- -y --default-toolchain $RUSTUP_TOOLCHAIN
 
     local target=
-    if [ $TRAVIS_OS_NAME = linux ]; then
+    if [ $OS_NAME = linux ]; then
         target=x86_64-unknown-linux-gnu
         sort=sort
     else

@@ -1,0 +1,9 @@
+steps:
+  - script: |
+      set -e
+      sh ci/install.sh
+      source ~/.cargo/env || true
+    env:
+      RUSTUP_TOOLCHAIN: ${{ parameters.rust_version }}
+      OS_NAME: ${{ parameters.os_name }}
+    displayName: "Install rust"
