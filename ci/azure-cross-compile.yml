@@ -17,13 +17,11 @@ jobs:
       powerpc:
         vmImage: ubuntu-16.04
         target: powerpc-unknown-linux-gnu
-        env:
-          RUST_TEST_THREADS: 1
+        env: RUST_TEST_THREADS=1
       powerpc64:
         vmImage: ubuntu-16.04
         target: powerpc64-unknown-linux-gnu
-        env:
-          RUST_TEST_THREADS: 1
+        env: RUST_TEST_THREADS=1
       wasm:
         vmImage: ubuntu-16.04
         target: wasm32-unknown-unknown
