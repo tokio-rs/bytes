@@ -45,8 +45,8 @@ jobs:
       displayName: Install cross
       condition: not(eq(variables['target'], 'wasm32-unknown-unknown'))
 
-    - script: cargo ${{ parameters.cmd }} --target $(target)
-      displayName: cargo ${{ parameters.cmd }} --target $(target)
+    - script: cross ${{ parameters.cmd }} --target $(target)
+      displayName: cross ${{ parameters.cmd }} --target $(target)
       condition: not(eq(variables['target'], 'wasm32-unknown-unknown'))
 
     # WASM support
