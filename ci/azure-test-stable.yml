@@ -1,7 +1,7 @@
 parameters:
-  tests: true
+  cmd: test
   rust_version: stable
-  extra_args: ""
+  features: []
 
 jobs:
 - job: ${{ parameters.name }}
@@ -24,12 +24,18 @@ jobs:
     parameters:
       rust_version: ${{parameters.rust_version}}
 
-  - script: cargo build ${{parameters.extra_args}}
-    displayName: cargo build
+  # Run with default crate features
+  - script: cargo ${{ parameters.cmd }}
+    displayName: cargo ${{ parameters.cmd }}
 
-  - ${{ if parameters.tests }}:
-    - script: cargo test ${{parameters.extra_args}}
-      displayName: cargo test
+  # Run with each specified feature
+  - ${{ each feature in features.value }}:
+    - script: cargo ${{ parameters.cmd }} --features ${{ feature }}
+      displayName: cargo ${{ parameters.cmd }} --tests --features ${{ feature }}
+
+  - ${{ if eq(parameters.cmd, 'test') }}:
+    - script: cargo doc --no-deps
+      displayName: cargo doc --no-deps
 
   - ${{ if parameters.benches }}:
     - script: cargo check --benches

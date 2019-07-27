@@ -2,18 +2,37 @@ trigger: ["master"]
 pr: ["master"]
 
 jobs:
-# Run build on oldest supported rust version. Do not change the rust
-# version without a Github issue first.
+# Check formatting
+# - template: ci/azure-rustfmt.yml
+#   parameters:
+#     name: rustfmt
+
+# Apply clippy lints to all crates
+# - template: ci/azure-clippy.yml
+#   parameters:
+#     name: clippy
+
+# This represents the minimum Rust version supported by
+# Bytes. Updating this should be done in a dedicated PR.
+#
+# Tests are not run as tests may require newer versions of
+# rust.
 - template: ci/azure-test-stable.yml
   parameters:
     name: minrust
     rust_version: 1.36.0
+    cmd: check
+    cross: true
 
 # Stable
 - template: ci/azure-test-stable.yml
   parameters:
     name: stable
     cross: true
+    features:
+      - serde
+      - i128
+      - either
 
 # Nightly
 - template: ci/azure-test-stable.yml
@@ -27,24 +46,6 @@ jobs:
 - template: ci/azure-cross-compile.yml
   parameters:
     name: cross
-
-# Serde implementation
-- template: ci/azure-test-stable.yml
-  parameters:
-    name: serde
-    extra_args: "--features serde"
-
-# 128 bit numbers
-- template: ci/azure-test-stable.yml
-  parameters:
-    name: i128
-    extra_args: "--features i128"
-
-# `Either` impls
-- template: ci/azure-test-stable.yml
-  parameters:
-    name: either
-    extra_args: "--features either"
 
 # Sanitizers
 - template: ci/azure-tsan.yml
