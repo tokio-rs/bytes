@@ -1,6 +1,7 @@
 parameters:
   tests: true
   rust_version: stable
+  extra_args: ""
 
 jobs:
 - job: ${{ parameters.name }}
@@ -23,9 +24,9 @@ jobs:
     parameters:
       rust_version: ${{parameters.rust_version}}
 
-  - script: cargo build
+  - script: cargo build $(extra_args)
     displayName: cargo build
 
   - ${{ if parameters.tests }}:
-    - script: cargo test
+    - script: cargo test $(extra_args)
       displayName: cargo test

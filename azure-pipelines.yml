@@ -22,6 +22,24 @@ jobs:
   parameters:
     name: cross
 
+# Serde implementation
+- template: ci/azure-test-stable.yml
+  parameters:
+    name: serde
+    extra_args: "--features serde"
+
+# 128 bit numbers
+- template: ci/azure-test-stable.yml
+  parameters:
+    name: i128
+    extra_args: "--features i128"
+
+# `Either` impls
+- template: ci/azure-test-stable.yml
+  parameters:
+    name: either
+    extra_args: "--features either"
+
 # Sanitizers
 - template: ci/azure-tsan.yml
   parameters:
