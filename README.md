@@ -3,7 +3,7 @@
 A utility library for working with bytes.
 
 [![Crates.io](https://img.shields.io/crates/v/bytes.svg?maxAge=2592000)](https://crates.io/crates/bytes)
-[![Build Status](https://travis-ci.org/tokio-rs/bytes.svg?branch=master)](https://travis-ci.org/tokio-rs/bytes)
+[![Build Status](https://dev.azure.com/tokio-rs/bytes/_apis/build/status/tokio-rs.tokio?branchName=master)](https://dev.azure.com/tokio-rs/bytes/_build/latest?definitionId=1&branchName=master)
 
 [Documentation](https://docs.rs/bytes)
 
