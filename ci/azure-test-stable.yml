@@ -29,7 +29,7 @@ jobs:
     displayName: cargo ${{ parameters.cmd }}
 
   # Run with each specified feature
-  - ${{ each feature in features.value }}:
+  - ${{ each feature in parameters.features.value }}:
     - script: cargo ${{ parameters.cmd }} --features ${{ feature }}
       displayName: cargo ${{ parameters.cmd }} --tests --features ${{ feature }}
 
