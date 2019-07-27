@@ -22,7 +22,6 @@ jobs:
     name: minrust
     rust_version: 1.36.0
     cmd: check
-    cross: true
 
 # Stable
 - template: ci/azure-test-stable.yml
