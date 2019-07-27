@@ -17,7 +17,6 @@ keywords      = ["buffers", "zero-copy", "io"]
 exclude       = [
     ".gitignore",
     "azure-pipelines.yml",
-    "deploy.sh",
     "bench/**/*",
     "test/**/*",
     "ci/**/*"
