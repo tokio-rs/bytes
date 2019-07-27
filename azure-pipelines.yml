@@ -7,7 +7,7 @@ jobs:
 #   parameters:
 #     name: rustfmt
 
-# Apply clippy lints to all crates
+# Apply clippy lints
 # - template: ci/azure-clippy.yml
 #   parameters:
 #     name: clippy

@@ -16,7 +16,6 @@ readme        = "README.md"
 keywords      = ["buffers", "zero-copy", "io"]
 exclude       = [
     ".gitignore",
-    ".travis.yml",
     "azure-pipelines.yml",
     "deploy.sh",
     "bench/**/*",
