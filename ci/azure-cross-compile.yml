@@ -32,7 +32,13 @@ jobs:
       parameters:
         rust_version: stable
 
-    - script: cargo install cross
+    # https://nbsoftsolutions.com/blog/azure-pipelines-for-rust-projects#workaround-cross-compilation
+    - script: |
+        git clone https://github.com/rust-embedded/cross.git
+        cd cross
+        git apply ../ci/cross-patch
+        cargo install --path .
+        rm -rf cross
       displayName: Install cross
 
     - script: cross build --target $(target)
