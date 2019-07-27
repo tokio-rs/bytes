@@ -1,5 +1,5 @@
 parameters:
-  tests: true
+  cmd: test
   rust_version: stable
   vmImage: ubuntu-16.04
 
@@ -24,6 +24,9 @@ jobs:
       #   target: powerpc64-unknown-linux-gnu
       #   env:
       #     RUST_TEST_THREADS: 1
+      wasm:
+        vmImage: ubuntu-16.04
+        target: wasm32-unknown-unknown
   pool:
     vmImage: $(vmImage)
 
@@ -40,10 +43,15 @@ jobs:
         cargo install --path .
         rm -rf cross
       displayName: Install cross
+      condition: not(eq(variables['target'], 'wasm32-unknown-unknown'))
 
-    - script: cross build --target $(target)
-      displayName: cross build
+    - script: cargo ${{ parameters.cmd }} --target $(target)
+      displayName: cargo ${{ parameters.cmd }} --target $(target)
+      condition: not(eq(variables['target'], 'wasm32-unknown-unknown'))
 
-    - ${{ if parameters.tests }}:
-      - script: cross test --target $(target)
-        displayName: cross test
+    # WASM support
+    - script: |
+        rustup target add $(target)
+        cargo build --target $(target)
+      displayName: cargo build --target $(target)
+      condition: eq(variables['target'], 'wasm32-unknown-unknown')
