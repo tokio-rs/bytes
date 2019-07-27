@@ -24,11 +24,11 @@ jobs:
     parameters:
       rust_version: ${{parameters.rust_version}}
 
-  - script: cargo build $(extra_args)
+  - script: cargo build ${{parameters.extra_args}}
     displayName: cargo build
 
   - ${{ if parameters.tests }}:
-    - script: cargo test $(extra_args)
+    - script: cargo test ${{parameters.extra_args}}
       displayName: cargo test
 
   - ${{ if parameters.benches }}:
