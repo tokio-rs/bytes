@@ -30,3 +30,7 @@ jobs:
   - ${{ if parameters.tests }}:
     - script: cargo test $(extra_args)
       displayName: cargo test
+
+  - ${{ if parameters.benches }}:
+    - script: cargo check --benches
+      displayName: Check benchmarks
