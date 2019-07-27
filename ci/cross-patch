@@ -1,7 +1,3 @@
----
- src/docker.rs | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
 diff --git a/src/docker.rs b/src/docker.rs
 index 1525b87..5c9cd54 100644
 --- a/src/docker.rs
@@ -24,5 +20,3 @@ index 1525b87..5c9cd54 100644
          .args(&["sh", "-c", &format!("PATH=$PATH:/rust/bin {:?}", cmd)])
          .run_and_get_status(verbose)
  }
---
-2.22.0

@@ -30,7 +30,10 @@ jobs:
       parameters:
         rust_version: ${{parameters.rust_version}}
 
-    # https://nbsoftsolutions.com/blog/azure-pipelines-for-rust-projects#workaround-cross-compilation
+    # FIXME(taiki-e): When https://github.com/rust-embedded/cross/pull/169 is
+    # merged, switch to the installation from crates.io.
+    # See https://nbsoftsolutions.com/blog/azure-pipelines-for-rust-projects#workaround-cross-compilation
+    # for the current script.
     - script: |
         git clone https://github.com/rust-embedded/cross.git
         cd cross
