@@ -17,9 +17,11 @@ keywords      = ["buffers", "zero-copy", "io"]
 exclude       = [
     ".gitignore",
     ".travis.yml",
+    "azure-pipelines.yml",
     "deploy.sh",
     "bench/**/*",
-    "test/**/*"
+    "test/**/*",
+    "ci/**/*"
 ]
 categories = ["network-programming", "data-structures"]
 edition = "2018"
