@@ -24,5 +24,3 @@ jobs:
       RUSTFLAGS="-Z sanitizer=thread" \
       cargo test --tests --target x86_64-unknown-linux-gnu
     displayName: TSAN / MSAN
-    env:
-      TSAN: yes
