@@ -21,3 +21,9 @@ jobs:
 - template: ci/azure-cross-compile.yml
   parameters:
     name: cross
+
+# Sanitizers
+- template: ci/azure-tsan.yml
+  parameters:
+    name: tsan
+    rust_version: nightly
