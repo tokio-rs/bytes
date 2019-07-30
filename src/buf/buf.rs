@@ -1,11 +1,32 @@
-use super::{IntoBuf, Take, Reader, FromBuf, Chain};
+use super::{Chain, FromBuf, IntoBuf, Reader, Take};
 use byteorder::{BigEndian, ByteOrder, LittleEndian};
 
 use std::{cmp, io::IoSlice, ptr};
 
+/// An error which occurred while attempting
+/// to get a value from a [`Buf`](trait.Buf.html).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TryGetError {
+    /// Indicates that there were not enough remaining
+    /// bytes in the buffer to read a value.
+    NotEnoughBytes,
+}
+
+impl std::fmt::Display for TryGetError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+        match self {
+            TryGetError::NotEnoughBytes => write!(f, "Not enough bytes in buffer to read value")?,
+        }
+
+        Ok(())
+    }
+}
+
+impl std::error::Error for TryGetError {}
+
 macro_rules! buf_get_impl {
-    ($this:ident, $size:expr, $conv:path) => ({
-         // try to convert directly from the bytes
+    ($this:ident, $size:expr, $conv:path) => {{
+        // try to convert directly from the bytes
         let ret = {
             // this Option<ret> trick is to avoid keeping a borrow on self
             // when advance() is called (mut borrow) and to call bytes() only once
@@ -16,7 +37,7 @@ macro_rules! buf_get_impl {
             }
         };
         if let Some(ret) = ret {
-             // if the direct conversion was possible, advance and return
+            // if the direct conversion was possible, advance and return
             $this.advance($size);
             return ret;
         } else {
@@ -25,14 +46,24 @@ macro_rules! buf_get_impl {
             $this.copy_to_slice(&mut buf); // (do the advance)
             return $conv(&buf);
         }
-    });
-    ($this:ident, $buf_size:expr, $conv:path, $len_to_read:expr) => ({
+    }};
+    ($this:ident, $buf_size:expr, $conv:path, $len_to_read:expr) => {{
         // The same trick as above does not improve the best case speed.
         // It seems to be linked to the way the method is optimised by the compiler
         let mut buf = [0; ($buf_size)];
         $this.copy_to_slice(&mut buf[..($len_to_read)]);
         return $conv(&buf[..($len_to_read)], $len_to_read);
-    });
+    }};
+}
+
+macro_rules! buf_try_get_impl {
+    ($this:ident, $size:expr, $method:ident) => {{
+        if $this.remaining() < $size {
+            return Err(TryGetError::NotEnoughBytes);
+        }
+
+        return Ok($this.$method());
+    }};
 }
 
 /// Read bytes from a buffer.
@@ -241,8 +272,7 @@ pub trait Buf {
                 let src = self.bytes();
                 cnt = cmp::min(src.len(), dst.len() - off);
 
-                ptr::copy_nonoverlapping(
-                    src.as_ptr(), dst[off..].as_mut_ptr(), cnt);
+                ptr::copy_nonoverlapping(src.as_ptr(), dst[off..].as_mut_ptr(), cnt);
 
                 off += cnt;
             }
@@ -789,6 +819,144 @@ pub trait Buf {
         buf_get_impl!(self, 8, LittleEndian::read_f64);
     }
 
+    fn try_copy_to_slice(&mut self, dst: &mut [u8]) -> Result<(), TryGetError> {
+        if self.remaining() < dst.len() {
+            return Err(TryGetError::NotEnoughBytes);
+        }
+
+        self.copy_to_slice(dst);
+
+        Ok(())
+    }
+
+    fn try_get_u8(&mut self) -> Result<u8, TryGetError> {
+        if !self.has_remaining() {
+            return Err(TryGetError::NotEnoughBytes);
+        }
+
+        Ok(self.get_u8())
+    }
+
+    fn try_get_i8(&mut self) -> Result<i8, TryGetError> {
+        if !self.has_remaining() {
+            return Err(TryGetError::NotEnoughBytes);
+        }
+
+        Ok(self.get_i8())
+    }
+
+    fn try_get_u16(&mut self) -> Result<u16, TryGetError> {
+        buf_try_get_impl!(self, 2, get_u16);
+    }
+
+    fn try_get_u16_le(&mut self) -> Result<u16, TryGetError> {
+        buf_try_get_impl!(self, 2, get_u16_le);
+    }
+
+    fn try_get_i16(&mut self) -> Result<i16, TryGetError> {
+        buf_try_get_impl!(self, 2, get_i16);
+    }
+
+    fn try_get_i16_le(&mut self) -> Result<i16, TryGetError> {
+        buf_try_get_impl!(self, 2, get_i16_le);
+    }
+
+    fn try_get_u32(&mut self) -> Result<u32, TryGetError> {
+        buf_try_get_impl!(self, 4, get_u32);
+    }
+
+    fn try_get_u32_le(&mut self) -> Result<u32, TryGetError> {
+        buf_try_get_impl!(self, 4, get_u32_le);
+    }
+
+    fn try_get_i32(&mut self) -> Result<i32, TryGetError> {
+        buf_try_get_impl!(self, 4, get_i32);
+    }
+
+    fn try_get_i32_le(&mut self) -> Result<i32, TryGetError> {
+        buf_try_get_impl!(self, 4, get_i32_le);
+    }
+
+    fn try_get_u64(&mut self) -> Result<u64, TryGetError> {
+        buf_try_get_impl!(self, 8, get_u64);
+    }
+
+    fn try_get_u64_le(&mut self) -> Result<u64, TryGetError> {
+        buf_try_get_impl!(self, 8, get_u64_le);
+    }
+
+    fn try_get_i64(&mut self) -> Result<i64, TryGetError> {
+        buf_try_get_impl!(self, 8, get_i64);
+    }
+
+    fn try_get_i64_le(&mut self) -> Result<i64, TryGetError> {
+        buf_try_get_impl!(self, 8, get_i64_le);
+    }
+
+    #[cfg(feature = "i128")]
+    fn try_get_u128(&mut self) -> Result<u128, TryGetError> {
+        buf_try_get_impl!(self, 16, get_u128);
+    }
+
+    #[cfg(feature = "i128")]
+    fn try_get_u128_le(&mut self) -> Result<u128, TryGetError> {
+        buf_try_get_impl!(self, 16, get_u128_le);
+    }
+
+    #[cfg(feature = "i128")]
+    fn try_get_i128(&mut self) -> Result<i128, TryGetError> {
+        buf_try_get_impl!(self, 16, get_i128);
+    }
+
+    #[cfg(feature = "i128")]
+    fn try_get_i128_le(&mut self) -> Result<i128, TryGetError> {
+        buf_try_get_impl!(self, 16, get_i128_le);
+    }
+
+    fn try_get_uint(&mut self, nbytes: usize) -> Result<u64, TryGetError> {
+        if self.remaining() < nbytes {
+            return Err(TryGetError::NotEnoughBytes);
+        }
+        Ok(self.get_uint(nbytes))
+    }
+
+    fn try_get_uint_le(&mut self, nbytes: usize) -> Result<u64, TryGetError> {
+        if self.remaining() < nbytes {
+            return Err(TryGetError::NotEnoughBytes);
+        }
+        Ok(self.get_uint_le(nbytes))
+    }
+
+    fn try_get_int(&mut self, nbytes: usize) -> Result<i64, TryGetError> {
+        if self.remaining() < nbytes {
+            return Err(TryGetError::NotEnoughBytes);
+        }
+        Ok(self.get_int(nbytes))
+    }
+
+    fn try_get_int_le(&mut self, nbytes: usize) -> Result<i64, TryGetError> {
+        if self.remaining() < nbytes {
+            return Err(TryGetError::NotEnoughBytes);
+        }
+        Ok(self.get_int_le(nbytes))
+    }
+
+    fn try_get_f32(&mut self) -> Result<f32, TryGetError> {
+        buf_try_get_impl!(self, 4, get_f32);
+    }
+
+    fn try_get_f32_le(&mut self) -> Result<f32, TryGetError> {
+        buf_try_get_impl!(self, 4, get_f32_le);
+    }
+
+    fn try_get_f64(&mut self) -> Result<f64, TryGetError> {
+        buf_try_get_impl!(self, 8, get_f64);
+    }
+
+    fn try_get_f64_le(&mut self) -> Result<f64, TryGetError> {
+        buf_try_get_impl!(self, 8, get_f64_le);
+    }
+
     /// Transforms a `Buf` into a concrete buffer.
     ///
     /// `collect()` can operate on any value that implements `Buf`, and turn it
@@ -807,8 +975,9 @@ pub trait Buf {
     /// assert_eq!(vec, b"hello world");
     /// ```
     fn collect<B>(self) -> B
-        where Self: Sized,
-              B: FromBuf,
+    where
+        Self: Sized,
+        B: FromBuf,
     {
         B::from_buf(self)
     }
@@ -835,7 +1004,8 @@ pub trait Buf {
     /// assert_eq!(dst, b" world");
     /// ```
     fn take(self, limit: usize) -> Take<Self>
-        where Self: Sized
+    where
+        Self: Sized,
     {
         super::take::new(self, limit)
     }
@@ -856,8 +1026,9 @@ pub trait Buf {
     /// assert_eq!(full, b"hello world");
     /// ```
     fn chain<U>(self, next: U) -> Chain<Self, U::Buf>
-        where U: IntoBuf,
-              Self: Sized,
+    where
+        U: IntoBuf,
+        Self: Sized,
     {
         Chain::new(self, next.into_buf())
     }
@@ -884,7 +1055,10 @@ pub trait Buf {
     /// dst.put(&mut buf);
     /// assert_eq!(dst, &b" world"[..]);
     /// ```
-    fn by_ref(&mut self) -> &mut Self where Self: Sized {
+    fn by_ref(&mut self) -> &mut Self
+    where
+        Self: Sized,
+    {
         self
     }
 
@@ -911,7 +1085,10 @@ pub trait Buf {
     /// assert_eq!(11, num);
     /// assert_eq!(&dst[..11], &b"hello world"[..]);
     /// ```
-    fn reader(self) -> Reader<Self> where Self: Sized {
+    fn reader(self) -> Reader<Self>
+    where
+        Self: Sized,
+    {
         super::reader::new(self)
     }
 }
@@ -979,7 +1156,8 @@ impl Buf for Option<[u8; 1]> {
     }
 
     fn bytes(&self) -> &[u8] {
-        self.as_ref().map(AsRef::as_ref)
+        self.as_ref()
+            .map(AsRef::as_ref)
             .unwrap_or(Default::default())
     }
 
