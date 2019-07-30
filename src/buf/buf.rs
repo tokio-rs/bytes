@@ -539,7 +539,6 @@ pub trait Buf {
 
     /// Gets an unsigned 128 bit integer from `self` in big-endian byte order.
     ///
-    /// **NOTE:** This method requires the `i128` feature.
     /// The current position is advanced by 16.
     ///
     /// # Examples
@@ -554,14 +553,12 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
-    #[cfg(feature = "i128")]
     fn get_u128(&mut self) -> u128 {
         buf_get_impl!(self, 16, BigEndian::read_u128);
     }
 
     /// Gets an unsigned 128 bit integer from `self` in little-endian byte order.
     ///
-    /// **NOTE:** This method requires the `i128` feature.
     /// The current position is advanced by 16.
     ///
     /// # Examples
@@ -576,14 +573,12 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
-    #[cfg(feature = "i128")]
     fn get_u128_le(&mut self) -> u128 {
         buf_get_impl!(self, 16, LittleEndian::read_u128);
     }
 
     /// Gets a signed 128 bit integer from `self` in big-endian byte order.
     ///
-    /// **NOTE:** This method requires the `i128` feature.
     /// The current position is advanced by 16.
     ///
     /// # Examples
@@ -598,14 +593,12 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
-    #[cfg(feature = "i128")]
     fn get_i128(&mut self) -> i128 {
         buf_get_impl!(self, 16, BigEndian::read_i128);
     }
 
     /// Gets a signed 128 bit integer from `self` in little-endian byte order.
     ///
-    /// **NOTE:** This method requires the `i128` feature.
     /// The current position is advanced by 16.
     ///
     /// # Examples
@@ -620,7 +613,6 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
-    #[cfg(feature = "i128")]
     fn get_i128_le(&mut self) -> i128 {
         buf_get_impl!(self, 16, LittleEndian::read_i128);
     }

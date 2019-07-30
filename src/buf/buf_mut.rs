@@ -625,7 +625,6 @@ pub trait BufMut {
 
     /// Writes an unsigned 128 bit integer to `self` in the big-endian byte order.
     ///
-    /// **NOTE:** This method requires the `i128` feature.
     /// The current position is advanced by 16.
     ///
     /// # Examples
@@ -642,7 +641,6 @@ pub trait BufMut {
     ///
     /// This function panics if there is not enough remaining capacity in
     /// `self`.
-    #[cfg(feature = "i128")]
     fn put_u128(&mut self, n: u128) {
         let mut buf = [0; 16];
         BigEndian::write_u128(&mut buf, n);
@@ -651,7 +649,6 @@ pub trait BufMut {
 
     /// Writes an unsigned 128 bit integer to `self` in little-endian byte order.
     ///
-    /// **NOTE:** This method requires the `i128` feature.
     /// The current position is advanced by 16.
     ///
     /// # Examples
@@ -668,7 +665,6 @@ pub trait BufMut {
     ///
     /// This function panics if there is not enough remaining capacity in
     /// `self`.
-    #[cfg(feature = "i128")]
     fn put_u128_le(&mut self, n: u128) {
         let mut buf = [0; 16];
         LittleEndian::write_u128(&mut buf, n);
@@ -677,7 +673,6 @@ pub trait BufMut {
 
     /// Writes a signed 128 bit integer to `self` in the big-endian byte order.
     ///
-    /// **NOTE:** This method requires the `i128` feature.
     /// The current position is advanced by 16.
     ///
     /// # Examples
@@ -694,7 +689,6 @@ pub trait BufMut {
     ///
     /// This function panics if there is not enough remaining capacity in
     /// `self`.
-    #[cfg(feature = "i128")]
     fn put_i128(&mut self, n: i128) {
         let mut buf = [0; 16];
         BigEndian::write_i128(&mut buf, n);
@@ -703,7 +697,6 @@ pub trait BufMut {
 
     /// Writes a signed 128 bit integer to `self` in little-endian byte order.
     ///
-    /// **NOTE:** This method requires the `i128` feature.
     /// The current position is advanced by 16.
     ///
     /// # Examples
@@ -720,7 +713,6 @@ pub trait BufMut {
     ///
     /// This function panics if there is not enough remaining capacity in
     /// `self`.
-    #[cfg(feature = "i128")]
     fn put_i128_le(&mut self, n: i128) {
         let mut buf = [0; 16];
         LittleEndian::write_i128(&mut buf, n);

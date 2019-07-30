@@ -30,7 +30,6 @@ jobs:
     cross: true
     features:
       - serde
-      - i128
       - either
 
 # Nightly
