@@ -15,10 +15,8 @@ pub enum TryGetError {
 impl std::fmt::Display for TryGetError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
         match self {
-            TryGetError::NotEnoughBytes => write!(f, "Not enough bytes in buffer to read value")?,
+            TryGetError::NotEnoughBytes => write!(f, "Not enough bytes in buffer to read value"),
         }
-
-        Ok(())
     }
 }
 
