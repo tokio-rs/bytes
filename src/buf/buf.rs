@@ -1,11 +1,30 @@
-use super::{IntoBuf, Take, Reader, FromBuf, Chain};
+use super::{Chain, FromBuf, IntoBuf, Reader, Take};
 use byteorder::{BigEndian, ByteOrder, LittleEndian};
 
 use std::{cmp, io::IoSlice, ptr};
 
+/// An error which occurred while attempting
+/// to get a value from a [`Buf`](trait.Buf.html).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TryGetError {
+    /// Indicates that there were not enough remaining
+    /// bytes in the buffer to read a value.
+    NotEnoughBytes,
+}
+
+impl std::fmt::Display for TryGetError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+        match self {
+            TryGetError::NotEnoughBytes => write!(f, "Not enough bytes in buffer to read value"),
+        }
+    }
+}
+
+impl std::error::Error for TryGetError {}
+
 macro_rules! buf_get_impl {
-    ($this:ident, $size:expr, $conv:path) => ({
-         // try to convert directly from the bytes
+    ($this:ident, $size:expr, $conv:path) => {{
+        // try to convert directly from the bytes
         let ret = {
             // this Option<ret> trick is to avoid keeping a borrow on self
             // when advance() is called (mut borrow) and to call bytes() only once
@@ -16,7 +35,7 @@ macro_rules! buf_get_impl {
             }
         };
         if let Some(ret) = ret {
-             // if the direct conversion was possible, advance and return
+            // if the direct conversion was possible, advance and return
             $this.advance($size);
             return ret;
         } else {
@@ -25,14 +44,24 @@ macro_rules! buf_get_impl {
             $this.copy_to_slice(&mut buf); // (do the advance)
             return $conv(&buf);
         }
-    });
-    ($this:ident, $buf_size:expr, $conv:path, $len_to_read:expr) => ({
+    }};
+    ($this:ident, $buf_size:expr, $conv:path, $len_to_read:expr) => {{
         // The same trick as above does not improve the best case speed.
         // It seems to be linked to the way the method is optimised by the compiler
         let mut buf = [0; ($buf_size)];
         $this.copy_to_slice(&mut buf[..($len_to_read)]);
         return $conv(&buf[..($len_to_read)], $len_to_read);
-    });
+    }};
+}
+
+macro_rules! buf_try_get_impl {
+    ($this:ident, $size:expr, $method:ident) => {{
+        if $this.remaining() < $size {
+            return Err(TryGetError::NotEnoughBytes);
+        }
+
+        return Ok($this.$method());
+    }};
 }
 
 /// Read bytes from a buffer.
@@ -44,6 +73,11 @@ macro_rules! buf_get_impl {
 /// bytes.
 ///
 /// The simplest `Buf` is a `&[u8]`.
+///
+/// Two sets of methods are provided for reading values:
+/// `get_*` and `try_get_*`. When there are not enough
+/// remaining bytes in the buffer to read a value, the `get_*`
+/// methods panic, while the `try_get_*` methods return a [`TryGetError`](enum.TryGetError.html).
 ///
 /// ```
 /// use bytes::Buf;
@@ -241,8 +275,7 @@ pub trait Buf {
                 let src = self.bytes();
                 cnt = cmp::min(src.len(), dst.len() - off);
 
-                ptr::copy_nonoverlapping(
-                    src.as_ptr(), dst[off..].as_mut_ptr(), cnt);
+                ptr::copy_nonoverlapping(src.as_ptr(), dst[off..].as_mut_ptr(), cnt);
 
                 off += cnt;
             }
@@ -781,6 +814,778 @@ pub trait Buf {
         buf_get_impl!(self, 8, LittleEndian::read_f64);
     }
 
+    /// Copies bytes from `self` into `dst`.
+    ///
+    /// If the operation succeeds, the
+    /// cursor is advanced by the number of bytes copied.
+    ///
+    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are
+    /// not enough remaining bytes to fill `dst`. In this event,
+    /// `dst` is not mutated.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Buf;
+    ///
+    /// let mut buf = &b"hello world"[..];
+    /// let mut dst = [0; 5];
+    ///
+    /// buf.try_copy_to_slice(&mut dst).unwrap();
+    /// assert_eq!(&b"hello"[..], &dst);
+    /// assert_eq!(6, buf.remaining());
+    /// ```
+    ///
+    /// ```
+    /// use bytes::Buf;
+    /// let mut buf = &b"he"[..];
+    /// let mut dst = [0; 5];
+    ///
+    /// assert!(buf.try_copy_to_slice(&mut dst).is_err());
+    /// ```
+    fn try_copy_to_slice(&mut self, dst: &mut [u8]) -> Result<(), TryGetError> {
+        if self.remaining() < dst.len() {
+            return Err(TryGetError::NotEnoughBytes);
+        }
+
+        self.copy_to_slice(dst);
+
+        Ok(())
+    }
+
+    /// Gets an unsigned 8 bit integer from `self`.
+    ///
+    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// remaining bytes to read the value.
+    ///
+    /// If the operation succeeds, the current position is advanced by 1.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Buf;
+    ///
+    /// let mut buf = &b"\x08 hello"[..];
+    /// assert_eq!(8, buf.try_get_u8().unwrap());
+    /// ```
+    ///
+    /// ```
+    /// use bytes::Buf;
+    ///
+    /// let mut buf: &[u8] = &[];
+    /// assert!(buf.try_get_u8().is_err());
+    /// ```
+    fn try_get_u8(&mut self) -> Result<u8, TryGetError> {
+        if !self.has_remaining() {
+            return Err(TryGetError::NotEnoughBytes);
+        }
+
+        Ok(self.get_u8())
+    }
+
+    /// Gets a signed 8 bit integer from `self`.
+    ///
+    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// remaining bytes to read the value.
+    ///
+    /// If the operation succeeds, the current position is advanced by 1.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Buf;
+    ///
+    /// let mut buf = &b"\x08 hello"[..];
+    /// assert_eq!(8, buf.try_get_i8().unwrap());
+    /// ```
+    ///
+    /// ```
+    /// use bytes::Buf;
+    ///
+    /// let mut buf: &[u8] = &[];
+    /// assert!(buf.try_get_i8().is_err());
+    /// ```
+    fn try_get_i8(&mut self) -> Result<i8, TryGetError> {
+        if !self.has_remaining() {
+            return Err(TryGetError::NotEnoughBytes);
+        }
+
+        Ok(self.get_i8())
+    }
+
+    /// Gets an unsigned 16 bit integer from `self` in big-endian
+    /// byte order.
+    ///
+    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// remaining bytes to read the value.
+    ///
+    /// If the operation succeeds, the current position is advanced by 2.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::{Buf, TryGetError};
+    ///
+    /// let mut buf = &b"\x08\x09 hello"[..];
+    /// assert_eq!(0x0809, buf.try_get_u16().unwrap());
+    /// ```
+    ///
+    /// ```
+    /// use bytes::Buf;
+    ///
+    /// let mut buf: &[u8] = &[2];
+    /// assert!(buf.try_get_u16().is_err());
+    /// ```
+    fn try_get_u16(&mut self) -> Result<u16, TryGetError> {
+        buf_try_get_impl!(self, 2, get_u16);
+    }
+
+    /// Gets an unsigned 16 bit integer from `self` in little-endian
+    /// byte order.
+    ///
+    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// remaining bytes to read the value.
+    ///
+    /// If the operation succeeds, the current position is advanced by 2.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::{Buf, TryGetError};
+    ///
+    /// let mut buf = &b"\x09\x08 hello"[..];
+    /// assert_eq!(0x0809, buf.try_get_u16_le().unwrap());
+    /// ```
+    ///
+    /// ```
+    /// use bytes::Buf;
+    ///
+    /// let mut buf: &[u8] = &[2];
+    /// assert!(buf.try_get_u16_le().is_err());
+    /// ```
+    fn try_get_u16_le(&mut self) -> Result<u16, TryGetError> {
+        buf_try_get_impl!(self, 2, get_u16_le);
+    }
+
+    /// Gets a signed 16 bit integer from `self` in big-endian
+    /// byte order.
+    ///
+    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// remaining bytes to read the value.
+    ///
+    /// If the operation succeeds, the current position is advanced by 2.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::{Buf, TryGetError};
+    ///
+    /// let mut buf = &b"\x08\x09 hello"[..];
+    /// assert_eq!(0x0809, buf.try_get_i16().unwrap());
+    /// ```
+    ///
+    /// ```
+    /// use bytes::Buf;
+    ///
+    /// let mut buf: &[u8] = &[2];
+    /// assert!(buf.try_get_i16().is_err());
+    /// ```
+    fn try_get_i16(&mut self) -> Result<i16, TryGetError> {
+        buf_try_get_impl!(self, 2, get_i16);
+    }
+
+    /// Gets a signed 16 bit integer from `self` in little-endian
+    /// byte order.
+    ///
+    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// remaining bytes to read the value.
+    ///
+    /// If the operation succeeds, the current position is advanced by 2.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::{Buf, TryGetError};
+    ///
+    /// let mut buf = &b"\x09\x08 hello"[..];
+    /// assert_eq!(0x0809, buf.try_get_i16_le().unwrap());
+    /// ```
+    ///
+    /// ```
+    /// use bytes::Buf;
+    ///
+    /// let mut buf: &[u8] = &[2];
+    /// assert!(buf.try_get_i16_le().is_err());
+    /// ```
+    fn try_get_i16_le(&mut self) -> Result<i16, TryGetError> {
+        buf_try_get_impl!(self, 2, get_i16_le);
+    }
+
+    /// Gets an unsigned 32 bit integer from `self` in big-endian
+    /// byte order.
+    ///
+    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// remaining bytes to read the value.
+    ///
+    /// If the operation succeeds, the current position is advanced by 4.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::{Buf, TryGetError};
+    ///
+    /// let mut buf = &b"\x08\x09\xA0\xA1 hello"[..];
+    /// assert_eq!(0x0809A0A1, buf.try_get_u32().unwrap());
+    /// ```
+    ///
+    /// ```
+    /// use bytes::Buf;
+    ///
+    /// let mut buf: &[u8] = &[1, 2, 3];
+    /// assert!(buf.try_get_u32().is_err());
+    /// ```
+    fn try_get_u32(&mut self) -> Result<u32, TryGetError> {
+        buf_try_get_impl!(self, 4, get_u32);
+    }
+
+    /// Gets an unsigned 32 bit integer from `self` in little-endian
+    /// byte order.
+    ///
+    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// remaining bytes to read the value.
+    ///
+    /// If the operation succeeds, the current position is advanced by 4.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::{Buf, TryGetError};
+    ///
+    /// let mut buf = &b"\xA1\xA0\x09\x08 hello"[..];
+    /// assert_eq!(0x0809A0A1, buf.try_get_u32_le().unwrap());
+    /// ```
+    ///
+    /// ```
+    /// use bytes::Buf;
+    ///
+    /// let mut buf: &[u8] = &[1, 2, 3];
+    /// assert!(buf.try_get_u32_le().is_err());
+    /// ```
+    fn try_get_u32_le(&mut self) -> Result<u32, TryGetError> {
+        buf_try_get_impl!(self, 4, get_u32_le);
+    }
+
+    /// Gets a signed 32 bit integer from `self` in big-endian
+    /// byte order.
+    ///
+    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// remaining bytes to read the value.
+    ///
+    /// If the operation succeeds, the current position is advanced by 4.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::{Buf, TryGetError};
+    ///
+    /// let mut buf = &b"\x08\x09\xA0\xA1 hello"[..];
+    /// assert_eq!(0x0809A0A1, buf.try_get_i32().unwrap());
+    /// ```
+    ///
+    /// ```
+    /// use bytes::Buf;
+    ///
+    /// let mut buf: &[u8] = &[1, 2, 3];
+    /// assert!(buf.try_get_i32().is_err());
+    /// ```
+    fn try_get_i32(&mut self) -> Result<i32, TryGetError> {
+        buf_try_get_impl!(self, 4, get_i32);
+    }
+
+    /// Gets a signed 32 bit integer from `self` in little-endian
+    /// byte order.
+    ///
+    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// remaining bytes to read the value.
+    ///
+    /// If the operation succeeds, the current position is advanced by 4.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::{Buf, TryGetError};
+    ///
+    /// let mut buf = &b"\xA1\xA0\x09\x08 hello"[..];
+    /// assert_eq!(0x0809A0A1, buf.try_get_i32_le().unwrap());
+    /// ```
+    ///
+    /// ```
+    /// use bytes::Buf;
+    ///
+    /// let mut buf: &[u8] = &[1, 2, 3];
+    /// assert!(buf.try_get_i32_le().is_err());
+    /// ```
+    fn try_get_i32_le(&mut self) -> Result<i32, TryGetError> {
+        buf_try_get_impl!(self, 4, get_i32_le);
+    }
+
+
+    /// Gets an unsigned 64 bit integer from `self` in big-endian
+    /// byte order.
+    ///
+    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// remaining bytes to read the value.
+    ///
+    /// If the operation succeeds, the current position is advanced by 8.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::{Buf, TryGetError};
+    ///
+    /// let mut buf = &b"\x01\x02\x03\x04\x05\x06\x07\x08 hello"[..];
+    /// assert_eq!(0x0102030405060708, buf.try_get_u64().unwrap());
+    /// ```
+    ///
+    /// ```
+    /// use bytes::Buf;
+    ///
+    /// let mut buf: &[u8] = &[1, 2, 3, 4, 5, 6, 7];
+    /// assert!(buf.try_get_u64().is_err());
+    /// ```
+    fn try_get_u64(&mut self) -> Result<u64, TryGetError> {
+        buf_try_get_impl!(self, 8, get_u64);
+    }
+
+    /// Gets an unsigned 64 bit integer from `self` in little-endian
+    /// byte order.
+    ///
+    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// remaining bytes to read the value.
+    ///
+    /// If the operation succeeds, the current position is advanced by 8.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::{Buf, TryGetError};
+    ///
+    /// let mut buf = &b"\x08\x07\x06\x05\x04\x03\x02\x01 hello"[..];
+    /// assert_eq!(0x0102030405060708, buf.try_get_u64_le().unwrap());
+    /// ```
+    ///
+    /// ```
+    /// use bytes::Buf;
+    ///
+    /// let mut buf: &[u8] = &[1, 2, 3, 4, 5, 6, 7];
+    /// assert!(buf.try_get_u64_le().is_err());
+    /// ```
+    fn try_get_u64_le(&mut self) -> Result<u64, TryGetError> {
+        buf_try_get_impl!(self, 8, get_u64_le);
+    }
+
+    /// Gets a signed 64 bit integer from `self` in big-endian
+    /// byte order.
+    ///
+    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// remaining bytes to read the value.
+    ///
+    /// If the operation succeeds, the current position is advanced by 8.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::{Buf, TryGetError};
+    ///
+    /// let mut buf = &b"\x01\x02\x03\x04\x05\x06\x07\x08 hello"[..];
+    /// assert_eq!(0x0102030405060708, buf.try_get_i64().unwrap());
+    /// ```
+    ///
+    /// ```
+    /// use bytes::Buf;
+    ///
+    /// let mut buf: &[u8] = &[1, 2, 3, 4, 5, 6, 7];
+    /// assert!(buf.try_get_i64().is_err());
+    /// ```
+    fn try_get_i64(&mut self) -> Result<i64, TryGetError> {
+        buf_try_get_impl!(self, 8, get_i64);
+    }
+
+    /// Gets a signed 64 bit integer from `self` in little-endian
+    /// byte order.
+    ///
+    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// remaining bytes to read the value.
+    ///
+    /// If the operation succeeds, the current position is advanced by 8.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::{Buf, TryGetError};
+    ///
+    /// let mut buf = &b"\x08\x07\x06\x05\x04\x03\x02\x01 hello"[..];
+    /// assert_eq!(0x0102030405060708, buf.try_get_i64_le().unwrap());
+    /// ```
+    ///
+    /// ```
+    /// use bytes::Buf;
+    ///
+    /// let mut buf: &[u8] = &[1, 2, 3, 4, 5, 6, 7];
+    /// assert!(buf.try_get_i64_le().is_err());
+    /// ```
+    fn try_get_i64_le(&mut self) -> Result<i64, TryGetError> {
+        buf_try_get_impl!(self, 8, get_i64_le);
+    }
+
+    /// Gets an unsigned 128 bit integer from `self` in big-endian
+    /// byte order.
+    ///
+    /// **NOTE:** This method requires the `i128` feature.
+    ///
+    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// remaining bytes to read the value.
+    ///
+    /// If the operation succeeds, the current position is advanced by 16.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::{Buf, TryGetError};
+    ///
+    /// let mut buf = &b"\x01\x02\x03\x04\x05\x06\x07\x08\x09\x10\x11\x12\x13\x14\x15\x16 hello"[..];
+    /// assert_eq!(0x01020304050607080910111213141516, buf.try_get_u128().unwrap());
+    /// ```
+    ///
+    /// ```
+    /// use bytes::Buf;
+    ///
+    /// let mut buf: &[u8] = &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
+    /// assert!(buf.try_get_u128().is_err());
+    /// ```
+    #[cfg(feature = "i128")]
+    fn try_get_u128(&mut self) -> Result<u128, TryGetError> {
+        buf_try_get_impl!(self, 16, get_u128);
+    }
+
+    /// Gets an unsigned 128 bit integer from `self` in little-endian
+    /// byte order.
+    ///
+    /// **NOTE:** This method requires the `i128` feature.
+    ///
+    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// remaining bytes to read the value.
+    ///
+    /// If the operation succeeds, the current position is advanced by 16.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::{Buf, TryGetError};
+    ///
+    /// let mut buf = &b"\x16\x15\x14\x13\x12\x11\x10\x09\x08\x07\x06\x05\x04\x03\x02\x01 hello"[..];
+    /// assert_eq!(0x01020304050607080910111213141516, buf.try_get_u128_le().unwrap());
+    /// ```
+    ///
+    /// ```
+    /// use bytes::Buf;
+    ///
+    /// let mut buf: &[u8] = &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
+    /// assert!(buf.try_get_u128_le().is_err());
+    /// ```
+    #[cfg(feature = "i128")]
+    fn try_get_u128_le(&mut self) -> Result<u128, TryGetError> {
+        buf_try_get_impl!(self, 16, get_u128_le);
+    }
+
+    /// Gets a signed 128 bit integer from `self` in big-endian
+    /// byte order.
+    ///
+    /// **NOTE:** This method requires the `i128` feature.
+    ///
+    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// remaining bytes to read the value.
+    ///
+    /// If the operation succeeds, the current position is advanced by 16.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::{Buf, TryGetError};
+    ///
+    /// let mut buf = &b"\x01\x02\x03\x04\x05\x06\x07\x08\x09\x10\x11\x12\x13\x14\x15\x16 hello"[..];
+    /// assert_eq!(0x01020304050607080910111213141516, buf.try_get_i128().unwrap());
+    /// ```
+    ///
+    /// ```
+    /// use bytes::Buf;
+    ///
+    /// let mut buf: &[u8] = &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
+    /// assert!(buf.try_get_i128().is_err());
+    /// ```
+    #[cfg(feature = "i128")]
+    fn try_get_i128(&mut self) -> Result<i128, TryGetError> {
+        buf_try_get_impl!(self, 16, get_i128);
+    }
+
+    /// Gets a signed 128 bit integer from `self` in little-endian
+    /// byte order.
+    ///
+    /// **NOTE:** This method requires the `i128` feature.
+    ///
+    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// remaining bytes to read the value.
+    ///
+    /// If the operation succeeds, the current position is advanced by 16.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::{Buf, TryGetError};
+    ///
+    /// let mut buf = &b"\x16\x15\x14\x13\x12\x11\x10\x09\x08\x07\x06\x05\x04\x03\x02\x01 hello"[..];
+    /// assert_eq!(0x01020304050607080910111213141516, buf.try_get_i128_le().unwrap());
+    /// ```
+    ///
+    /// ```
+    /// use bytes::Buf;
+    ///
+    /// let mut buf: &[u8] = &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
+    /// assert!(buf.try_get_i128_le().is_err());
+    /// ```
+    #[cfg(feature = "i128")]
+    fn try_get_i128_le(&mut self) -> Result<i128, TryGetError> {
+        buf_try_get_impl!(self, 16, get_i128_le);
+    }
+
+    /// Gets an unsigned n-byte integer from `self` in big-endian
+    /// byte order.
+    ///
+    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// remaining bytes to read the value.
+    ///
+    /// If the operation succeeds, the current position is advanced by `nbytes`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::{Buf, TryGetError};
+    ///
+    /// let mut buf = &b"\x01\x02\x03 hello"[..];
+    /// assert_eq!(0x010203, buf.try_get_uint(3).unwrap());
+    /// ```
+    ///
+    /// ```
+    /// use bytes::Buf;
+    ///
+    /// let mut buf: &[u8] = &[1, 2];
+    /// assert!(buf.try_get_uint(3).is_err());
+    /// ```
+    fn try_get_uint(&mut self, nbytes: usize) -> Result<u64, TryGetError> {
+        if self.remaining() < nbytes {
+            return Err(TryGetError::NotEnoughBytes);
+        }
+        Ok(self.get_uint(nbytes))
+    }
+
+    /// Gets an unsigned n-byte integer from `self` in little-endian
+    /// byte order.
+    ///
+    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// remaining bytes to read the value.
+    ///
+    /// If the operation succeeds, the current position is advanced by `nbytes`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::{Buf, TryGetError};
+    ///
+    /// let mut buf = &b"\x03\x02\x01 hello"[..];
+    /// assert_eq!(0x010203, buf.try_get_uint_le(3).unwrap());
+    /// ```
+    ///
+    /// ```
+    /// use bytes::Buf;
+    ///
+    /// let mut buf: &[u8] = &[1, 2];
+    /// assert!(buf.try_get_uint_le(3).is_err());
+    /// ```
+    fn try_get_uint_le(&mut self, nbytes: usize) -> Result<u64, TryGetError> {
+        if self.remaining() < nbytes {
+            return Err(TryGetError::NotEnoughBytes);
+        }
+        Ok(self.get_uint_le(nbytes))
+    }
+
+    /// Gets a signed n-byte integer from `self` in big-endian
+    /// byte order.
+    ///
+    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// remaining bytes to read the value.
+    ///
+    /// If the operation succeeds, the current position is advanced by `nbytes`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::{Buf, TryGetError};
+    ///
+    /// let mut buf = &b"\x01\x02\x03 hello"[..];
+    /// assert_eq!(0x010203, buf.try_get_int(3).unwrap());
+    /// ```
+    ///
+    /// ```
+    /// use bytes::Buf;
+    ///
+    /// let mut buf: &[u8] = &[1, 2];
+    /// assert!(buf.try_get_int(3).is_err());
+    /// ```
+    fn try_get_int(&mut self, nbytes: usize) -> Result<i64, TryGetError> {
+        if self.remaining() < nbytes {
+            return Err(TryGetError::NotEnoughBytes);
+        }
+        Ok(self.get_int(nbytes))
+    }
+
+    /// Gets a signed n-byte integer from `self` in little-endian
+    /// byte order.
+    ///
+    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// remaining bytes to read the value.
+    ///
+    /// If the operation succeeds, the current position is advanced by `nbytes`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::{Buf, TryGetError};
+    ///
+    /// let mut buf = &b"\x03\x02\x01 hello"[..];
+    /// assert_eq!(0x010203, buf.try_get_int_le(3).unwrap());
+    /// ```
+    ///
+    /// ```
+    /// use bytes::Buf;
+    ///
+    /// let mut buf: &[u8] = &[1, 2];
+    /// assert!(buf.try_get_int_le(3).is_err());
+    /// ```
+    fn try_get_int_le(&mut self, nbytes: usize) -> Result<i64, TryGetError> {
+        if self.remaining() < nbytes {
+            return Err(TryGetError::NotEnoughBytes);
+        }
+        Ok(self.get_int_le(nbytes))
+    }
+
+    /// Gets an IEEE754 single-precision (4 bytes) floating point number from
+    /// `self` in big-endian byte order.
+    ///
+    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// remaining bytes to read the value.
+    ///
+    /// If the operation succeeds, the current position is advanced by 4.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Buf;
+    ///
+    /// let mut buf = &b"\x3F\x99\x99\x9A hello"[..];
+    /// assert_eq!(1.2f32, buf.try_get_f32().unwrap());
+    /// ```
+    ///
+    /// ```
+    /// use bytes::Buf;
+    ///
+    /// let mut buf: &[u8] = &[0, 1, 2];
+    /// assert!(buf.try_get_f32().is_err());
+    /// ```
+    fn try_get_f32(&mut self) -> Result<f32, TryGetError> {
+        buf_try_get_impl!(self, 4, get_f32);
+    }
+
+    /// Gets an IEEE754 single-precision (4 bytes) floating point number from
+    /// `self` in little-endian byte order.
+    ///
+    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// remaining bytes to read the value.
+    ///
+    /// If the operation succeeds, the current position is advanced by 4.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Buf;
+    ///
+    /// let mut buf = &b"\x9A\x99\x99\x3F hello"[..];
+    /// assert_eq!(1.2f32, buf.try_get_f32_le().unwrap());
+    /// ```
+    ///
+    /// ```
+    /// use bytes::Buf;
+    ///
+    /// let mut buf: &[u8] = &[0, 1, 2];
+    /// assert!(buf.try_get_f32_le().is_err());
+    /// ```
+    fn try_get_f32_le(&mut self) -> Result<f32, TryGetError> {
+        buf_try_get_impl!(self, 4, get_f32_le);
+    }
+
+    /// Gets an IEEE754 double-precision (8 bytes) floating point number from
+    /// `self` in big-endian byte order.
+    ///
+    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// remaining bytes to read the value.
+    ///
+    /// If the operation succeeds, the current position is advanced by 8.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Buf;
+    ///
+    /// let mut buf = &b"\x3F\xF3\x33\x33\x33\x33\x33\x33 hello"[..];
+    /// assert_eq!(1.2f64, buf.try_get_f64().unwrap());
+    /// ```
+    ///
+    /// ```
+    /// use bytes::Buf;
+    ///
+    /// let mut buf: &[u8] = &[0, 1, 2];
+    /// assert!(buf.try_get_f64().is_err());
+    /// ```
+    fn try_get_f64(&mut self) -> Result<f64, TryGetError> {
+        buf_try_get_impl!(self, 8, get_f64);
+    }
+
+    /// Gets an IEEE754 double-precision (8 bytes) floating point number from
+    /// `self` in little-endian byte order.
+    ///
+    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// remaining bytes to read the value.
+    ///
+    /// If the operation succeeds, the current position is advanced by 8.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Buf;
+    ///
+    /// let mut buf = &b"\x33\x33\x33\x33\x33\x33\xF3\x3F hello"[..];
+    /// assert_eq!(1.2f64, buf.try_get_f64_le().unwrap());
+    /// ```
+    ///
+    /// ```
+    /// use bytes::Buf;
+    ///
+    /// let mut buf: &[u8] = &[0, 1, 2];
+    /// assert!(buf.try_get_f64_le().is_err());
+    /// ```
+    fn try_get_f64_le(&mut self) -> Result<f64, TryGetError> {
+        buf_try_get_impl!(self, 8, get_f64_le);
+    }
+
     /// Transforms a `Buf` into a concrete buffer.
     ///
     /// `collect()` can operate on any value that implements `Buf`, and turn it
@@ -799,8 +1604,9 @@ pub trait Buf {
     /// assert_eq!(vec, b"hello world");
     /// ```
     fn collect<B>(self) -> B
-        where Self: Sized,
-              B: FromBuf,
+    where
+        Self: Sized,
+        B: FromBuf,
     {
         B::from_buf(self)
     }
@@ -827,7 +1633,8 @@ pub trait Buf {
     /// assert_eq!(dst, b" world");
     /// ```
     fn take(self, limit: usize) -> Take<Self>
-        where Self: Sized
+    where
+        Self: Sized,
     {
         super::take::new(self, limit)
     }
@@ -848,8 +1655,9 @@ pub trait Buf {
     /// assert_eq!(full, b"hello world");
     /// ```
     fn chain<U>(self, next: U) -> Chain<Self, U::Buf>
-        where U: IntoBuf,
-              Self: Sized,
+    where
+        U: IntoBuf,
+        Self: Sized,
     {
         Chain::new(self, next.into_buf())
     }
@@ -876,7 +1684,10 @@ pub trait Buf {
     /// dst.put(&mut buf);
     /// assert_eq!(dst, &b" world"[..]);
     /// ```
-    fn by_ref(&mut self) -> &mut Self where Self: Sized {
+    fn by_ref(&mut self) -> &mut Self
+    where
+        Self: Sized,
+    {
         self
     }
 
@@ -903,7 +1714,10 @@ pub trait Buf {
     /// assert_eq!(11, num);
     /// assert_eq!(&dst[..11], &b"hello world"[..]);
     /// ```
-    fn reader(self) -> Reader<Self> where Self: Sized {
+    fn reader(self) -> Reader<Self>
+    where
+        Self: Sized,
+    {
         super::reader::new(self)
     }
 }
@@ -971,7 +1785,8 @@ impl Buf for Option<[u8; 1]> {
     }
 
     fn bytes(&self) -> &[u8] {
-        self.as_ref().map(AsRef::as_ref)
+        self.as_ref()
+            .map(AsRef::as_ref)
             .unwrap_or(Default::default())
     }
 

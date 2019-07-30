@@ -28,6 +28,7 @@ mod vec_deque;
 mod writer;
 
 pub use self::buf::Buf;
+pub use self::buf::TryGetError;
 pub use self::buf_mut::BufMut;
 pub use self::from_buf::FromBuf;
 pub use self::chain::Chain;
