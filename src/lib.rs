@@ -76,6 +76,7 @@ pub use crate::buf::{
     Buf,
     BufMut,
     IntoBuf,
+    TryGetError,
 };
 
 mod bytes;
