@@ -80,6 +80,7 @@ pub use crate::buf::{
 
 mod bytes;
 mod debug;
+mod hex;
 pub use crate::bytes::{Bytes, BytesMut};
 
 // Optional Serde support
