@@ -794,9 +794,7 @@ pub trait BufMut {
     /// This function panics if there is not enough remaining capacity in
     /// `self`.
     fn put_f32(&mut self, n: f32) {
-        self.put_u32(unsafe {
-            *(&n as *const f32 as *const u32)
-        })
+        self.put_u32(n.to_bits());
     }
 
     /// Writes  an IEEE754 single-precision (4 bytes) floating point number to
@@ -819,9 +817,7 @@ pub trait BufMut {
     /// This function panics if there is not enough remaining capacity in
     /// `self`.
     fn put_f32_le(&mut self, n: f32) {
-        self.put_u32_le(unsafe {
-            *(&n as *const f32 as *const u32)
-        })
+        self.put_u32_le(n.to_bits());
     }
 
     /// Writes  an IEEE754 double-precision (8 bytes) floating point number to
@@ -844,9 +840,7 @@ pub trait BufMut {
     /// This function panics if there is not enough remaining capacity in
     /// `self`.
     fn put_f64(&mut self, n: f64) {
-        self.put_u64(unsafe {
-            *(&n as *const f64 as *const u64)
-        })
+        self.put_u64(n.to_bits());
     }
 
     /// Writes  an IEEE754 double-precision (8 bytes) floating point number to
@@ -869,9 +863,7 @@ pub trait BufMut {
     /// This function panics if there is not enough remaining capacity in
     /// `self`.
     fn put_f64_le(&mut self, n: f64) {
-        self.put_u64_le(unsafe {
-            *(&n as *const f64 as *const u64)
-        })
+        self.put_u64_le(n.to_bits());
     }
 
     /// Creates a "by reference" adaptor for this instance of `BufMut`.
