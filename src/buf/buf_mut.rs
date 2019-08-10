@@ -1,7 +1,6 @@
 use super::{IntoBuf, Writer};
-use byteorder::{LittleEndian, ByteOrder, BigEndian};
 
-use std::{cmp, io::IoSliceMut, ptr, usize};
+use std::{mem, cmp, io::IoSliceMut, ptr, usize};
 
 /// A trait for values that provide sequential write access to bytes.
 ///
@@ -354,9 +353,7 @@ pub trait BufMut {
     /// This function panics if there is not enough remaining capacity in
     /// `self`.
     fn put_u16(&mut self, n: u16) {
-        let mut buf = [0; 2];
-        BigEndian::write_u16(&mut buf, n);
-        self.put_slice(&buf)
+        self.put_slice(&n.to_be_bytes())
     }
 
     /// Writes an unsigned 16 bit integer to `self` in little-endian byte order.
@@ -378,9 +375,7 @@ pub trait BufMut {
     /// This function panics if there is not enough remaining capacity in
     /// `self`.
     fn put_u16_le(&mut self, n: u16) {
-        let mut buf = [0; 2];
-        LittleEndian::write_u16(&mut buf, n);
-        self.put_slice(&buf)
+        self.put_slice(&n.to_le_bytes())
     }
 
     /// Writes a signed 16 bit integer to `self` in big-endian byte order.
@@ -402,9 +397,7 @@ pub trait BufMut {
     /// This function panics if there is not enough remaining capacity in
     /// `self`.
     fn put_i16(&mut self, n: i16) {
-        let mut buf = [0; 2];
-        BigEndian::write_i16(&mut buf, n);
-        self.put_slice(&buf)
+        self.put_slice(&n.to_be_bytes())
     }
 
     /// Writes a signed 16 bit integer to `self` in little-endian byte order.
@@ -426,9 +419,7 @@ pub trait BufMut {
     /// This function panics if there is not enough remaining capacity in
     /// `self`.
     fn put_i16_le(&mut self, n: i16) {
-        let mut buf = [0; 2];
-        LittleEndian::write_i16(&mut buf, n);
-        self.put_slice(&buf)
+        self.put_slice(&n.to_le_bytes())
     }
 
     /// Writes an unsigned 32 bit integer to `self` in big-endian byte order.
@@ -450,9 +441,7 @@ pub trait BufMut {
     /// This function panics if there is not enough remaining capacity in
     /// `self`.
     fn put_u32(&mut self, n: u32) {
-        let mut buf = [0; 4];
-        BigEndian::write_u32(&mut buf, n);
-        self.put_slice(&buf)
+        self.put_slice(&n.to_be_bytes())
     }
 
     /// Writes an unsigned 32 bit integer to `self` in little-endian byte order.
@@ -474,9 +463,7 @@ pub trait BufMut {
     /// This function panics if there is not enough remaining capacity in
     /// `self`.
     fn put_u32_le(&mut self, n: u32) {
-        let mut buf = [0; 4];
-        LittleEndian::write_u32(&mut buf, n);
-        self.put_slice(&buf)
+        self.put_slice(&n.to_le_bytes())
     }
 
     /// Writes a signed 32 bit integer to `self` in big-endian byte order.
@@ -498,9 +485,7 @@ pub trait BufMut {
     /// This function panics if there is not enough remaining capacity in
     /// `self`.
     fn put_i32(&mut self, n: i32) {
-        let mut buf = [0; 4];
-        BigEndian::write_i32(&mut buf, n);
-        self.put_slice(&buf)
+        self.put_slice(&n.to_be_bytes())
     }
 
     /// Writes a signed 32 bit integer to `self` in little-endian byte order.
@@ -522,9 +507,7 @@ pub trait BufMut {
     /// This function panics if there is not enough remaining capacity in
     /// `self`.
     fn put_i32_le(&mut self, n: i32) {
-        let mut buf = [0; 4];
-        LittleEndian::write_i32(&mut buf, n);
-        self.put_slice(&buf)
+        self.put_slice(&n.to_le_bytes())
     }
 
     /// Writes an unsigned 64 bit integer to `self` in the big-endian byte order.
@@ -546,9 +529,7 @@ pub trait BufMut {
     /// This function panics if there is not enough remaining capacity in
     /// `self`.
     fn put_u64(&mut self, n: u64) {
-        let mut buf = [0; 8];
-        BigEndian::write_u64(&mut buf, n);
-        self.put_slice(&buf)
+        self.put_slice(&n.to_be_bytes())
     }
 
     /// Writes an unsigned 64 bit integer to `self` in little-endian byte order.
@@ -570,9 +551,7 @@ pub trait BufMut {
     /// This function panics if there is not enough remaining capacity in
     /// `self`.
     fn put_u64_le(&mut self, n: u64) {
-        let mut buf = [0; 8];
-        LittleEndian::write_u64(&mut buf, n);
-        self.put_slice(&buf)
+        self.put_slice(&n.to_le_bytes())
     }
 
     /// Writes a signed 64 bit integer to `self` in the big-endian byte order.
@@ -594,9 +573,7 @@ pub trait BufMut {
     /// This function panics if there is not enough remaining capacity in
     /// `self`.
     fn put_i64(&mut self, n: i64) {
-        let mut buf = [0; 8];
-        BigEndian::write_i64(&mut buf, n);
-        self.put_slice(&buf)
+        self.put_slice(&n.to_be_bytes())
     }
 
     /// Writes a signed 64 bit integer to `self` in little-endian byte order.
@@ -618,9 +595,7 @@ pub trait BufMut {
     /// This function panics if there is not enough remaining capacity in
     /// `self`.
     fn put_i64_le(&mut self, n: i64) {
-        let mut buf = [0; 8];
-        LittleEndian::write_i64(&mut buf, n);
-        self.put_slice(&buf)
+        self.put_slice(&n.to_le_bytes())
     }
 
     /// Writes an unsigned 128 bit integer to `self` in the big-endian byte order.
@@ -642,9 +617,7 @@ pub trait BufMut {
     /// This function panics if there is not enough remaining capacity in
     /// `self`.
     fn put_u128(&mut self, n: u128) {
-        let mut buf = [0; 16];
-        BigEndian::write_u128(&mut buf, n);
-        self.put_slice(&buf)
+        self.put_slice(&n.to_be_bytes())
     }
 
     /// Writes an unsigned 128 bit integer to `self` in little-endian byte order.
@@ -666,9 +639,7 @@ pub trait BufMut {
     /// This function panics if there is not enough remaining capacity in
     /// `self`.
     fn put_u128_le(&mut self, n: u128) {
-        let mut buf = [0; 16];
-        LittleEndian::write_u128(&mut buf, n);
-        self.put_slice(&buf)
+        self.put_slice(&n.to_le_bytes())
     }
 
     /// Writes a signed 128 bit integer to `self` in the big-endian byte order.
@@ -690,9 +661,7 @@ pub trait BufMut {
     /// This function panics if there is not enough remaining capacity in
     /// `self`.
     fn put_i128(&mut self, n: i128) {
-        let mut buf = [0; 16];
-        BigEndian::write_i128(&mut buf, n);
-        self.put_slice(&buf)
+        self.put_slice(&n.to_be_bytes())
     }
 
     /// Writes a signed 128 bit integer to `self` in little-endian byte order.
@@ -714,9 +683,7 @@ pub trait BufMut {
     /// This function panics if there is not enough remaining capacity in
     /// `self`.
     fn put_i128_le(&mut self, n: i128) {
-        let mut buf = [0; 16];
-        LittleEndian::write_i128(&mut buf, n);
-        self.put_slice(&buf)
+        self.put_slice(&n.to_le_bytes())
     }
 
     /// Writes an unsigned n-byte integer to `self` in big-endian byte order.
@@ -738,9 +705,7 @@ pub trait BufMut {
     /// This function panics if there is not enough remaining capacity in
     /// `self`.
     fn put_uint(&mut self, n: u64, nbytes: usize) {
-        let mut buf = [0; 8];
-        BigEndian::write_uint(&mut buf, n, nbytes);
-        self.put_slice(&buf[0..nbytes])
+        self.put_slice(&n.to_be_bytes()[mem::size_of_val(&n) - nbytes..]);
     }
 
     /// Writes an unsigned n-byte integer to `self` in the little-endian byte order.
@@ -762,9 +727,7 @@ pub trait BufMut {
     /// This function panics if there is not enough remaining capacity in
     /// `self`.
     fn put_uint_le(&mut self, n: u64, nbytes: usize) {
-        let mut buf = [0; 8];
-        LittleEndian::write_uint(&mut buf, n, nbytes);
-        self.put_slice(&buf[0..nbytes])
+        self.put_slice(&n.to_le_bytes()[0..nbytes]);
     }
 
     /// Writes a signed n-byte integer to `self` in big-endian byte order.
@@ -786,9 +749,7 @@ pub trait BufMut {
     /// This function panics if there is not enough remaining capacity in
     /// `self`.
     fn put_int(&mut self, n: i64, nbytes: usize) {
-        let mut buf = [0; 8];
-        BigEndian::write_int(&mut buf, n, nbytes);
-        self.put_slice(&buf[0..nbytes])
+        self.put_slice(&n.to_be_bytes()[mem::size_of_val(&n) - nbytes..]);
     }
 
     /// Writes a signed n-byte integer to `self` in little-endian byte order.
@@ -810,9 +771,7 @@ pub trait BufMut {
     /// This function panics if there is not enough remaining capacity in
     /// `self`.
     fn put_int_le(&mut self, n: i64, nbytes: usize) {
-        let mut buf = [0; 8];
-        LittleEndian::write_int(&mut buf, n, nbytes);
-        self.put_slice(&buf[0..nbytes])
+        self.put_slice(&n.to_le_bytes()[0..nbytes]);
     }
 
     /// Writes  an IEEE754 single-precision (4 bytes) floating point number to
@@ -835,9 +794,9 @@ pub trait BufMut {
     /// This function panics if there is not enough remaining capacity in
     /// `self`.
     fn put_f32(&mut self, n: f32) {
-        let mut buf = [0; 4];
-        BigEndian::write_f32(&mut buf, n);
-        self.put_slice(&buf)
+        self.put_u32(unsafe {
+            *(&n as *const f32 as *const u32)
+        })
     }
 
     /// Writes  an IEEE754 single-precision (4 bytes) floating point number to
@@ -860,9 +819,9 @@ pub trait BufMut {
     /// This function panics if there is not enough remaining capacity in
     /// `self`.
     fn put_f32_le(&mut self, n: f32) {
-        let mut buf = [0; 4];
-        LittleEndian::write_f32(&mut buf, n);
-        self.put_slice(&buf)
+        self.put_u32_le(unsafe {
+            *(&n as *const f32 as *const u32)
+        })
     }
 
     /// Writes  an IEEE754 double-precision (8 bytes) floating point number to
@@ -885,9 +844,9 @@ pub trait BufMut {
     /// This function panics if there is not enough remaining capacity in
     /// `self`.
     fn put_f64(&mut self, n: f64) {
-        let mut buf = [0; 8];
-        BigEndian::write_f64(&mut buf, n);
-        self.put_slice(&buf)
+        self.put_u64(unsafe {
+            *(&n as *const f64 as *const u64)
+        })
     }
 
     /// Writes  an IEEE754 double-precision (8 bytes) floating point number to
@@ -910,9 +869,9 @@ pub trait BufMut {
     /// This function panics if there is not enough remaining capacity in
     /// `self`.
     fn put_f64_le(&mut self, n: f64) {
-        let mut buf = [0; 8];
-        LittleEndian::write_f64(&mut buf, n);
-        self.put_slice(&buf)
+        self.put_u64_le(unsafe {
+            *(&n as *const f64 as *const u64)
+        })
     }
 
     /// Creates a "by reference" adaptor for this instance of `BufMut`.
