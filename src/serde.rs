@@ -1,4 +1,4 @@
-use std::{cmp, fmt};
+use core::{cmp, fmt};
 use serde::{Serialize, Serializer, Deserialize, Deserializer, de};
 use super::{Bytes, BytesMut};
 

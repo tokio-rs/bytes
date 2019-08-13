@@ -1,6 +1,12 @@
 use super::{Take, Reader, Chain};
 
-use std::{cmp, io::IoSlice, ptr, mem};
+#[cfg(feature = "std")]
+use super::Reader;
+
+use core::{cmp, ptr, mem};
+
+#[cfg(feature = "std")]
+use std::io::IoSlice;
 
 macro_rules! buf_get_impl {
     ($this:ident, $typ:tt::$conv:tt) => ({
@@ -148,6 +154,7 @@ pub trait Buf {
     /// with `dst` being a zero length slice.
     ///
     /// [`writev`]: http://man7.org/linux/man-pages/man2/readv.2.html
+    #[cfg(feature = "std")]
     fn bytes_vectored<'a>(&'a self, dst: &mut [IoSlice<'a>]) -> usize {
         if dst.is_empty() {
             return 0;
@@ -884,6 +891,7 @@ pub trait Buf {
     /// assert_eq!(11, num);
     /// assert_eq!(&dst[..11], &b"hello world"[..]);
     /// ```
+    #[cfg(feature = "std")]
     fn reader(self) -> Reader<Self> where Self: Sized {
         super::reader::new(self)
     }
@@ -915,6 +923,7 @@ impl<T: Buf + ?Sized> Buf for &mut T {
         (**self).bytes()
     }
 
+    #[cfg(feature = "std")]
     fn bytes_vectored<'b>(&'b self, dst: &mut [IoSlice<'b>]) -> usize {
         (**self).bytes_vectored(dst)
     }
@@ -933,6 +942,7 @@ impl<T: Buf + ?Sized> Buf for Box<T> {
         (**self).bytes()
     }
 
+    #[cfg(feature = "std")]
     fn bytes_vectored<'b>(&'b self, dst: &mut [IoSlice<'b>]) -> usize {
         (**self).bytes_vectored(dst)
     }

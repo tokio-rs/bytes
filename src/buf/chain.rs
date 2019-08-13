@@ -1,5 +1,7 @@
 use crate::{Buf, BufMut};
 use crate::buf::IntoIter;
+
+#[cfg(feature = "std")]
 use std::io::{IoSlice, IoSliceMut};
 
 /// A `Chain` sequences two buffers.
@@ -178,6 +180,7 @@ impl<T, U> Buf for Chain<T, U>
         self.b.advance(cnt);
     }
 
+    #[cfg(feature = "std")]
     fn bytes_vectored<'a>(&'a self, dst: &mut [IoSlice<'a>]) -> usize {
         let mut n = self.a.bytes_vectored(dst);
         n += self.b.bytes_vectored(&mut dst[n..]);
@@ -227,6 +230,7 @@ impl<T, U> BufMut for Chain<T, U>
         self.b.advance_mut(cnt);
     }
 
+    #[cfg(feature = "std")]
     unsafe fn bytes_vectored_mut<'a>(&'a mut self, dst: &mut [IoSliceMut<'a>]) -> usize {
         let mut n = self.a.bytes_vectored_mut(dst);
         n += self.b.bytes_vectored_mut(&mut dst[n..]);

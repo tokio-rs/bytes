@@ -2,6 +2,8 @@ use crate::{Buf, BufMut};
 
 use either::Either;
 use either::Either::*;
+
+#[cfg(feature = "std")]
 use std::io::{IoSlice, IoSliceMut};
 
 impl<L, R> Buf for Either<L, R>
@@ -23,6 +25,7 @@ where
         }
     }
 
+    #[cfg(feature = "std")]
     fn bytes_vectored<'a>(&'a self, dst: &mut [IoSlice<'a>]) -> usize {
         match *self {
             Left(ref b) => b.bytes_vectored(dst),
@@ -64,6 +67,7 @@ where
         }
     }
 
+    #[cfg(feature = "std")]
     unsafe fn bytes_vectored_mut<'a>(&'a mut self, dst: &mut [IoSliceMut<'a>]) -> usize {
         match *self {
             Left(ref mut b) => b.bytes_vectored_mut(dst),

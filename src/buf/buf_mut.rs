@@ -1,6 +1,12 @@
 use super::{Writer};
 
-use std::{mem, cmp, io::IoSliceMut, ptr, usize};
+#[cfg(feature = "std")]
+use super::Writer;
+
+use core::{mem, cmp, ptr, usize};
+
+#[cfg(feature = "std")]
+use std::io::IoSliceMut;
 
 /// A trait for values that provide sequential write access to bytes.
 ///
@@ -913,6 +919,7 @@ pub trait BufMut {
     ///
     /// assert_eq!(*buf, b"hello world"[..]);
     /// ```
+    #[cfg(feature = "std")]
     fn writer(self) -> Writer<Self> where Self: Sized {
         super::writer::new(self)
     }

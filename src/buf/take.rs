@@ -1,6 +1,6 @@
 use crate::Buf;
 
-use std::cmp;
+use core::cmp;
 
 /// A `Buf` adapter which limits the bytes read from an underlying buffer.
 ///
