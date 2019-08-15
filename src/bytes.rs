@@ -2,12 +2,13 @@ use crate::{Buf, BufMut, IntoBuf};
 use crate::buf::IntoIter;
 use crate::debug;
 
-use std::{cmp, fmt, mem, hash, slice, ptr, usize};
+use std::{cmp, fmt, hash, slice, ptr, usize};
 use std::borrow::{Borrow, BorrowMut};
 use std::ops::{Deref, DerefMut, RangeBounds};
 use std::sync::atomic::{self, AtomicUsize, AtomicPtr};
 use std::sync::atomic::Ordering::{Relaxed, Acquire, Release, AcqRel};
 use std::iter::{FromIterator, Iterator};
+use std::mem::{self, MaybeUninit};
 
 /// A reference counted contiguous slice of memory.
 ///
@@ -1666,6 +1667,7 @@ impl<'a> From<&'a [u8]> for BytesMut {
             BytesMut::new()
         } else if len <= INLINE_CAP {
             unsafe {
+                #[allow(deprecated)]
                 let mut inner: Inner = mem::uninitialized();
 
                 // Set inline mask
@@ -1858,6 +1860,7 @@ impl Inner {
         if capacity <= INLINE_CAP {
             unsafe {
                 // Using uninitialized memory is ~30% faster
+                #[allow(deprecated)]
                 let mut inner: Inner = mem::uninitialized();
                 inner.arc = AtomicPtr::new(KIND_INLINE as *mut Shared);
                 inner
@@ -2176,13 +2179,13 @@ impl Inner {
 
         if self.is_inline_or_static() {
             // In this case, a shallow_clone still involves copying the data.
-            let mut inner: Inner = mem::uninitialized();
+            let mut inner: MaybeUninit<Inner> = MaybeUninit::uninit();
             ptr::copy_nonoverlapping(
                 self,
-                &mut inner,
+                inner.as_mut_ptr(),
                 1,
             );
-            inner
+            inner.assume_init()
         } else {
             self.shallow_clone_sync(mut_self)
         }
