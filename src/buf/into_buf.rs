@@ -26,6 +26,9 @@ pub trait IntoBuf {
     /// The `Buf` type that `self` is being converted into
     type Buf: Buf;
 
+    /// Returns number of bytes that `Buf` is going to hold.
+    fn len(&self) -> usize;
+
     /// Creates a `Buf` from a value.
     ///
     /// # Examples
@@ -49,6 +52,10 @@ pub trait IntoBuf {
 impl<T: Buf> IntoBuf for T {
     type Buf = Self;
 
+    fn len(&self) -> usize {
+        <Self as Buf>::remaining(self)
+    }
+
     fn into_buf(self) -> Self {
         self
     }
@@ -56,6 +63,10 @@ impl<T: Buf> IntoBuf for T {
 
 impl<'a> IntoBuf for &'a str {
     type Buf = &'a [u8];
+
+    fn len(&self) -> usize {
+        str::len(self)
+    }
 
     fn into_buf(self) -> Self::Buf {
         self.as_bytes()
@@ -65,6 +76,10 @@ impl<'a> IntoBuf for &'a str {
 impl IntoBuf for Vec<u8> {
     type Buf = BytesMut;
 
+    fn len(&self) -> usize {
+        Vec::len(self)
+    }
+
     fn into_buf(self) -> Self::Buf {
         self.into()
     }
@@ -72,6 +87,10 @@ impl IntoBuf for Vec<u8> {
 
 impl<'a> IntoBuf for &'a Vec<u8> {
     type Buf = &'a [u8];
+
+    fn len(&self) -> usize {
+        Vec::len(self)
+    }
 
     fn into_buf(self) -> Self::Buf {
         self.as_slice()
@@ -83,6 +102,10 @@ impl<'a> IntoBuf for &'a Vec<u8> {
 impl<'a> IntoBuf for &'a &'static [u8] {
     type Buf = &'static [u8];
 
+    fn len(&self) -> usize {
+        <&[u8]>::len(self)
+    }
+
     fn into_buf(self) -> Self::Buf {
         *self
     }
@@ -90,6 +113,10 @@ impl<'a> IntoBuf for &'a &'static [u8] {
 
 impl<'a> IntoBuf for &'a &'static str {
     type Buf = &'static [u8];
+
+    fn len(&self) -> usize {
+        str::len(self)
+    }
 
     fn into_buf(self) -> Self::Buf {
         self.as_bytes().into_buf()
@@ -99,6 +126,10 @@ impl<'a> IntoBuf for &'a &'static str {
 impl IntoBuf for String {
     type Buf = BytesMut;
 
+    fn len(&self) -> usize {
+        String::len(self)
+    }
+
     fn into_buf(self) -> Self::Buf {
         self.into_bytes().into_buf()
     }
@@ -106,6 +137,10 @@ impl IntoBuf for String {
 
 impl<'a> IntoBuf for &'a String {
     type Buf = &'a [u8];
+
+    fn len(&self) -> usize {
+        String::len(self)
+    }
 
     fn into_buf(self) -> Self::Buf {
         self.as_bytes().into_buf()
@@ -115,6 +150,10 @@ impl<'a> IntoBuf for &'a String {
 impl IntoBuf for u8 {
     type Buf = Option<[u8; 1]>;
 
+    fn len(&self) -> usize {
+        core::mem::size_of::<u8>()
+    }
+
     fn into_buf(self) -> Self::Buf {
         Some([self])
     }
@@ -122,6 +161,10 @@ impl IntoBuf for u8 {
 
 impl IntoBuf for i8 {
     type Buf = Option<[u8; 1]>;
+
+    fn len(&self) -> usize {
+        core::mem::size_of::<i8>()
+    }
 
     fn into_buf(self) -> Self::Buf {
         Some([self as u8; 1])

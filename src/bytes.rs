@@ -1605,6 +1605,10 @@ impl BufMut for BytesMut {
 impl<'a> IntoBuf for &'a BytesMut {
     type Buf = &'a [u8];
 
+    fn len(&self) -> usize {
+        BytesMut::len(self)
+    }
+
     fn into_buf(self) -> Self::Buf {
         self.as_ref()
     }
