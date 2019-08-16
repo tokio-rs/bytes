@@ -357,7 +357,7 @@ const MAX_VEC_POS: usize = usize::MAX >> VEC_POS_OFFSET;
 const NOT_VEC_POS_MASK: usize = 0b11111;
 
 // Bit op constants for extracting the inline length value from the `arc` field.
-const INLINE_LEN_MASK: usize = 0b11111100;
+const INLINE_LEN_MASK: usize = 0b1111_1100;
 const INLINE_LEN_OFFSET: usize = 2;
 
 // Byte offset from the start of `Inner` to where the inline buffer data
@@ -1666,7 +1666,7 @@ impl<'a> From<&'a [u8]> for BytesMut {
                 inner.as_raw()[0..len].copy_from_slice(src);
 
                 BytesMut {
-                    inner: inner,
+                    inner,
                 }
             }
         } else {
@@ -1820,7 +1820,7 @@ impl Inner {
             // track the fact that the `Bytes` handle is backed by a
             // static buffer.
             arc: AtomicPtr::new(KIND_STATIC as *mut Shared),
-            ptr: ptr,
+            ptr,
             len: bytes.len(),
             cap: bytes.len(),
         }
@@ -1839,9 +1839,9 @@ impl Inner {
 
         Inner {
             arc: AtomicPtr::new(arc as *mut Shared),
-            ptr: ptr,
-            len: len,
-            cap: cap,
+            ptr,
+            len,
+            cap,
         }
     }
 
@@ -1982,7 +1982,7 @@ impl Inner {
             self.set_end(at);
         }
 
-        return other
+        other
     }
 
     fn split_to(&mut self, at: usize) -> Inner {
@@ -1993,7 +1993,7 @@ impl Inner {
             self.set_start(at);
         }
 
-        return other
+        other
     }
 
     fn truncate(&mut self, len: usize) {
@@ -2241,7 +2241,7 @@ impl Inner {
         // vector.
         let shared = Box::new(Shared {
             vec: rebuild_vec(self.ptr, self.len, self.cap, off),
-            original_capacity_repr: original_capacity_repr,
+            original_capacity_repr,
             // Initialize refcount to 2. One for this reference, and one
             // for the new clone that will be returned from
             // `shallow_clone`.
