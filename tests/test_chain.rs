@@ -21,8 +21,8 @@ fn writing_chained() {
     {
         let mut buf = Chain::new(&mut a, &mut b);
 
-        for i in 0..128 {
-            buf.put(i as u8);
+        for i in 0u8..128 {
+            buf.put_u8(i);
         }
     }
 

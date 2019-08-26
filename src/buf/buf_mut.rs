@@ -1,4 +1,4 @@
-use super::{IntoBuf, Writer};
+use super::{Writer};
 
 use std::{mem, cmp, io::IoSliceMut, ptr, usize};
 
@@ -208,7 +208,7 @@ pub trait BufMut {
     ///
     /// let mut buf = vec![];
     ///
-    /// buf.put(b'h');
+    /// buf.put_u8(b'h');
     /// buf.put(&b"ello"[..]);
     /// buf.put(" world");
     ///
@@ -218,11 +218,7 @@ pub trait BufMut {
     /// # Panics
     ///
     /// Panics if `self` does not have enough capacity to contain `src`.
-    fn put<T: IntoBuf>(&mut self, src: T) where Self: Sized {
-        use super::Buf;
-
-        let mut src = src.into_buf();
-
+    fn put<T: super::Buf>(&mut self, mut src: T) where Self: Sized {
         assert!(self.remaining_mut() >= src.remaining());
 
         while src.has_remaining() {

@@ -1,6 +1,7 @@
 use crate::{Buf, BufMut};
 use crate::buf::IntoIter;
 use std::io::{IoSlice, IoSliceMut};
+use core::iter::FromIterator;
 
 /// A `Chain` sequences two buffers.
 ///
@@ -14,10 +15,10 @@ use std::io::{IoSlice, IoSliceMut};
 /// # Examples
 ///
 /// ```
-/// use bytes::{Bytes, Buf, IntoBuf};
+/// use bytes::{Bytes, Buf};
 /// use bytes::buf::Chain;
 ///
-/// let buf = Bytes::from(&b"hello "[..]).into_buf()
+/// let buf = Bytes::from(&b"hello "[..])
 ///             .chain(Bytes::from(&b"world"[..]));
 ///
 /// let full: Bytes = buf.collect();
@@ -60,9 +61,9 @@ impl<T, U> Chain<T, U> {
     /// # Examples
     ///
     /// ```
-    /// use bytes::{Bytes, Buf, IntoBuf};
+    /// use bytes::{Bytes, Buf};
     ///
-    /// let buf = Bytes::from(&b"hello"[..]).into_buf()
+    /// let buf = Bytes::from(&b"hello"[..])
     ///             .chain(Bytes::from(&b"world"[..]));
     ///
     /// assert_eq!(buf.first_ref()[..], b"hello"[..]);
@@ -76,9 +77,9 @@ impl<T, U> Chain<T, U> {
     /// # Examples
     ///
     /// ```
-    /// use bytes::{Bytes, Buf, IntoBuf};
+    /// use bytes::{Bytes, Buf};
     ///
-    /// let mut buf = Bytes::from(&b"hello "[..]).into_buf()
+    /// let mut buf = Bytes::from(&b"hello "[..])
     ///                 .chain(Bytes::from(&b"world"[..]));
     ///
     /// buf.first_mut().advance(1);
@@ -95,9 +96,9 @@ impl<T, U> Chain<T, U> {
     /// # Examples
     ///
     /// ```
-    /// use bytes::{Bytes, Buf, IntoBuf};
+    /// use bytes::{Bytes, Buf};
     ///
-    /// let buf = Bytes::from(&b"hello"[..]).into_buf()
+    /// let buf = Bytes::from(&b"hello"[..])
     ///             .chain(Bytes::from(&b"world"[..]));
     ///
     /// assert_eq!(buf.last_ref()[..], b"world"[..]);
@@ -111,9 +112,9 @@ impl<T, U> Chain<T, U> {
     /// # Examples
     ///
     /// ```
-    /// use bytes::{Bytes, Buf, IntoBuf};
+    /// use bytes::{Bytes, Buf};
     ///
-    /// let mut buf = Bytes::from(&b"hello "[..]).into_buf()
+    /// let mut buf = Bytes::from(&b"hello "[..])
     ///                 .chain(Bytes::from(&b"world"[..]));
     ///
     /// buf.last_mut().advance(1);
@@ -141,6 +142,12 @@ impl<T, U> Chain<T, U> {
     /// ```
     pub fn into_inner(self) -> (T, U) {
         (self.a, self.b)
+    }
+
+    #[inline]
+    /// Consumes self and returns joined value, containing underlying bufs.
+    pub fn collect<B: FromIterator<u8>>(self) -> B where T: Buf, U: Buf {
+        self.into_iter().collect()
     }
 }
 

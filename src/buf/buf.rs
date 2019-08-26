@@ -1,4 +1,4 @@
-use super::{IntoBuf, Take, Reader, FromBuf, Chain};
+use super::{Take, Reader, Chain};
 
 use std::{cmp, io::IoSlice, ptr, mem};
 
@@ -787,30 +787,6 @@ pub trait Buf {
         f64::from_bits(Self::get_u64_le(self))
     }
 
-    /// Transforms a `Buf` into a concrete buffer.
-    ///
-    /// `collect()` can operate on any value that implements `Buf`, and turn it
-    /// into the relevant concrete buffer type.
-    ///
-    /// # Examples
-    ///
-    /// Collecting a buffer and loading the contents into a `Vec<u8>`.
-    ///
-    /// ```
-    /// use bytes::Buf;
-    ///
-    /// let buf = &b"hello world"[..];
-    /// let vec: Vec<u8> = buf.collect();
-    ///
-    /// assert_eq!(vec, b"hello world");
-    /// ```
-    fn collect<B>(self) -> B
-        where Self: Sized,
-              B: FromBuf,
-    {
-        B::from_buf(self)
-    }
-
     /// Creates an adaptor which will read at most `limit` bytes from `self`.
     ///
     /// This function returns a new instance of `Buf` which will read at most
@@ -853,11 +829,10 @@ pub trait Buf {
     /// let full: Vec<u8> = chain.collect();
     /// assert_eq!(full, b"hello world");
     /// ```
-    fn chain<U>(self, next: U) -> Chain<Self, U::Buf>
-        where U: IntoBuf,
-              Self: Sized,
+    fn chain<U: Buf>(self, next: U) -> Chain<Self, U>
+        where Self: Sized
     {
-        Chain::new(self, next.into_buf())
+        Chain::new(self, next)
     }
 
     /// Creates a "by reference" adaptor for this instance of `Buf`.
@@ -896,10 +871,10 @@ pub trait Buf {
     /// # Examples
     ///
     /// ```
-    /// use bytes::{Buf, IntoBuf, Bytes};
+    /// use bytes::{Buf, Bytes};
     /// use std::io::Read;
     ///
-    /// let buf = Bytes::from("hello world").into_buf();
+    /// let buf = Bytes::from("hello world");
     ///
     /// let mut reader = buf.reader();
     /// let mut dst = [0; 1024];
@@ -959,6 +934,23 @@ impl Buf for &[u8] {
     #[inline]
     fn bytes(&self) -> &[u8] {
         self
+    }
+
+    #[inline]
+    fn advance(&mut self, cnt: usize) {
+        *self = &self[cnt..];
+    }
+}
+
+impl Buf for &str {
+    #[inline]
+    fn remaining(&self) -> usize {
+        self.len()
+    }
+
+    #[inline]
+    fn bytes(&self) -> &[u8] {
+        self.as_bytes()
     }
 
     #[inline]

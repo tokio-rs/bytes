@@ -32,7 +32,7 @@ fn test_vec_as_mut_buf() {
 #[test]
 fn test_put_u8() {
     let mut buf = Vec::with_capacity(8);
-    buf.put::<u8>(33);
+    buf.put_u8(33);
     assert_eq!(b"\x21", &buf[..]);
 }
 

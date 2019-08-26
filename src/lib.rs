@@ -75,7 +75,6 @@ pub mod buf;
 pub use crate::buf::{
     Buf,
     BufMut,
-    IntoBuf,
 };
 
 mod bytes;
