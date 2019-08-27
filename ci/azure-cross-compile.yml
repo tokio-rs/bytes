@@ -37,6 +37,7 @@ jobs:
     - script: |
         git clone https://github.com/rust-embedded/cross.git
         cd cross
+        git reset --hard fb1cb1d7288151f4349f1cb4c990e0e2281764da #Is broken after this commit (images are not uploaded to new docker hub)
         git apply ../ci/cross-patch
         cargo install --path .
         rm -rf cross

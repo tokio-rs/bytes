@@ -1,4 +1,4 @@
-use crate::{Buf, BufMut, IntoBuf};
+use crate::{Buf, BufMut};
 use crate::buf::IntoIter;
 use crate::debug;
 
@@ -133,8 +133,8 @@ pub struct Bytes {
 ///
 /// let mut buf = BytesMut::with_capacity(64);
 ///
-/// buf.put(b'h');
-/// buf.put(b'e');
+/// buf.put_u8(b'h');
+/// buf.put_u8(b'e');
 /// buf.put("llo");
 ///
 /// assert_eq!(&buf[..], b"hello");
@@ -842,7 +842,7 @@ impl Bytes {
     /// # Examples
     ///
     /// ```
-    /// use bytes::{Buf, IntoBuf, Bytes};
+    /// use bytes::{Buf, Bytes};
     ///
     /// let buf = Bytes::from(&b"abc"[..]);
     /// let mut iter = buf.iter();
@@ -943,7 +943,7 @@ impl FromIterator<u8> for BytesMut {
 
         for i in iter {
             out.reserve(1);
-            out.put(i);
+            out.put_u8(i);
         }
 
         out
@@ -1599,14 +1599,6 @@ impl BufMut for BytesMut {
     #[inline]
     fn put_i8(&mut self, n: i8) {
         self.put_u8(n as u8);
-    }
-}
-
-impl<'a> IntoBuf for &'a BytesMut {
-    type Buf = &'a [u8];
-
-    fn into_buf(self) -> Self::Buf {
-        self.as_ref()
     }
 }
 

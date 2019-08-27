@@ -9,7 +9,7 @@ fn collect_two_bufs() {
     let a = Bytes::from(&b"hello"[..]);
     let b = Bytes::from(&b"world"[..]);
 
-    let res: Vec<u8> = a.chain(b).collect();
+    let res = a.chain(b).to_bytes();
     assert_eq!(res, &b"helloworld"[..]);
 }
 
@@ -21,8 +21,8 @@ fn writing_chained() {
     {
         let mut buf = Chain::new(&mut a, &mut b);
 
-        for i in 0..128 {
-            buf.put(i as u8);
+        for i in 0u8..128 {
+            buf.put_u8(i);
         }
     }
 
