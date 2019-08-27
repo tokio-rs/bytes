@@ -17,10 +17,10 @@ use std::io::{IoSlice, IoSliceMut};
 /// use bytes::{Bytes, Buf};
 /// use bytes::buf::Chain;
 ///
-/// let buf = Bytes::from(&b"hello "[..])
+/// let mut buf = Bytes::from(&b"hello "[..])
 ///             .chain(Bytes::from(&b"world"[..]));
 ///
-/// let full: Bytes = buf.into_bytes();
+/// let full: Bytes = buf.to_bytes();
 /// assert_eq!(full[..], b"hello world"[..]);
 /// ```
 ///
@@ -83,7 +83,7 @@ impl<T, U> Chain<T, U> {
     ///
     /// buf.first_mut().advance(1);
     ///
-    /// let full: Bytes = buf.into_bytes();
+    /// let full: Bytes = buf.to_bytes();
     /// assert_eq!(full[..], b"ello world"[..]);
     /// ```
     pub fn first_mut(&mut self) -> &mut T {
@@ -118,7 +118,7 @@ impl<T, U> Chain<T, U> {
     ///
     /// buf.last_mut().advance(1);
     ///
-    /// let full: Bytes = buf.into_bytes();
+    /// let full: Bytes = buf.to_bytes();
     /// assert_eq!(full[..], b"hello orld"[..]);
     /// ```
     pub fn last_mut(&mut self) -> &mut U {
@@ -184,21 +184,11 @@ impl<T, U> Buf for Chain<T, U>
         n
     }
 
-    fn into_bytes(&self) -> crate::Bytes {
-        let left = self.a.bytes();
-        let right = self.b.bytes();
+    fn to_bytes(&mut self) -> crate::Bytes {
+        let mut bytes: crate::BytesMut = self.a.to_bytes().try_mut()
+            .unwrap_or_else(|bytes| bytes.into());
 
-        let mut bytes = crate::BytesMut::with_capacity(left.len() + right.len());
-
-        unsafe {
-            let len = left.len();
-            bytes.bytes_mut()[..len].copy_from_slice(left);
-            bytes.advance_mut(len);
-            let len = right.len();
-            bytes.bytes_mut()[..len].copy_from_slice(right);
-            bytes.advance_mut(len);
-        }
-
+        bytes.put(&mut self.b);
         bytes.freeze()
     }
 }

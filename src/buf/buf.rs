@@ -824,9 +824,9 @@ pub trait Buf {
     /// ```
     /// use bytes::Buf;
     ///
-    /// let chain = b"hello "[..].chain(&b"world"[..]);
+    /// let mut chain = b"hello "[..].chain(&b"world"[..]);
     ///
-    /// let full = chain.into_bytes();
+    /// let full = chain.to_bytes();
     /// assert_eq!(full.bytes(), b"hello world");
     /// ```
     fn chain<U: Buf>(self, next: U) -> Chain<Self, U>
@@ -888,18 +888,21 @@ pub trait Buf {
         super::reader::new(self)
     }
 
-    ///Consumes self and transforms into `Bytes`
+    /// Consumes remaining bytes inside self and returns new instance of `Bytes`
     ///
     /// # Examples
     ///
     /// ```
     /// use bytes::{Buf};
     ///
-    /// let bytes = "hello world".into_bytes();
+    /// let bytes = "hello world".to_bytes();
     /// assert_eq!(&bytes[..], &b"hello world"[..]);
     /// ```
-    fn into_bytes(&self) -> crate::Bytes {
-        self.bytes().into()
+    fn to_bytes(&mut self) -> crate::Bytes {
+        use super::BufMut;
+        let mut ret = crate::BytesMut::with_capacity(self.remaining());
+        ret.put(self);
+        ret.freeze()
     }
 }
 
