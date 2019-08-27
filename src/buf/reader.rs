@@ -13,7 +13,7 @@ pub struct Reader<B> {
 }
 
 pub fn new<B>(buf: B) -> Reader<B> {
-    Reader { buf: buf }
+    Reader { buf }
 }
 
 impl<B: Buf> Reader<B> {

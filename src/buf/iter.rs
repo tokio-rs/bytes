@@ -45,7 +45,7 @@ impl<T> IntoIter<T> {
     /// assert_eq!(iter.next(), None);
     /// ```
     pub fn new(inner: T) -> IntoIter<T> {
-        IntoIter { inner: inner }
+        IntoIter { inner }
     }
     /// Consumes this `IntoIter`, returning the underlying value.
     ///

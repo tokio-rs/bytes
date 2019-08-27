@@ -16,7 +16,7 @@
 //! [`Buf`]: trait.Buf.html
 //! [`BufMut`]: trait.BufMut.html
 
-mod buf;
+mod buf_impl;
 mod buf_mut;
 mod chain;
 mod iter;
@@ -25,7 +25,7 @@ mod take;
 mod vec_deque;
 mod writer;
 
-pub use self::buf::Buf;
+pub use self::buf_impl::Buf;
 pub use self::buf_mut::BufMut;
 pub use self::chain::Chain;
 pub use self::iter::IntoIter;

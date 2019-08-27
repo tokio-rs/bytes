@@ -50,8 +50,8 @@ impl<T, U> Chain<T, U> {
     /// ```
     pub fn new(a: T, b: U) -> Chain<T, U> {
         Chain {
-            a: a,
-            b: b,
+            a,
+            b,
         }
     }
 
