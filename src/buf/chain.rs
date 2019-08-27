@@ -1,7 +1,6 @@
 use crate::{Buf, BufMut};
 use crate::buf::IntoIter;
 use std::io::{IoSlice, IoSliceMut};
-use core::iter::FromIterator;
 
 /// A `Chain` sequences two buffers.
 ///
@@ -21,7 +20,7 @@ use core::iter::FromIterator;
 /// let buf = Bytes::from(&b"hello "[..])
 ///             .chain(Bytes::from(&b"world"[..]));
 ///
-/// let full: Bytes = buf.collect();
+/// let full: Bytes = buf.into_bytes();
 /// assert_eq!(full[..], b"hello world"[..]);
 /// ```
 ///
@@ -84,7 +83,7 @@ impl<T, U> Chain<T, U> {
     ///
     /// buf.first_mut().advance(1);
     ///
-    /// let full: Bytes = buf.collect();
+    /// let full: Bytes = buf.into_bytes();
     /// assert_eq!(full[..], b"ello world"[..]);
     /// ```
     pub fn first_mut(&mut self) -> &mut T {
@@ -119,7 +118,7 @@ impl<T, U> Chain<T, U> {
     ///
     /// buf.last_mut().advance(1);
     ///
-    /// let full: Bytes = buf.collect();
+    /// let full: Bytes = buf.into_bytes();
     /// assert_eq!(full[..], b"hello orld"[..]);
     /// ```
     pub fn last_mut(&mut self) -> &mut U {
@@ -142,12 +141,6 @@ impl<T, U> Chain<T, U> {
     /// ```
     pub fn into_inner(self) -> (T, U) {
         (self.a, self.b)
-    }
-
-    #[inline]
-    /// Consumes self and returns joined value, containing underlying bufs.
-    pub fn collect<B: FromIterator<u8>>(self) -> B where T: Buf, U: Buf {
-        self.into_iter().collect()
     }
 }
 
@@ -189,6 +182,24 @@ impl<T, U> Buf for Chain<T, U>
         let mut n = self.a.bytes_vectored(dst);
         n += self.b.bytes_vectored(&mut dst[n..]);
         n
+    }
+
+    fn into_bytes(&self) -> crate::Bytes {
+        let left = self.a.bytes();
+        let right = self.b.bytes();
+
+        let mut bytes = crate::BytesMut::with_capacity(left.len() + right.len());
+
+        unsafe {
+            let len = left.len();
+            bytes.bytes_mut()[..len].copy_from_slice(left);
+            bytes.advance_mut(len);
+            let len = right.len();
+            bytes.bytes_mut()[..len].copy_from_slice(right);
+            bytes.advance_mut(len);
+        }
+
+        bytes.freeze()
     }
 }
 

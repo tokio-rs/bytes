@@ -826,8 +826,8 @@ pub trait Buf {
     ///
     /// let chain = b"hello "[..].chain(&b"world"[..]);
     ///
-    /// let full: Vec<u8> = chain.collect();
-    /// assert_eq!(full, b"hello world");
+    /// let full = chain.into_bytes();
+    /// assert_eq!(full.bytes(), b"hello world");
     /// ```
     fn chain<U: Buf>(self, next: U) -> Chain<Self, U>
         where Self: Sized
