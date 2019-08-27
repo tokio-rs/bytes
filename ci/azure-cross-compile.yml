@@ -37,6 +37,7 @@ jobs:
     - script: |
         git clone https://github.com/rust-embedded/cross.git
         cd cross
+        git checkout fb1cb1d7288151f4349f1cb4c990e0e2281764da
         git apply ../ci/cross-patch
         cargo install --path .
         rm -rf cross
