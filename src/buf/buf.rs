@@ -887,6 +887,20 @@ pub trait Buf {
     fn reader(self) -> Reader<Self> where Self: Sized {
         super::reader::new(self)
     }
+
+    ///Consumes self and transforms into `Bytes`
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::{Buf};
+    ///
+    /// let bytes = "hello world".into_bytes();
+    /// assert_eq!(&bytes[..], &b"hello world"[..]);
+    /// ```
+    fn into_bytes(&self) -> crate::Bytes {
+        self.bytes().into()
+    }
 }
 
 impl<T: Buf + ?Sized> Buf for &mut T {
