@@ -1940,8 +1940,11 @@ impl Inner {
 
     #[inline]
     fn inline_len(&self) -> usize {
-        let p: &usize = unsafe { mem::transmute(&self.arc) };
-        (p & INLINE_LEN_MASK) >> INLINE_LEN_OFFSET
+        // This is undefind behavior due to a data race, but experimental
+        // evidence shows that it works in practice (discussion:
+        // https://internals.rust-lang.org/t/bit-wise-reasoning-for-atomic-accesses/8853).
+        let p: *const usize = unsafe { mem::transmute(&self.arc) };
+        (unsafe { *p } & INLINE_LEN_MASK) >> INLINE_LEN_OFFSET
     }
 
     /// Set the length of the inline buffer. This is done by writing to the
