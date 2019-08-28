@@ -9,9 +9,9 @@ use crate::Buf;
 /// Basic usage:
 ///
 /// ```
-/// use bytes::{Buf, IntoBuf, Bytes};
+/// use bytes::{Buf, Bytes};
 ///
-/// let buf = Bytes::from(&b"abc"[..]).into_buf();
+/// let buf = Bytes::from(&b"abc"[..]);
 /// let mut iter = buf.into_iter();
 ///
 /// assert_eq!(iter.next(), Some(b'a'));
@@ -45,16 +45,16 @@ impl<T> IntoIter<T> {
     /// assert_eq!(iter.next(), None);
     /// ```
     pub fn new(inner: T) -> IntoIter<T> {
-        IntoIter { inner: inner }
+        IntoIter { inner }
     }
     /// Consumes this `IntoIter`, returning the underlying value.
     ///
     /// # Examples
     ///
     /// ```rust
-    /// use bytes::{Buf, IntoBuf, Bytes};
+    /// use bytes::{Buf, Bytes};
     ///
-    /// let buf = Bytes::from(&b"abc"[..]).into_buf();
+    /// let buf = Bytes::from(&b"abc"[..]);
     /// let mut iter = buf.into_iter();
     ///
     /// assert_eq!(iter.next(), Some(b'a'));
@@ -73,9 +73,9 @@ impl<T> IntoIter<T> {
     /// # Examples
     ///
     /// ```rust
-    /// use bytes::{Buf, IntoBuf, Bytes};
+    /// use bytes::{Buf, Bytes};
     ///
-    /// let buf = Bytes::from(&b"abc"[..]).into_buf();
+    /// let buf = Bytes::from(&b"abc"[..]);
     /// let mut iter = buf.into_iter();
     ///
     /// assert_eq!(iter.next(), Some(b'a'));
@@ -93,7 +93,7 @@ impl<T> IntoIter<T> {
     /// # Examples
     ///
     /// ```rust
-    /// use bytes::{Buf, IntoBuf, BytesMut};
+    /// use bytes::{Buf, BytesMut};
     ///
     /// let buf = BytesMut::from(&b"abc"[..]);
     /// let mut iter = buf.into_iter();

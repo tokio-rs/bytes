@@ -14,13 +14,13 @@ use std::io::{IoSlice, IoSliceMut};
 /// # Examples
 ///
 /// ```
-/// use bytes::{Bytes, Buf, IntoBuf};
+/// use bytes::{Bytes, Buf};
 /// use bytes::buf::Chain;
 ///
-/// let buf = Bytes::from(&b"hello "[..]).into_buf()
+/// let mut buf = Bytes::from(&b"hello "[..])
 ///             .chain(Bytes::from(&b"world"[..]));
 ///
-/// let full: Bytes = buf.collect();
+/// let full: Bytes = buf.to_bytes();
 /// assert_eq!(full[..], b"hello world"[..]);
 /// ```
 ///
@@ -50,8 +50,8 @@ impl<T, U> Chain<T, U> {
     /// ```
     pub fn new(a: T, b: U) -> Chain<T, U> {
         Chain {
-            a: a,
-            b: b,
+            a,
+            b,
         }
     }
 
@@ -60,9 +60,9 @@ impl<T, U> Chain<T, U> {
     /// # Examples
     ///
     /// ```
-    /// use bytes::{Bytes, Buf, IntoBuf};
+    /// use bytes::{Bytes, Buf};
     ///
-    /// let buf = Bytes::from(&b"hello"[..]).into_buf()
+    /// let buf = Bytes::from(&b"hello"[..])
     ///             .chain(Bytes::from(&b"world"[..]));
     ///
     /// assert_eq!(buf.first_ref()[..], b"hello"[..]);
@@ -76,14 +76,14 @@ impl<T, U> Chain<T, U> {
     /// # Examples
     ///
     /// ```
-    /// use bytes::{Bytes, Buf, IntoBuf};
+    /// use bytes::{Bytes, Buf};
     ///
-    /// let mut buf = Bytes::from(&b"hello "[..]).into_buf()
+    /// let mut buf = Bytes::from(&b"hello "[..])
     ///                 .chain(Bytes::from(&b"world"[..]));
     ///
     /// buf.first_mut().advance(1);
     ///
-    /// let full: Bytes = buf.collect();
+    /// let full: Bytes = buf.to_bytes();
     /// assert_eq!(full[..], b"ello world"[..]);
     /// ```
     pub fn first_mut(&mut self) -> &mut T {
@@ -95,9 +95,9 @@ impl<T, U> Chain<T, U> {
     /// # Examples
     ///
     /// ```
-    /// use bytes::{Bytes, Buf, IntoBuf};
+    /// use bytes::{Bytes, Buf};
     ///
-    /// let buf = Bytes::from(&b"hello"[..]).into_buf()
+    /// let buf = Bytes::from(&b"hello"[..])
     ///             .chain(Bytes::from(&b"world"[..]));
     ///
     /// assert_eq!(buf.last_ref()[..], b"world"[..]);
@@ -111,14 +111,14 @@ impl<T, U> Chain<T, U> {
     /// # Examples
     ///
     /// ```
-    /// use bytes::{Bytes, Buf, IntoBuf};
+    /// use bytes::{Bytes, Buf};
     ///
-    /// let mut buf = Bytes::from(&b"hello "[..]).into_buf()
+    /// let mut buf = Bytes::from(&b"hello "[..])
     ///                 .chain(Bytes::from(&b"world"[..]));
     ///
     /// buf.last_mut().advance(1);
     ///
-    /// let full: Bytes = buf.collect();
+    /// let full: Bytes = buf.to_bytes();
     /// assert_eq!(full[..], b"hello orld"[..]);
     /// ```
     pub fn last_mut(&mut self) -> &mut U {
@@ -182,6 +182,14 @@ impl<T, U> Buf for Chain<T, U>
         let mut n = self.a.bytes_vectored(dst);
         n += self.b.bytes_vectored(&mut dst[n..]);
         n
+    }
+
+    fn to_bytes(&mut self) -> crate::Bytes {
+        let mut bytes: crate::BytesMut = self.a.to_bytes().try_mut()
+            .unwrap_or_else(|bytes| bytes.into());
+
+        bytes.put(&mut self.b);
+        bytes.freeze()
     }
 }
 

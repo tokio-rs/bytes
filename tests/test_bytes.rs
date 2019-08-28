@@ -302,14 +302,14 @@ fn fns_defined_for_bytes_mut() {
 fn reserve_convert() {
     // Inline -> Vec
     let mut bytes = BytesMut::with_capacity(8);
-    bytes.put("hello");
+    bytes.put("hello".as_bytes());
     bytes.reserve(40);
     assert_eq!(bytes.capacity(), 45);
     assert_eq!(bytes, "hello");
 
     // Inline -> Inline
     let mut bytes = BytesMut::with_capacity(inline_cap());
-    bytes.put("abcdefghijkl");
+    bytes.put("abcdefghijkl".as_bytes());
 
     let a = bytes.split_to(10);
     bytes.reserve(inline_cap() - 3);
@@ -336,7 +336,7 @@ fn reserve_convert() {
 #[test]
 fn reserve_growth() {
     let mut bytes = BytesMut::with_capacity(64);
-    bytes.put("hello world");
+    bytes.put("hello world".as_bytes());
     let _ = bytes.split();
 
     bytes.reserve(65);
@@ -348,7 +348,7 @@ fn reserve_allocates_at_least_original_capacity() {
     let mut bytes = BytesMut::with_capacity(1024);
 
     for i in 0..1020 {
-        bytes.put(i as u8);
+        bytes.put_u8(i as u8);
     }
 
     let _other = bytes.split();
@@ -364,7 +364,7 @@ fn reserve_max_original_capacity_value() {
     let mut bytes = BytesMut::with_capacity(SIZE);
 
     for _ in 0..SIZE {
-        bytes.put(0u8);
+        bytes.put_u8(0u8);
     }
 
     let _other = bytes.split();
@@ -381,7 +381,7 @@ fn reserve_max_original_capacity_value() {
 fn reserve_vec_recycling() {
     let mut bytes = BytesMut::from(Vec::with_capacity(16));
     assert_eq!(bytes.capacity(), 16);
-    bytes.put("0123456789012345");
+    bytes.put("0123456789012345".as_bytes());
     bytes.advance(10);
     assert_eq!(bytes.capacity(), 6);
     bytes.reserve(8);
@@ -528,7 +528,7 @@ fn stress() {
 
     for i in 0..ITERS {
         let data = [i as u8; 256];
-        let buf = Arc::new(Bytes::from(&data[..]));
+        let buf = Arc::new(Bytes::copy_from_slice(&data[..]));
 
         let barrier = Arc::new(Barrier::new(THREADS));
         let mut joins = Vec::with_capacity(THREADS);
@@ -888,7 +888,7 @@ fn slice_ref_catches_not_an_empty_subset() {
 #[test]
 #[should_panic]
 fn empty_slice_ref_catches_not_an_empty_subset() {
-    let bytes = Bytes::from(&b""[..]);
+    let bytes = Bytes::copy_from_slice(&b""[..]);
     let slice = &b""[0..0];
 
     bytes.slice_ref(slice);

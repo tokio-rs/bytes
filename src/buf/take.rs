@@ -14,8 +14,8 @@ pub struct Take<T> {
 
 pub fn new<T>(inner: T, limit: usize) -> Take<T> {
     Take {
-        inner: inner,
-        limit: limit,
+        inner,
+        limit,
     }
 }
 

@@ -1,4 +1,4 @@
-use crate::{Buf, BufMut, IntoBuf};
+use crate::{Buf, BufMut};
 use crate::buf::IntoIter;
 use crate::debug;
 
@@ -133,8 +133,8 @@ pub struct Bytes {
 ///
 /// let mut buf = BytesMut::with_capacity(64);
 ///
-/// buf.put(b'h');
-/// buf.put(b'e');
+/// buf.put_u8(b'h');
+/// buf.put_u8(b'e');
 /// buf.put("llo");
 ///
 /// assert_eq!(&buf[..], b"hello");
@@ -357,7 +357,7 @@ const MAX_VEC_POS: usize = usize::MAX >> VEC_POS_OFFSET;
 const NOT_VEC_POS_MASK: usize = 0b11111;
 
 // Bit op constants for extracting the inline length value from the `arc` field.
-const INLINE_LEN_MASK: usize = 0b11111100;
+const INLINE_LEN_MASK: usize = 0b1111_1100;
 const INLINE_LEN_OFFSET: usize = 2;
 
 // Byte offset from the start of `Inner` to where the inline buffer data
@@ -499,6 +499,11 @@ impl Bytes {
         self.inner.is_inline()
     }
 
+    ///Creates `Bytes` instance from slice, by copying it.
+    pub fn copy_from_slice(data: &[u8]) -> Self {
+        BytesMut::from(data).freeze()
+    }
+
     /// Returns a slice of self for the provided range.
     ///
     /// This will increment the reference count for the underlying memory and
@@ -542,7 +547,7 @@ impl Bytes {
         assert!(end <= len);
 
         if end - begin <= INLINE_CAP {
-            return Bytes::from(&self[begin..end]);
+            return Bytes::copy_from_slice(&self[begin..end]);
         }
 
         let mut ret = self.clone();
@@ -729,7 +734,7 @@ impl Bytes {
     /// ```
     /// use bytes::Bytes;
     ///
-    /// let a = Bytes::from(&b"Mary had a little lamb, little lamb, little lamb..."[..]);
+    /// let a = Bytes::copy_from_slice(&b"Mary had a little lamb, little lamb, little lamb..."[..]);
     ///
     /// // Create a shallow clone
     /// let b = a.clone();
@@ -759,7 +764,7 @@ impl Bytes {
     /// Clones the data if it is not already owned.
     pub fn to_mut(&mut self) -> &mut BytesMut {
         if !self.inner.is_mut_safe() {
-            let new = Bytes::from(&self[..]);
+            let new = Self::copy_from_slice(&self[..]);
             *self = new;
         }
         unsafe { &mut *(self as *mut Bytes as *mut BytesMut) }
@@ -842,7 +847,7 @@ impl Bytes {
     /// # Examples
     ///
     /// ```
-    /// use bytes::{Buf, IntoBuf, Bytes};
+    /// use bytes::{Buf, Bytes};
     ///
     /// let buf = Bytes::from(&b"abc"[..]);
     /// let mut iter = buf.iter();
@@ -922,15 +927,15 @@ impl From<String> for Bytes {
     }
 }
 
-impl<'a> From<&'a [u8]> for Bytes {
-    fn from(src: &'a [u8]) -> Bytes {
-        BytesMut::from(src).freeze()
+impl From<&'static [u8]> for Bytes {
+    fn from(src: &'static [u8]) -> Bytes {
+        Bytes::from_static(src)
     }
 }
 
-impl<'a> From<&'a str> for Bytes {
-    fn from(src: &'a str) -> Bytes {
-        BytesMut::from(src).freeze()
+impl From<&'static str> for Bytes {
+    fn from(src: &'static str) -> Bytes {
+        Bytes::from_static(src.as_bytes())
     }
 }
 
@@ -943,7 +948,7 @@ impl FromIterator<u8> for BytesMut {
 
         for i in iter {
             out.reserve(1);
-            out.put(i);
+            out.put_u8(i);
         }
 
         out
@@ -1602,14 +1607,6 @@ impl BufMut for BytesMut {
     }
 }
 
-impl<'a> IntoBuf for &'a BytesMut {
-    type Buf = &'a [u8];
-
-    fn into_buf(self) -> Self::Buf {
-        self.as_ref()
-    }
-}
-
 impl AsRef<[u8]> for BytesMut {
     #[inline]
     fn as_ref(&self) -> &[u8] {
@@ -1674,7 +1671,7 @@ impl<'a> From<&'a [u8]> for BytesMut {
                 inner.as_raw()[0..len].copy_from_slice(src);
 
                 BytesMut {
-                    inner: inner,
+                    inner,
                 }
             }
         } else {
@@ -1828,7 +1825,7 @@ impl Inner {
             // track the fact that the `Bytes` handle is backed by a
             // static buffer.
             arc: AtomicPtr::new(KIND_STATIC as *mut Shared),
-            ptr: ptr,
+            ptr,
             len: bytes.len(),
             cap: bytes.len(),
         }
@@ -1847,9 +1844,9 @@ impl Inner {
 
         Inner {
             arc: AtomicPtr::new(arc as *mut Shared),
-            ptr: ptr,
-            len: len,
-            cap: cap,
+            ptr,
+            len,
+            cap,
         }
     }
 
@@ -1993,7 +1990,7 @@ impl Inner {
             self.set_end(at);
         }
 
-        return other
+        other
     }
 
     fn split_to(&mut self, at: usize) -> Inner {
@@ -2004,7 +2001,7 @@ impl Inner {
             self.set_start(at);
         }
 
-        return other
+        other
     }
 
     fn truncate(&mut self, len: usize) {
@@ -2252,7 +2249,7 @@ impl Inner {
         // vector.
         let shared = Box::new(Shared {
             vec: rebuild_vec(self.ptr, self.len, self.cap, off),
-            original_capacity_repr: original_capacity_repr,
+            original_capacity_repr,
             // Initialize refcount to 2. One for this reference, and one
             // for the new clone that will be returned from
             // `shallow_clone`.

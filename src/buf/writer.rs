@@ -13,7 +13,7 @@ pub struct Writer<B> {
 }
 
 pub fn new<B>(buf: B) -> Writer<B> {
-    Writer { buf: buf }
+    Writer { buf }
 }
 
 impl<B: BufMut> Writer<B> {

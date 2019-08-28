@@ -34,6 +34,8 @@ mod tests {
         buffer.advance(6);
         assert_eq!(b"world", buffer.bytes());
         buffer.extend(b" piece");
-        assert_eq!(b"world piece" as &[u8], &buffer.collect::<Vec<u8>>()[..]);
+        let mut out = [0; 11];
+        buffer.copy_to_slice(&mut out);
+        assert_eq!(b"world piece", &out[..]);
     }
 }
