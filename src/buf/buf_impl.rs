@@ -1,4 +1,4 @@
-use super::{Take, Reader, Chain};
+use super::{Take, Chain};
 
 #[cfg(feature = "std")]
 use super::Reader;
@@ -7,6 +7,9 @@ use core::{cmp, ptr, mem};
 
 #[cfg(feature = "std")]
 use std::io::IoSlice;
+
+#[cfg(not(feature = "std"))]
+use alloc::{boxed::Box};
 
 macro_rules! buf_get_impl {
     ($this:ident, $typ:tt::$conv:tt) => ({
