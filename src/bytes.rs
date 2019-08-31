@@ -2176,18 +2176,17 @@ impl Inner {
 
         if self.is_inline_or_static() {
             // In this case, a shallow_clone still involves copying the data.
-            let mut inner: Inner = mem::MaybeUninit::uninit().assume_init();
+            let mut inner: mem::MaybeUninit<Inner> = mem::MaybeUninit::uninit();
             ptr::copy_nonoverlapping(
                 self,
-                &mut inner,
+                inner.as_mut_ptr(),
                 1,
             );
-            inner
+            inner.assume_init()
         } else {
             self.shallow_clone_sync(mut_self)
         }
     }
-
 
     #[cold]
     unsafe fn shallow_clone_sync(&self, mut_self: bool) -> Inner {
