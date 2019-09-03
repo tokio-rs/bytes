@@ -11,7 +11,7 @@ use core::iter::{FromIterator, Iterator};
 #[cfg(not(feature = "std"))]
 use alloc::{vec::Vec, string::String, boxed::Box, borrow::{Borrow, BorrowMut}};
 #[cfg(feature = "std")]
-use std::borrow::{Borrow, BorrowMut};
+use std::{vec::Vec, string::String, boxed::Box, borrow::{Borrow, BorrowMut}};
 
 /// A reference counted contiguous slice of memory.
 ///

@@ -8,6 +8,9 @@ use core::{cmp, ptr, mem};
 #[cfg(feature = "std")]
 use std::io::IoSlice;
 
+#[cfg(feature = "std")]
+use std::{boxed::Box};
+
 #[cfg(not(feature = "std"))]
 use alloc::{boxed::Box};
 
