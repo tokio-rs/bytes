@@ -6,10 +6,7 @@ use core::{mem, cmp, ptr, usize};
 #[cfg(feature = "std")]
 use std::io::IoSliceMut;
 
-#[cfg(not(feature = "std"))]
 use alloc::{vec::Vec, boxed::Box};
-#[cfg(feature = "std")]
-use std::{vec::Vec, boxed::Box};
 
 /// A trait for values that provide sequential write access to bytes.
 ///

@@ -73,11 +73,10 @@
 
 #![no_std]
 
+extern crate alloc;
+
 #[cfg(feature = "std")]
 extern crate std;
-
-#[cfg(not(feature = "std"))]
-extern crate alloc;
 
 pub mod buf;
 pub use crate::buf::{

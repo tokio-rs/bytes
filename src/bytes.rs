@@ -8,10 +8,7 @@ use core::sync::atomic::{self, AtomicUsize, AtomicPtr};
 use core::sync::atomic::Ordering::{Relaxed, Acquire, Release, AcqRel};
 use core::iter::{FromIterator, Iterator};
 
-#[cfg(not(feature = "std"))]
 use alloc::{vec::Vec, string::String, boxed::Box, borrow::{Borrow, BorrowMut}};
-#[cfg(feature = "std")]
-use std::{vec::Vec, string::String, boxed::Box, borrow::{Borrow, BorrowMut}};
 
 /// A reference counted contiguous slice of memory.
 ///
