@@ -1,6 +1,12 @@
-use super::{Writer};
+#[cfg(feature = "std")]
+use super::Writer;
 
-use std::{mem, cmp, io::IoSliceMut, ptr, usize};
+use core::{mem, cmp, ptr, usize};
+
+#[cfg(feature = "std")]
+use std::io::IoSliceMut;
+
+use alloc::{vec::Vec, boxed::Box};
 
 /// A trait for values that provide sequential write access to bytes.
 ///
@@ -185,6 +191,7 @@ pub trait BufMut {
     /// with `dst` being a zero length slice.
     ///
     /// [`readv`]: http://man7.org/linux/man-pages/man2/readv.2.html
+    #[cfg(feature = "std")]
     unsafe fn bytes_vectored_mut<'a>(&'a mut self, dst: &mut [IoSliceMut<'a>]) -> usize {
         if dst.is_empty() {
             return 0;
@@ -913,6 +920,7 @@ pub trait BufMut {
     ///
     /// assert_eq!(*buf, b"hello world"[..]);
     /// ```
+    #[cfg(feature = "std")]
     fn writer(self) -> Writer<Self> where Self: Sized {
         super::writer::new(self)
     }
@@ -927,6 +935,7 @@ impl<T: BufMut + ?Sized> BufMut for &mut T {
         (**self).bytes_mut()
     }
 
+    #[cfg(feature = "std")]
     unsafe fn bytes_vectored_mut<'b>(&'b mut self, dst: &mut [IoSliceMut<'b>]) -> usize {
         (**self).bytes_vectored_mut(dst)
     }
@@ -945,6 +954,7 @@ impl<T: BufMut + ?Sized> BufMut for Box<T> {
         (**self).bytes_mut()
     }
 
+    #[cfg(feature = "std")]
     unsafe fn bytes_vectored_mut<'b>(&'b mut self, dst: &mut [IoSliceMut<'b>]) -> usize {
         (**self).bytes_vectored_mut(dst)
     }
@@ -968,7 +978,7 @@ impl BufMut for &mut [u8] {
     #[inline]
     unsafe fn advance_mut(&mut self, cnt: usize) {
         // Lifetime dance taken from `impl Write for &mut [u8]`.
-        let (_, b) = std::mem::replace(self, &mut []).split_at_mut(cnt);
+        let (_, b) = core::mem::replace(self, &mut []).split_at_mut(cnt);
         *self = b;
     }
 }
@@ -994,7 +1004,7 @@ impl BufMut for Vec<u8> {
 
     #[inline]
     unsafe fn bytes_mut(&mut self) -> &mut [u8] {
-        use std::slice;
+        use core::slice;
 
         if self.capacity() == self.len() {
             self.reserve(64); // Grow the vec

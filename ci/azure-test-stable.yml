@@ -40,3 +40,7 @@ jobs:
   - ${{ if parameters.benches }}:
     - script: cargo check --benches
       displayName: Check benchmarks
+
+  # Run with no default defaults
+  - script: cargo ${{ parameters.cmd }}
+    displayName: cargo ${{ parameters.cmd }} --no-default-features

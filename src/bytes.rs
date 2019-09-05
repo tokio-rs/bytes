@@ -2,12 +2,13 @@ use crate::{Buf, BufMut};
 use crate::buf::IntoIter;
 use crate::debug;
 
-use std::{cmp, fmt, mem, hash, slice, ptr, usize};
-use std::borrow::{Borrow, BorrowMut};
-use std::ops::{Deref, DerefMut, RangeBounds};
-use std::sync::atomic::{self, AtomicUsize, AtomicPtr};
-use std::sync::atomic::Ordering::{Relaxed, Acquire, Release, AcqRel};
-use std::iter::{FromIterator, Iterator};
+use core::{cmp, fmt, mem, hash, slice, ptr, usize};
+use core::ops::{Deref, DerefMut, RangeBounds};
+use core::sync::atomic::{self, AtomicUsize, AtomicPtr};
+use core::sync::atomic::Ordering::{Relaxed, Acquire, Release, AcqRel};
+use core::iter::{FromIterator, Iterator};
+
+use alloc::{vec::Vec, string::String, boxed::Box, borrow::{Borrow, BorrowMut}};
 
 /// A reference counted contiguous slice of memory.
 ///
@@ -316,10 +317,10 @@ struct Inner {
 }
 
 // Thread-safe reference-counted container for the shared storage. This mostly
-// the same as `std::sync::Arc` but without the weak counter. The ref counting
+// the same as `core::sync::Arc` but without the weak counter. The ref counting
 // fns are based on the ones found in `std`.
 //
-// The main reason to use `Shared` instead of `std::sync::Arc` is that it ends
+// The main reason to use `Shared` instead of `core::sync::Arc` is that it ends
 // up making the overall code simpler and easier to reason about. This is due to
 // some of the logic around setting `Inner::arc` and other ways the `arc` field
 // is used. Using `Arc` ended up requiring a number of funky transmutes and
@@ -527,7 +528,7 @@ impl Bytes {
     /// Requires that `begin <= end` and `end <= self.len()`, otherwise slicing
     /// will panic.
     pub fn slice(&self, range: impl RangeBounds<usize>) -> Bytes {
-        use std::ops::Bound;
+        use core::ops::Bound;
 
         let len = self.len();
 
@@ -857,7 +858,7 @@ impl Bytes {
     /// assert_eq!(iter.next().map(|b| *b), Some(b'c'));
     /// assert_eq!(iter.next(), None);
     /// ```
-    pub fn iter<'a>(&'a self) -> std::slice::Iter<'a, u8> {
+    pub fn iter<'a>(&'a self) -> core::slice::Iter<'a, u8> {
         self.bytes().iter()
     }
 }
@@ -1031,7 +1032,7 @@ impl IntoIterator for Bytes {
 
 impl<'a> IntoIterator for &'a Bytes {
     type Item = &'a u8;
-    type IntoIter = std::slice::Iter<'a, u8>;
+    type IntoIter = core::slice::Iter<'a, u8>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.as_ref().into_iter()
@@ -1539,7 +1540,7 @@ impl BytesMut {
     /// assert_eq!(iter.next().map(|b| *b), Some(b'c'));
     /// assert_eq!(iter.next(), None);
     /// ```
-    pub fn iter<'a>(&'a self) -> std::slice::Iter<'a, u8> {
+    pub fn iter<'a>(&'a self) -> core::slice::Iter<'a, u8> {
         self.bytes().iter()
     }
 }
@@ -1780,7 +1781,7 @@ impl IntoIterator for BytesMut {
 
 impl<'a> IntoIterator for &'a BytesMut {
     type Item = &'a u8;
-    type IntoIter = std::slice::Iter<'a, u8>;
+    type IntoIter = core::slice::Iter<'a, u8>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.as_ref().into_iter()

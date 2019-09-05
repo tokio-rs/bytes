@@ -71,6 +71,13 @@
 #![deny(warnings, missing_docs, missing_debug_implementations, rust_2018_idioms)]
 #![doc(html_root_url = "https://docs.rs/bytes/0.5.0")]
 
+#![no_std]
+
+extern crate alloc;
+
+#[cfg(feature = "std")]
+extern crate std;
+
 pub mod buf;
 pub use crate::buf::{
     Buf,
