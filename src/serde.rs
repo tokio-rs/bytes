@@ -1,9 +1,11 @@
+use alloc::string::String;
+use alloc::vec::Vec;
 use core::{cmp, fmt};
 use serde::{Serialize, Serializer, Deserialize, Deserializer, de};
 use super::{Bytes, BytesMut};
 
 macro_rules! serde_impl {
-    ($ty:ident, $visitor_ty:ident) => (
+    ($ty:ident, $visitor_ty:ident, $from_slice:ident) => (
         impl Serialize for $ty {
             #[inline]
             fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -40,7 +42,7 @@ macro_rules! serde_impl {
             fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E>
                 where E: de::Error
             {
-                Ok($ty::from(v))
+                Ok($ty::$from_slice(v))
             }
 
             #[inline]
@@ -54,7 +56,7 @@ macro_rules! serde_impl {
             fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
                 where E: de::Error
             {
-                Ok($ty::from(v))
+                Ok($ty::$from_slice(v.as_bytes()))
             }
 
             #[inline]
@@ -76,5 +78,5 @@ macro_rules! serde_impl {
     );
 }
 
-serde_impl!(Bytes, BytesVisitor);
-serde_impl!(BytesMut, BytesMutVisitor);
+serde_impl!(Bytes, BytesVisitor, copy_from_slice);
+serde_impl!(BytesMut, BytesMutVisitor, from);
