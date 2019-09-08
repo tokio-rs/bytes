@@ -46,5 +46,5 @@ jobs:
     displayName: cargo ${{ parameters.cmd }} --all-features
 
   # Run with no default features
-  - script: cargo ${{ parameters.cmd }} --no-default-features
-    displayName: cargo ${{ parameters.cmd }} --no-default-features
+  - script: cargo check --no-default-features
+    displayName: cargo check --no-default-features
