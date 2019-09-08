@@ -29,9 +29,9 @@ jobs:
     displayName: cargo ${{ parameters.cmd }}
 
   # Run with each specified feature
-  - ${{ each feature in parameters.features.value }}:
+  - ${{ each feature in parameters.features }}:
     - script: cargo ${{ parameters.cmd }} --features ${{ feature }}
-      displayName: cargo ${{ parameters.cmd }} --tests --features ${{ feature }}
+      displayName: cargo ${{ parameters.cmd }} --features ${{ feature }}
 
   - ${{ if eq(parameters.cmd, 'test') }}:
     - script: cargo doc --no-deps
@@ -41,6 +41,10 @@ jobs:
     - script: cargo check --benches
       displayName: Check benchmarks
 
-  # Run with no default defaults
-  - script: cargo ${{ parameters.cmd }}
-    displayName: cargo ${{ parameters.cmd }} --no-default-features
+  # Run with all features
+  - script: cargo ${{ parameters.cmd }} --all-features
+    displayName: cargo ${{ parameters.cmd }} --all-features
+
+  # Run with no default features
+  - script: cargo check --no-default-features
+    displayName: cargo check --no-default-features
