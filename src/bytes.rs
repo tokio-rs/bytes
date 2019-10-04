@@ -3002,6 +3002,15 @@ impl BitXor for Bytes {
     }
 }
 
+impl BitXor for BytesMut {
+    type Output = Option<Self>; //none when rhs length not the same as self length
+
+    fn bitxor(self, rhs: Self) -> Self::Output {
+        if self.len() != rhs.len() { return None; }
+        Some(self.iter().zip(rhs.iter()).map( |(l,r)| *l ^ *r ).collect())
+    }
+}
+
 // While there is `std::process:abort`, it's only available in Rust 1.17, and
 // our minimum supported version is currently 1.15. So, this acts as an abort
 // by triggering a double panic, which always aborts in Rust.

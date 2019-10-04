@@ -841,6 +841,28 @@ fn from_iter_no_size_hint() {
 }
 
 #[test]
+fn bytes_mut_xor_success() {
+    let left:&[u8] = &[0x01,0x01,0x00,0x00];
+    let right:&[u8] = &[0x00,0x01,0x00,0x01];
+    let expect:&[u8] = &[0x01,0x00,0x00,0x01];
+    assert_eq!(BytesMut::from(left) ^ BytesMut::from(right), Some(BytesMut::from(expect)));
+    // xor is commutative
+    assert_eq!(BytesMut::from(right) ^ BytesMut::from(left), Some(BytesMut::from(expect)));
+}
+
+#[test]
+fn bytes_mut_xor_zero_lengths_return_zero() {
+    assert_eq!(BytesMut::new() ^ BytesMut::new(), Some(BytesMut::new()));
+}
+
+#[test]
+fn bytes_mut_xor_different_lengths_returns_none() {
+    let left:&[u8] = &[0x01,0x01,0x00,0x00,0x00];
+    let right:&[u8] = &[0x00,0x01,0x00,0x01];
+    assert_eq!(BytesMut::from(left) ^ BytesMut::from(right), None);
+}
+
+#[test]
 fn bytes_xor_success() {
     let left = &[0x01,0x01,0x00,0x00];
     let right = &[0x00,0x01,0x00,0x01];
