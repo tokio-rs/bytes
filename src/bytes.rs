@@ -9,6 +9,7 @@ use core::sync::atomic::Ordering::{Relaxed, Acquire, Release, AcqRel};
 use core::iter::{FromIterator, Iterator};
 
 use alloc::{vec::Vec, string::String, boxed::Box, borrow::{Borrow, BorrowMut}};
+use std::ops::BitXor;
 
 /// A reference counted contiguous slice of memory.
 ///
@@ -2989,6 +2990,15 @@ impl PartialEq<Bytes> for BytesMut
 {
     fn eq(&self, other: &Bytes) -> bool {
         &other[..] == &self[..]
+    }
+}
+
+impl BitXor for Bytes {
+    type Output = Option<Self>; //none when rhs length not the same as self length
+
+    fn bitxor(self, rhs: Self) -> Self::Output {
+        if self.len() != rhs.len() { return None; }
+        Some(self.iter().zip(rhs.iter()).map( |(l,r)| *l ^ *r ).collect())
     }
 }
 

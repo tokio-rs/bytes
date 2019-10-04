@@ -840,6 +840,26 @@ fn from_iter_no_size_hint() {
     assert_eq!(&actual[..], &expect[..]);
 }
 
+#[test]
+fn bytes_xor_success() {
+    let left = &[0x01,0x01,0x00,0x00];
+    let right = &[0x00,0x01,0x00,0x01];
+    let expect = &[0x01,0x00,0x00,0x01];
+    assert_eq!(Bytes::from_static(left) ^ Bytes::from_static(right), Some(Bytes::from_static(expect)));
+    // xor is commutative
+    assert_eq!(Bytes::from_static(right) ^ Bytes::from_static(left), Some(Bytes::from_static(expect)));
+}
+
+#[test]
+fn bytes_xor_zero_lengths_return_zero() {
+    assert_eq!(Bytes::new() ^ Bytes::new(), Some(Bytes::new()));
+}
+
+#[test]
+fn bytes_xor_different_lengths_returns_none() {
+    assert_eq!(Bytes::from_static(&[0x01,0x01,0x00,0x00,0x00]) ^ Bytes::from_static(&[0x00,0x01,0x00,0x01]), None);
+}
+
 fn test_slice_ref(bytes: &Bytes, start: usize, end: usize, expected: &[u8]) {
     let slice = &(bytes.as_ref()[start..end]);
     let sub = bytes.slice_ref(&slice);
