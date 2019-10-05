@@ -3,13 +3,12 @@ use crate::buf::IntoIter;
 use crate::debug;
 
 use core::{cmp, fmt, mem, hash, slice, ptr, usize};
-use core::ops::{Deref, DerefMut, RangeBounds};
+use core::ops::{BitXor, Deref, DerefMut, RangeBounds};
 use core::sync::atomic::{self, AtomicUsize, AtomicPtr};
 use core::sync::atomic::Ordering::{Relaxed, Acquire, Release, AcqRel};
 use core::iter::{FromIterator, Iterator};
 
 use alloc::{vec::Vec, string::String, boxed::Box, borrow::{Borrow, BorrowMut}};
-use std::ops::BitXor;
 
 /// A reference counted contiguous slice of memory.
 ///
