@@ -3,7 +3,7 @@ use crate::buf::IntoIter;
 use crate::debug;
 
 use core::{cmp, fmt, mem, hash, slice, ptr, usize};
-use core::ops::{Deref, DerefMut, RangeBounds};
+use core::ops::{BitXor, Deref, DerefMut, RangeBounds};
 use core::sync::atomic::{self, AtomicUsize, AtomicPtr};
 use core::sync::atomic::Ordering::{Relaxed, Acquire, Release, AcqRel};
 use core::iter::{FromIterator, Iterator};
@@ -2989,6 +2989,24 @@ impl PartialEq<Bytes> for BytesMut
 {
     fn eq(&self, other: &Bytes) -> bool {
         &other[..] == &self[..]
+    }
+}
+
+impl BitXor for Bytes {
+    type Output = Option<Self>; //none when rhs length not the same as self length
+
+    fn bitxor(self, rhs: Self) -> Self::Output {
+        if self.len() != rhs.len() { return None; }
+        Some(self.iter().zip(rhs.iter()).map( |(l,r)| *l ^ *r ).collect())
+    }
+}
+
+impl BitXor for BytesMut {
+    type Output = Option<Self>; //none when rhs length not the same as self length
+
+    fn bitxor(self, rhs: Self) -> Self::Output {
+        if self.len() != rhs.len() { return None; }
+        Some(self.iter().zip(rhs.iter()).map( |(l,r)| *l ^ *r ).collect())
     }
 }
 
