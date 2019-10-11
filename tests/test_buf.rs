@@ -53,3 +53,19 @@ fn test_bufs_vec() {
 
     assert_eq!(1, buf.bytes_vectored(&mut dst[..]));
 }
+
+#[test]
+fn test_vec_deque() {
+    use std::collections::VecDeque;
+
+    let mut buffer: VecDeque<u8> = VecDeque::new();
+    buffer.extend(b"hello world");
+    assert_eq!(11, buffer.remaining());
+    assert_eq!(b"hello world", buffer.bytes());
+    buffer.advance(6);
+    assert_eq!(b"world", buffer.bytes());
+    buffer.extend(b" piece");
+    let mut out = [0; 11];
+    buffer.copy_to_slice(&mut out);
+    assert_eq!(b"world piece", &out[..]);
+}

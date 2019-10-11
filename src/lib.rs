@@ -84,10 +84,13 @@ pub use crate::buf::{
     BufMut,
 };
 
+mod bytes_mut;
 mod bytes;
 mod debug;
 mod hex;
-pub use crate::bytes::{Bytes, BytesMut};
+mod loom;
+pub use crate::bytes_mut::BytesMut;
+pub use crate::bytes::Bytes;
 
 // Optional Serde support
 #[cfg(feature = "serde")]
@@ -96,3 +99,25 @@ mod serde;
 // Optional `Either` support
 #[cfg(feature = "either")]
 mod either;
+
+
+#[inline(never)]
+#[cold]
+fn abort() -> ! {
+    #[cfg(feature = "std")]
+    {
+        std::process::abort();
+    }
+
+    #[cfg(not(feature = "std"))]
+    {
+        struct Abort;
+        impl Drop for Abort {
+            fn drop(&mut self) {
+                panic!();
+            }
+        }
+        let _a = Abort;
+        panic!("abort");
+    }
+}

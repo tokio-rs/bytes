@@ -20,22 +20,3 @@ impl Buf for VecDeque<u8> {
         self.drain(..cnt);
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn hello_world() {
-        let mut buffer: VecDeque<u8> = VecDeque::new();
-        buffer.extend(b"hello world");
-        assert_eq!(11, buffer.remaining());
-        assert_eq!(b"hello world", buffer.bytes());
-        buffer.advance(6);
-        assert_eq!(b"world", buffer.bytes());
-        buffer.extend(b" piece");
-        let mut out = [0; 11];
-        buffer.copy_to_slice(&mut out);
-        assert_eq!(b"world piece", &out[..]);
-    }
-}
