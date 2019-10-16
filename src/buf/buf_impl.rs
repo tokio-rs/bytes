@@ -903,9 +903,9 @@ pub trait Buf {
     /// # Examples
     ///
     /// ```
-    /// use bytes::{Buf};
+    /// use bytes::Buf;
     ///
-    /// let bytes = "hello world".to_bytes();
+    /// let bytes = (&b"hello world"[..]).to_bytes();
     /// assert_eq!(&bytes[..], &b"hello world"[..]);
     /// ```
     fn to_bytes(&mut self) -> crate::Bytes {
@@ -963,23 +963,6 @@ impl Buf for &[u8] {
     #[inline]
     fn bytes(&self) -> &[u8] {
         self
-    }
-
-    #[inline]
-    fn advance(&mut self, cnt: usize) {
-        *self = &self[cnt..];
-    }
-}
-
-impl Buf for &str {
-    #[inline]
-    fn remaining(&self) -> usize {
-        self.len()
-    }
-
-    #[inline]
-    fn bytes(&self) -> &[u8] {
-        self.as_bytes()
     }
 
     #[inline]
