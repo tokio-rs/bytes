@@ -70,11 +70,19 @@ fn test_clone() {
 
 #[test]
 fn test_bufs_vec_mut() {
-    let mut buf = BytesMut::from(&b"hello world"[..]);
     let b1: &mut [u8] = &mut [];
     let b2: &mut [u8] = &mut [];
     let mut dst = [IoSliceMut::new(b1), IoSliceMut::new(b2)];
 
+    // with no capacity
+    let mut buf = BytesMut::new();
+    assert_eq!(buf.capacity(), 0);
+    unsafe {
+        assert_eq!(0, buf.bytes_vectored_mut(&mut dst[..]));
+    }
+
+    // with capacity
+    let mut buf = BytesMut::with_capacity(64);
     unsafe {
         assert_eq!(1, buf.bytes_vectored_mut(&mut dst[..]));
     }

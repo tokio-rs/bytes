@@ -5,7 +5,7 @@ use serde::{Serialize, Serializer, Deserialize, Deserializer, de};
 use super::{Bytes, BytesMut};
 
 macro_rules! serde_impl {
-    ($ty:ident, $visitor_ty:ident, $from_slice:ident) => (
+    ($ty:ident, $visitor_ty:ident, $from_slice:ident, $from_vec:ident) => (
         impl Serialize for $ty {
             #[inline]
             fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -29,13 +29,13 @@ macro_rules! serde_impl {
                 where V: de::SeqAccess<'de>
             {
                 let len = cmp::min(seq.size_hint().unwrap_or(0), 4096);
-                let mut values = Vec::with_capacity(len);
+                let mut values: Vec<u8> = Vec::with_capacity(len);
 
                 while let Some(value) = seq.next_element()? {
                     values.push(value);
                 }
 
-                Ok(values.into())
+                Ok($ty::$from_vec(values))
             }
 
             #[inline]
@@ -49,7 +49,7 @@ macro_rules! serde_impl {
             fn visit_byte_buf<E>(self, v: Vec<u8>) -> Result<Self::Value, E>
                 where E: de::Error
             {
-                Ok($ty::from(v))
+                Ok($ty::$from_vec(v))
             }
 
             #[inline]
@@ -63,7 +63,7 @@ macro_rules! serde_impl {
             fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
                 where E: de::Error
             {
-                Ok($ty::from(v))
+                Ok($ty::$from_vec(v.into_bytes()))
             }
         }
 
@@ -78,5 +78,5 @@ macro_rules! serde_impl {
     );
 }
 
-serde_impl!(Bytes, BytesVisitor, copy_from_slice);
-serde_impl!(BytesMut, BytesMutVisitor, from);
+serde_impl!(Bytes, BytesVisitor, copy_from_slice, from);
+serde_impl!(BytesMut, BytesMutVisitor, from, from_vec);

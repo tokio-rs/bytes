@@ -186,14 +186,6 @@ impl<T, U> Buf for Chain<T, U>
         n += self.b.bytes_vectored(&mut dst[n..]);
         n
     }
-
-    fn to_bytes(&mut self) -> crate::Bytes {
-        let mut bytes: crate::BytesMut = self.a.to_bytes().try_mut()
-            .unwrap_or_else(|bytes| bytes.into());
-
-        bytes.put(&mut self.b);
-        bytes.freeze()
-    }
 }
 
 impl<T, U> BufMut for Chain<T, U>

@@ -5,11 +5,6 @@ use bytes::{Bytes, BytesMut, Buf, BufMut};
 const LONG: &'static [u8] = b"mary had a little lamb, little lamb, little lamb";
 const SHORT: &'static [u8] = b"hello world";
 
-fn inline_cap() -> usize {
-    use std::mem;
-    4 * mem::size_of::<usize>() - 1
-}
-
 fn is_sync<T: Sync>() {}
 fn is_send<T: Send>() {}
 
@@ -19,6 +14,35 @@ fn test_bounds() {
     is_sync::<BytesMut>();
     is_send::<Bytes>();
     is_send::<BytesMut>();
+}
+
+#[test]
+fn test_layout() {
+    use std::mem;
+
+    assert_eq!(
+        mem::size_of::<Bytes>(),
+        mem::size_of::<usize>() * 4,
+        "Bytes size should be 4 words",
+    );
+    assert_eq!(
+        mem::size_of::<BytesMut>(),
+        mem::size_of::<usize>() * 4,
+        "BytesMut should be 4 words",
+    );
+
+    assert_eq!(
+        mem::size_of::<Bytes>(),
+        mem::size_of::<Option<Bytes>>(),
+        "Bytes should be same size as Option<Bytes>",
+    );
+
+    assert_eq!(
+        mem::size_of::<BytesMut>(),
+        mem::size_of::<Option<BytesMut>>(),
+        "BytesMut should be same size as Option<BytesMut>",
+    );
+
 }
 
 #[test]
@@ -121,14 +145,14 @@ fn slice() {
 #[should_panic]
 fn slice_oob_1() {
     let a = Bytes::from(&b"hello world"[..]);
-    a.slice(5..(inline_cap() + 1));
+    a.slice(5..44);
 }
 
 #[test]
 #[should_panic]
 fn slice_oob_2() {
     let a = Bytes::from(&b"hello world"[..]);
-    a.slice((inline_cap() + 1)..(inline_cap() + 5));
+    a.slice(44..49);
 }
 
 #[test]
@@ -150,7 +174,7 @@ fn split_off() {
 #[should_panic]
 fn split_off_oob() {
     let mut hello = Bytes::from(&b"helloworld"[..]);
-    hello.split_off(inline_cap() + 1);
+    hello.split_off(44);
 }
 
 #[test]
@@ -211,21 +235,21 @@ fn split_off_to_loop() {
 
 #[test]
 fn split_to_1() {
-    // Inline
-    let mut a = Bytes::from(SHORT);
+    // Static
+    let mut a = Bytes::from_static(SHORT);
     let b = a.split_to(4);
 
     assert_eq!(SHORT[4..], a);
     assert_eq!(SHORT[..4], b);
 
     // Allocated
-    let mut a = Bytes::from(LONG);
+    let mut a = Bytes::copy_from_slice(LONG);
     let b = a.split_to(4);
 
     assert_eq!(LONG[4..], a);
     assert_eq!(LONG[..4], b);
 
-    let mut a = Bytes::from(LONG);
+    let mut a = Bytes::copy_from_slice(LONG);
     let b = a.split_to(30);
 
     assert_eq!(LONG[30..], a);
@@ -247,14 +271,14 @@ fn split_to_2() {
 #[should_panic]
 fn split_to_oob() {
     let mut hello = Bytes::from(&b"helloworld"[..]);
-    hello.split_to(inline_cap() + 1);
+    hello.split_to(33);
 }
 
 #[test]
 #[should_panic]
 fn split_to_oob_mut() {
     let mut hello = BytesMut::from(&b"helloworld"[..]);
-    hello.split_to(inline_cap() + 1);
+    hello.split_to(33);
 }
 
 #[test]
@@ -287,6 +311,24 @@ fn split_off_to_at_gt_len() {
 }
 
 #[test]
+fn freeze_clone_shared() {
+    let s = &b"abcdefgh"[..];
+    let b = BytesMut::from(s).split().freeze();
+    assert_eq!(b, s);
+    let c = b.clone();
+    assert_eq!(c, s);
+}
+
+#[test]
+fn freeze_clone_unique() {
+    let s = &b"abcdefgh"[..];
+    let b = BytesMut::from(s).freeze();
+    assert_eq!(b, s);
+    let c = b.clone();
+    assert_eq!(c, s);
+}
+
+#[test]
 fn fns_defined_for_bytes_mut() {
     let mut bytes = BytesMut::from(&b"hello world"[..]);
 
@@ -300,24 +342,6 @@ fn fns_defined_for_bytes_mut() {
 
 #[test]
 fn reserve_convert() {
-    // Inline -> Vec
-    let mut bytes = BytesMut::with_capacity(8);
-    bytes.put("hello".as_bytes());
-    bytes.reserve(40);
-    assert_eq!(bytes.capacity(), 45);
-    assert_eq!(bytes, "hello");
-
-    // Inline -> Inline
-    let mut bytes = BytesMut::with_capacity(inline_cap());
-    bytes.put("abcdefghijkl".as_bytes());
-
-    let a = bytes.split_to(10);
-    bytes.reserve(inline_cap() - 3);
-    assert_eq!(inline_cap(), bytes.capacity());
-
-    assert_eq!(bytes, "kl");
-    assert_eq!(a, "abcdefghij");
-
     // Vec -> Vec
     let mut bytes = BytesMut::from(LONG);
     bytes.reserve(64);
@@ -373,19 +397,18 @@ fn reserve_max_original_capacity_value() {
     assert_eq!(bytes.capacity(), 64 * 1024);
 }
 
-// Without either looking at the internals of the BytesMut or doing weird stuff
-// with the memory allocator, there's no good way to automatically verify from
-// within the program that this actually recycles memory. Instead, just exercise
-// the code path to ensure that the results are correct.
 #[test]
 fn reserve_vec_recycling() {
-    let mut bytes = BytesMut::from(Vec::with_capacity(16));
+    let mut bytes = BytesMut::with_capacity(16);
     assert_eq!(bytes.capacity(), 16);
-    bytes.put("0123456789012345".as_bytes());
+    let addr = bytes.as_ptr() as usize;
+    bytes.put("0123456789012345");
+    assert_eq!(bytes.as_ptr() as usize, addr);
     bytes.advance(10);
     assert_eq!(bytes.capacity(), 6);
     bytes.reserve(8);
     assert_eq!(bytes.capacity(), 16);
+    assert_eq!(bytes.as_ptr() as usize, addr);
 }
 
 #[test]
@@ -425,24 +448,8 @@ fn reserve_in_arc_nonunique_does_not_overallocate() {
 }
 
 #[test]
-fn inline_storage() {
-    let mut bytes = BytesMut::with_capacity(inline_cap());
-    let zero = [0u8; 64];
-
-    bytes.put(&zero[0..inline_cap()]);
-    assert_eq!(*bytes, zero[0..inline_cap()]);
-}
-
-#[test]
 fn extend_mut() {
     let mut bytes = BytesMut::with_capacity(0);
-    bytes.extend(LONG);
-    assert_eq!(*bytes, LONG[..]);
-}
-
-#[test]
-fn extend_shr() {
-    let mut bytes = Bytes::new();
     bytes.extend(LONG);
     assert_eq!(*bytes, LONG[..]);
 }
@@ -451,16 +458,6 @@ fn extend_shr() {
 fn extend_from_slice_mut() {
     for &i in &[3, 34] {
         let mut bytes = BytesMut::new();
-        bytes.extend_from_slice(&LONG[..i]);
-        bytes.extend_from_slice(&LONG[i..]);
-        assert_eq!(LONG[..], *bytes);
-    }
-}
-
-#[test]
-fn extend_from_slice_shr() {
-    for &i in &[3, 34] {
-        let mut bytes = Bytes::new();
         bytes.extend_from_slice(&LONG[..i]);
         bytes.extend_from_slice(&LONG[i..]);
         assert_eq!(LONG[..], *bytes);
@@ -477,13 +474,6 @@ fn from_static() {
 }
 
 #[test]
-fn advance_inline() {
-    let mut a = Bytes::from(&b"hello world"[..]);
-    a.advance(6);
-    assert_eq!(a, &b"world"[..]);
-}
-
-#[test]
 fn advance_static() {
     let mut a = Bytes::from_static(b"hello world");
     a.advance(6);
@@ -492,7 +482,20 @@ fn advance_static() {
 
 #[test]
 fn advance_vec() {
-    let mut a = BytesMut::from(b"hello world boooo yah world zomg wat wat".to_vec());
+    let mut a = Bytes::from(b"hello world boooo yah world zomg wat wat".to_vec());
+    a.advance(16);
+    assert_eq!(a, b"o yah world zomg wat wat"[..]);
+
+    a.advance(4);
+    assert_eq!(a, b"h world zomg wat wat"[..]);
+
+    a.advance(6);
+    assert_eq!(a, b"d zomg wat wat"[..]);
+}
+
+#[test]
+fn advance_bytes_mut() {
+    let mut a = BytesMut::from("hello world boooo yah world zomg wat wat");
     a.advance(16);
     assert_eq!(a, b"o yah world zomg wat wat"[..]);
 
@@ -510,7 +513,7 @@ fn advance_vec() {
 #[test]
 #[should_panic]
 fn advance_past_len() {
-    let mut a = BytesMut::from(b"hello world".to_vec());
+    let mut a = BytesMut::from("hello world");
     a.advance(20);
 }
 
@@ -563,10 +566,10 @@ fn partial_eq_bytesmut() {
     assert!(bytesmut != bytes2);
 }
 
+/*
 #[test]
 fn bytes_unsplit_basic() {
-    let mut buf = Bytes::with_capacity(64);
-    buf.extend_from_slice(b"aaabbbcccddd");
+    let buf = Bytes::from(&b"aaabbbcccddd"[..]);
 
     let splitted = buf.split_off(6);
     assert_eq!(b"aaabbb", &buf[..]);
@@ -578,8 +581,7 @@ fn bytes_unsplit_basic() {
 
 #[test]
 fn bytes_unsplit_empty_other() {
-    let mut buf = Bytes::with_capacity(64);
-    buf.extend_from_slice(b"aaabbbcccddd");
+    let buf = Bytes::from(&b"aaabbbcccddd"[..]);
 
     // empty other
     let other = Bytes::new();
@@ -599,49 +601,6 @@ fn bytes_unsplit_empty_self() {
     buf.unsplit(other);
     assert_eq!(b"aaabbbcccddd", &buf[..]);
 }
-
-#[test]
-fn bytes_unsplit_inline_arc() {
-    let mut buf = Bytes::with_capacity(8); //inline
-    buf.extend_from_slice(b"aaaabbbb");
-
-    let mut buf2 = Bytes::with_capacity(64);
-    buf2.extend_from_slice(b"ccccddddeeee");
-
-    buf2.split_off(8); //arc
-
-    buf.unsplit(buf2);
-    assert_eq!(b"aaaabbbbccccdddd", &buf[..]);
-}
-
-#[test]
-fn bytes_unsplit_arc_inline() {
-    let mut buf = Bytes::with_capacity(64);
-    buf.extend_from_slice(b"aaaabbbbeeee");
-
-    buf.split_off(8); //arc
-
-    let mut buf2 = Bytes::with_capacity(8); //inline
-    buf2.extend_from_slice(b"ccccdddd");
-
-    buf.unsplit(buf2);
-    assert_eq!(b"aaaabbbbccccdddd", &buf[..]);
-
-}
-
-#[test]
-fn bytes_unsplit_both_inline() {
-    let mut buf = Bytes::with_capacity(16); //inline
-    buf.extend_from_slice(b"aaaabbbbccccdddd");
-
-    let splitted = buf.split_off(8); // both inline
-    assert_eq!(b"aaaabbbb", &buf[..]);
-    assert_eq!(b"ccccdddd", &splitted[..]);
-
-    buf.unsplit(splitted);
-    assert_eq!(b"aaaabbbbccccdddd", &buf[..]);
-}
-
 
 #[test]
 fn bytes_unsplit_arc_different() {
@@ -696,6 +655,7 @@ fn bytes_unsplit_overlapping_references() {
     assert_eq!(b"abcdefghijklmnopqrst", &buf0010[..]);
     assert_eq!(b"fghijklmno", &buf0515[..]);
 }
+*/
 
 #[test]
 fn bytes_mut_unsplit_basic() {
@@ -733,49 +693,6 @@ fn bytes_mut_unsplit_empty_self() {
     buf.unsplit(other);
     assert_eq!(b"aaabbbcccddd", &buf[..]);
 }
-
-#[test]
-fn bytes_mut_unsplit_inline_arc() {
-    let mut buf = BytesMut::with_capacity(8); //inline
-    buf.extend_from_slice(b"aaaabbbb");
-
-    let mut buf2 = BytesMut::with_capacity(64);
-    buf2.extend_from_slice(b"ccccddddeeee");
-
-    buf2.split_off(8); //arc
-
-    buf.unsplit(buf2);
-    assert_eq!(b"aaaabbbbccccdddd", &buf[..]);
-}
-
-#[test]
-fn bytes_mut_unsplit_arc_inline() {
-    let mut buf = BytesMut::with_capacity(64);
-    buf.extend_from_slice(b"aaaabbbbeeee");
-
-    buf.split_off(8); //arc
-
-    let mut buf2 = BytesMut::with_capacity(8); //inline
-    buf2.extend_from_slice(b"ccccdddd");
-
-    buf.unsplit(buf2);
-    assert_eq!(b"aaaabbbbccccdddd", &buf[..]);
-
-}
-
-#[test]
-fn bytes_mut_unsplit_both_inline() {
-    let mut buf = BytesMut::with_capacity(16); //inline
-    buf.extend_from_slice(b"aaaabbbbccccdddd");
-
-    let splitted = buf.split_off(8); // both inline
-    assert_eq!(b"aaaabbbb", &buf[..]);
-    assert_eq!(b"ccccdddd", &splitted[..]);
-
-    buf.unsplit(splitted);
-    assert_eq!(b"aaaabbbbccccdddd", &buf[..]);
-}
-
 
 #[test]
 fn bytes_mut_unsplit_arc_different() {

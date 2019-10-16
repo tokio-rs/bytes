@@ -1,5 +1,5 @@
 parameters:
-  cmd: test
+  cmd: build
   rust_version: stable
 
 jobs:
