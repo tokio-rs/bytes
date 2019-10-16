@@ -1016,6 +1016,31 @@ impl Buf for Option<[u8; 1]> {
     }
 }
 
+#[cfg(feature = "std")]
+impl<'a> Buf for IoSlice<'a> {
+    #[inline]
+    fn remaining(&self) -> usize {
+        self.len()
+    }
+
+    #[inline]
+    fn bytes(&self) -> &[u8] {
+        self
+    }
+
+    #[inline]
+    fn advance(&mut self, cnt: usize) {
+        //*self = IoSlice::new(&self[cnt..]);
+        *self = unsafe {
+            // Deref for IoSlice gives an anonymous lifetime,
+            // so we transmute it to actual lifetime it has, 'a.
+            //
+            // See https://github.com/rust-lang/rust/issues/62726#issuecomment-542826827
+            IoSlice::new(std::mem::transmute::<&[u8], &'a [u8]>(&self[cnt..]))
+        };
+    }
+}
+
 // The existence of this function makes the compiler catch if the Buf
 // trait is "object-safe" or not.
 fn _assert_trait_object(_b: &dyn Buf) {}

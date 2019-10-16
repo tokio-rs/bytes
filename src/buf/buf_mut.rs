@@ -1018,6 +1018,29 @@ impl BufMut for Vec<u8> {
     }
 }
 
+#[cfg(feature = "std")]
+impl<'a> BufMut for IoSliceMut<'a> {
+    #[inline]
+    fn remaining_mut(&self) -> usize {
+        self.len()
+    }
+
+    #[inline]
+    unsafe fn advance_mut(&mut self, cnt: usize) {
+        // DerefMut for IoSliceMut gives an anonymous lifetime,
+        // so we transmute it to actual lifetime it has, 'a.
+        //
+        // See https://github.com/rust-lang/rust/issues/62726#issuecomment-542826827
+        *self = IoSliceMut::new(std::mem::transmute::<&mut [u8], &'a mut [u8]>(&mut self[cnt..]))
+    }
+
+    #[inline]
+    unsafe fn bytes_mut(&mut self) -> &mut [u8] {
+        self
+    }
+
+}
+
 // The existence of this function makes the compiler catch if the BufMut
 // trait is "object-safe" or not.
 fn _assert_trait_object(_b: &dyn BufMut) {}
