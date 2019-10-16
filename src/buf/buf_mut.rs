@@ -24,7 +24,7 @@ use alloc::{vec::Vec, boxed::Box};
 ///
 /// let mut buf = vec![];
 ///
-/// buf.put("hello world");
+/// buf.put(&b"hello world"[..]);
 ///
 /// assert_eq!(buf, b"hello world");
 /// ```
@@ -44,7 +44,7 @@ pub trait BufMut {
     /// let mut buf = &mut dst[..];
     ///
     /// let original_remaining = buf.remaining_mut();
-    /// buf.put("hello");
+    /// buf.put(&b"hello"[..]);
     ///
     /// assert_eq!(original_remaining - 5, buf.remaining_mut());
     /// ```
@@ -114,7 +114,7 @@ pub trait BufMut {
     ///
     /// assert!(buf.has_remaining_mut());
     ///
-    /// buf.put("hello");
+    /// buf.put(&b"hello"[..]);
     ///
     /// assert!(!buf.has_remaining_mut());
     /// ```
@@ -217,7 +217,7 @@ pub trait BufMut {
     ///
     /// buf.put_u8(b'h');
     /// buf.put(&b"ello"[..]);
-    /// buf.put(" world");
+    /// buf.put(&b" world"[..]);
     ///
     /// assert_eq!(buf, b"hello world");
     /// ```
