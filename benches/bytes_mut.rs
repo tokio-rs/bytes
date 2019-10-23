@@ -140,3 +140,95 @@ fn fmt_write(b: &mut Bencher) {
         unsafe { buf.set_len(0); }
     })
 }
+
+// BufMut for BytesMut vs Vec<u8>
+
+#[bench]
+fn put_bytes_mut(b: &mut Bencher) {
+    let mut buf = BytesMut::with_capacity(256);
+    let data = [33u8; 32];
+
+    b.bytes = data.len() as u64 * 4;
+    b.iter(|| {
+        for _ in 0..4 {
+            buf.put_slice(&data);
+        }
+        test::black_box(&buf);
+        unsafe { buf.set_len(0); }
+    });
+}
+
+#[bench]
+fn put_u8_bytes_mut(b: &mut Bencher) {
+    let mut buf = BytesMut::with_capacity(256);
+    let cnt = 128;
+
+    b.bytes = cnt as u64;
+    b.iter(|| {
+        for _ in 0..cnt {
+            buf.put_u8(b'x');
+        }
+        test::black_box(&buf);
+        unsafe { buf.set_len(0); }
+    });
+}
+
+#[bench]
+fn put_vec(b: &mut Bencher) {
+    let mut buf = Vec::<u8>::with_capacity(256);
+    let data = [33u8; 32];
+
+    b.bytes = data.len() as u64 * 4;
+    b.iter(|| {
+        for _ in 0..4 {
+            buf.put_slice(&data);
+        }
+        test::black_box(&buf);
+        unsafe { buf.set_len(0); }
+    });
+}
+
+#[bench]
+fn put_u8_vec(b: &mut Bencher) {
+    let mut buf = Vec::<u8>::with_capacity(256);
+    let cnt = 128;
+
+    b.bytes = cnt as u64;
+    b.iter(|| {
+        for _ in 0..cnt {
+            buf.put_u8(b'x');
+        }
+        test::black_box(&buf);
+        unsafe { buf.set_len(0); }
+    });
+}
+
+#[bench]
+fn put_vec_extend(b: &mut Bencher) {
+    let mut buf = Vec::<u8>::with_capacity(256);
+    let data = [33u8; 32];
+
+    b.bytes = data.len() as u64 * 4;
+    b.iter(|| {
+        for _ in 0..4 {
+            buf.extend_from_slice(&data);
+        }
+        test::black_box(&buf);
+        unsafe { buf.set_len(0); }
+    });
+}
+
+#[bench]
+fn put_u8_vec_push(b: &mut Bencher) {
+    let mut buf = Vec::<u8>::with_capacity(256);
+    let cnt = 128;
+
+    b.bytes = cnt as u64;
+    b.iter(|| {
+        for _ in 0..cnt {
+            buf.push(b'x');
+        }
+        test::black_box(&buf);
+        unsafe { buf.set_len(0); }
+    });
+}
