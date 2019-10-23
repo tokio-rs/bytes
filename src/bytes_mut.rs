@@ -926,19 +926,9 @@ impl BufMut for BytesMut {
     }
 
     #[inline]
-    unsafe fn bytes_mut(&mut self) -> &mut [u8] {
-        slice::from_raw_parts_mut(self.ptr.as_ptr().offset(self.len as isize), self.cap)
-    }
-
-    #[inline]
-    fn put_slice(&mut self, src: &[u8]) {
-        assert!(self.remaining_mut() >= src.len());
-
-        let len = src.len();
-
+    fn bytes_mut(&mut self) -> &mut [mem::MaybeUninit<u8>] {
         unsafe {
-            self.bytes_mut()[..len].copy_from_slice(src);
-            self.advance_mut(len);
+            slice::from_raw_parts_mut(self.ptr.as_ptr().offset(self.len as isize) as *mut mem::MaybeUninit<u8>, self.cap)
         }
     }
 }
@@ -1085,11 +1075,12 @@ impl Extend<u8> for BytesMut {
         let (lower, _) = iter.size_hint();
         self.reserve(lower);
 
+        // TODO: optimize
+        // 1. If self.kind() == KIND_VEC, use Vec::extend
+        // 2. Make `reserve` inline-able
         for b in iter {
-            unsafe {
-                self.bytes_mut()[0] = b;
-                self.advance_mut(1);
-            }
+            self.reserve(1);
+            self.put_u8(b);
         }
     }
 }

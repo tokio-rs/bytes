@@ -1,9 +1,8 @@
 #![deny(warnings, rust_2018_idioms)]
 
-use bytes::{BufMut, BytesMut};
+use bytes::{buf::IoSliceMut, BufMut, BytesMut};
 use std::usize;
 use std::fmt::Write;
-use std::io::IoSliceMut;
 
 #[test]
 fn test_vec_as_mut_buf() {
@@ -11,9 +10,7 @@ fn test_vec_as_mut_buf() {
 
     assert_eq!(buf.remaining_mut(), usize::MAX);
 
-    unsafe {
-        assert!(buf.bytes_mut().len() >= 64);
-    }
+    assert!(buf.bytes_mut().len() >= 64);
 
     buf.put(&b"zomg"[..]);
 
@@ -72,20 +69,16 @@ fn test_clone() {
 fn test_bufs_vec_mut() {
     let b1: &mut [u8] = &mut [];
     let b2: &mut [u8] = &mut [];
-    let mut dst = [IoSliceMut::new(b1), IoSliceMut::new(b2)];
+    let mut dst = [IoSliceMut::from(b1), IoSliceMut::from(b2)];
 
     // with no capacity
     let mut buf = BytesMut::new();
     assert_eq!(buf.capacity(), 0);
-    unsafe {
-        assert_eq!(0, buf.bytes_vectored_mut(&mut dst[..]));
-    }
+    assert_eq!(0, buf.bytes_vectored_mut(&mut dst[..]));
 
     // with capacity
     let mut buf = BytesMut::with_capacity(64);
-    unsafe {
-        assert_eq!(1, buf.bytes_vectored_mut(&mut dst[..]));
-    }
+    assert_eq!(1, buf.bytes_vectored_mut(&mut dst[..]));
 }
 
 #[test]
