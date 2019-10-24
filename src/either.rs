@@ -4,7 +4,9 @@ use either::Either;
 use either::Either::*;
 
 #[cfg(feature = "std")]
-use std::io::{IoSlice, IoSliceMut};
+use std::io::IoSlice;
+#[cfg(feature = "std")]
+use crate::buf::IoSliceMut;
 
 impl<L, R> Buf for Either<L, R>
 where
@@ -60,7 +62,7 @@ where
         }
     }
 
-    unsafe fn bytes_mut(&mut self) -> &mut [u8] {
+    fn bytes_mut(&mut self) -> &mut [core::mem::MaybeUninit<u8>] {
         match *self {
             Left(ref mut b) => b.bytes_mut(),
             Right(ref mut b) => b.bytes_mut(),
@@ -68,7 +70,7 @@ where
     }
 
     #[cfg(feature = "std")]
-    unsafe fn bytes_vectored_mut<'a>(&'a mut self, dst: &mut [IoSliceMut<'a>]) -> usize {
+    fn bytes_vectored_mut<'a>(&'a mut self, dst: &mut [IoSliceMut<'a>]) -> usize {
         match *self {
             Left(ref mut b) => b.bytes_vectored_mut(dst),
             Right(ref mut b) => b.bytes_vectored_mut(dst),

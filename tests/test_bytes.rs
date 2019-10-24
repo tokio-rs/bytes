@@ -465,6 +465,16 @@ fn extend_from_slice_mut() {
 }
 
 #[test]
+fn extend_mut_without_size_hint() {
+    let mut bytes = BytesMut::with_capacity(0);
+    let mut long_iter = LONG.iter();
+
+    // Use iter::from_fn since it doesn't know a size_hint
+    bytes.extend(std::iter::from_fn(|| long_iter.next()));
+    assert_eq!(*bytes, LONG[..]);
+}
+
+#[test]
 fn from_static() {
     let mut a = Bytes::from_static(b"ab");
     let b = a.split_off(1);

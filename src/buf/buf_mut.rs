@@ -1,10 +1,10 @@
 #[cfg(feature = "std")]
 use super::Writer;
 
-use core::{mem, cmp, ptr, usize};
+use core::{cmp, mem::{self, MaybeUninit}, ptr, usize};
 
 #[cfg(feature = "std")]
-use std::io::IoSliceMut;
+use std::fmt;
 
 use alloc::{vec::Vec, boxed::Box};
 
@@ -72,13 +72,15 @@ pub trait BufMut {
     /// let mut buf = Vec::with_capacity(16);
     ///
     /// unsafe {
-    ///     buf.bytes_mut()[0] = b'h';
-    ///     buf.bytes_mut()[1] = b'e';
+    ///     // MaybeUninit::as_mut_ptr
+    ///     buf.bytes_mut()[0].as_mut_ptr().write(b'h');
+    ///     buf.bytes_mut()[1].as_mut_ptr().write(b'e');
     ///
     ///     buf.advance_mut(2);
     ///
-    ///     buf.bytes_mut()[0] = b'l';
-    ///     buf.bytes_mut()[1..3].copy_from_slice(b"lo");
+    ///     buf.bytes_mut()[0].as_mut_ptr().write(b'l');
+    ///     buf.bytes_mut()[1].as_mut_ptr().write(b'l');
+    ///     buf.bytes_mut()[2].as_mut_ptr().write(b'o');
     ///
     ///     buf.advance_mut(3);
     /// }
@@ -139,13 +141,15 @@ pub trait BufMut {
     /// let mut buf = Vec::with_capacity(16);
     ///
     /// unsafe {
-    ///     buf.bytes_mut()[0] = b'h';
-    ///     buf.bytes_mut()[1] = b'e';
+    ///     // MaybeUninit::as_mut_ptr
+    ///     buf.bytes_mut()[0].as_mut_ptr().write(b'h');
+    ///     buf.bytes_mut()[1].as_mut_ptr().write(b'e');
     ///
     ///     buf.advance_mut(2);
     ///
-    ///     buf.bytes_mut()[0] = b'l';
-    ///     buf.bytes_mut()[1..3].copy_from_slice(b"lo");
+    ///     buf.bytes_mut()[0].as_mut_ptr().write(b'l');
+    ///     buf.bytes_mut()[1].as_mut_ptr().write(b'l');
+    ///     buf.bytes_mut()[2].as_mut_ptr().write(b'o');
     ///
     ///     buf.advance_mut(3);
     /// }
@@ -161,7 +165,7 @@ pub trait BufMut {
     /// `bytes_mut` returning an empty slice implies that `remaining_mut` will
     /// return 0 and `remaining_mut` returning 0 implies that `bytes_mut` will
     /// return an empty slice.
-    unsafe fn bytes_mut(&mut self) -> &mut [u8];
+    fn bytes_mut(&mut self) -> &mut [MaybeUninit<u8>];
 
     /// Fills `dst` with potentially multiple mutable slices starting at `self`'s
     /// current position.
@@ -192,13 +196,13 @@ pub trait BufMut {
     ///
     /// [`readv`]: http://man7.org/linux/man-pages/man2/readv.2.html
     #[cfg(feature = "std")]
-    unsafe fn bytes_vectored_mut<'a>(&'a mut self, dst: &mut [IoSliceMut<'a>]) -> usize {
+    fn bytes_vectored_mut<'a>(&'a mut self, dst: &mut [IoSliceMut<'a>]) -> usize {
         if dst.is_empty() {
             return 0;
         }
 
         if self.has_remaining_mut() {
-            dst[0] = IoSliceMut::new(self.bytes_mut());
+            dst[0] = IoSliceMut::from(self.bytes_mut());
             1
         } else {
             0
@@ -238,7 +242,7 @@ pub trait BufMut {
 
                 ptr::copy_nonoverlapping(
                     s.as_ptr(),
-                    d.as_mut_ptr(),
+                    d.as_mut_ptr() as *mut u8,
                     l);
             }
 
@@ -280,7 +284,7 @@ pub trait BufMut {
 
                 ptr::copy_nonoverlapping(
                     src[off..].as_ptr(),
-                    dst.as_mut_ptr(),
+                    dst.as_mut_ptr() as *mut u8,
                     cnt);
 
                 off += cnt;
@@ -931,12 +935,12 @@ impl<T: BufMut + ?Sized> BufMut for &mut T {
         (**self).remaining_mut()
     }
 
-    unsafe fn bytes_mut(&mut self) -> &mut [u8] {
+    fn bytes_mut(&mut self) -> &mut [MaybeUninit<u8>] {
         (**self).bytes_mut()
     }
 
     #[cfg(feature = "std")]
-    unsafe fn bytes_vectored_mut<'b>(&'b mut self, dst: &mut [IoSliceMut<'b>]) -> usize {
+    fn bytes_vectored_mut<'b>(&'b mut self, dst: &mut [IoSliceMut<'b>]) -> usize {
         (**self).bytes_vectored_mut(dst)
     }
 
@@ -950,12 +954,12 @@ impl<T: BufMut + ?Sized> BufMut for Box<T> {
         (**self).remaining_mut()
     }
 
-    unsafe fn bytes_mut(&mut self) -> &mut [u8] {
+    fn bytes_mut(&mut self) -> &mut [MaybeUninit<u8>] {
         (**self).bytes_mut()
     }
 
     #[cfg(feature = "std")]
-    unsafe fn bytes_vectored_mut<'b>(&'b mut self, dst: &mut [IoSliceMut<'b>]) -> usize {
+    fn bytes_vectored_mut<'b>(&'b mut self, dst: &mut [IoSliceMut<'b>]) -> usize {
         (**self).bytes_vectored_mut(dst)
     }
 
@@ -971,8 +975,9 @@ impl BufMut for &mut [u8] {
     }
 
     #[inline]
-    unsafe fn bytes_mut(&mut self) -> &mut [u8] {
-        self
+    fn bytes_mut(&mut self) -> &mut [MaybeUninit<u8>] {
+        // MaybeUninit is repr(transparent), so safe to transmute
+        unsafe { mem::transmute(&mut **self) }
     }
 
     #[inline]
@@ -1003,7 +1008,7 @@ impl BufMut for Vec<u8> {
     }
 
     #[inline]
-    unsafe fn bytes_mut(&mut self) -> &mut [u8] {
+    fn bytes_mut(&mut self) -> &mut [MaybeUninit<u8>] {
         use core::slice;
 
         if self.capacity() == self.len() {
@@ -1013,11 +1018,54 @@ impl BufMut for Vec<u8> {
         let cap = self.capacity();
         let len = self.len();
 
-        let ptr = self.as_mut_ptr();
-        &mut slice::from_raw_parts_mut(ptr, cap)[len..]
+        let ptr = self.as_mut_ptr() as *mut MaybeUninit<u8>;
+        unsafe {
+            &mut slice::from_raw_parts_mut(ptr, cap)[len..]
+        }
     }
 }
 
 // The existence of this function makes the compiler catch if the BufMut
 // trait is "object-safe" or not.
 fn _assert_trait_object(_b: &dyn BufMut) {}
+
+// ===== impl IoSliceMut =====
+
+/// A buffer type used for `readv`.
+///
+/// This is a wrapper around an `std::io::IoSliceMut`, but does not expose
+/// the inner bytes in a safe API, as they may point at uninitialized memory.
+///
+/// This is `repr(transparent)` of the `std::io::IoSliceMut`, so it is valid to
+/// transmute them. However, as the memory might be uninitialized, care must be
+/// taken to not *read* the internal bytes, only *write* to them.
+#[repr(transparent)]
+#[cfg(feature = "std")]
+pub struct IoSliceMut<'a>(std::io::IoSliceMut<'a>);
+
+#[cfg(feature = "std")]
+impl fmt::Debug for IoSliceMut<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("IoSliceMut")
+            .field("len", &self.0.len())
+            .finish()
+    }
+}
+
+#[cfg(feature = "std")]
+impl<'a> From<&'a mut [u8]> for IoSliceMut<'a> {
+    fn from(buf: &'a mut [u8]) -> IoSliceMut<'a> {
+        IoSliceMut(std::io::IoSliceMut::new(buf))
+    }
+}
+
+#[cfg(feature = "std")]
+impl<'a> From<&'a mut [MaybeUninit<u8>]> for IoSliceMut<'a> {
+    fn from(buf: &'a mut [MaybeUninit<u8>]) -> IoSliceMut<'a> {
+        IoSliceMut(std::io::IoSliceMut::new(unsafe {
+            // We don't look at the contents, and `std::io::IoSliceMut`
+            // doesn't either.
+            mem::transmute::<&'a mut [MaybeUninit<u8>], &'a mut [u8]>(buf)
+        }))
+    }
+}

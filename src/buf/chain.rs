@@ -1,8 +1,12 @@
 use crate::{Buf, BufMut};
 use crate::buf::IntoIter;
 
+use core::mem::MaybeUninit;
+
 #[cfg(feature = "std")]
-use std::io::{IoSlice, IoSliceMut};
+use std::io::{IoSlice};
+#[cfg(feature = "std")]
+use crate::buf::IoSliceMut;
 
 /// A `Chain` sequences two buffers.
 ///
@@ -196,7 +200,7 @@ impl<T, U> BufMut for Chain<T, U>
         self.a.remaining_mut() + self.b.remaining_mut()
     }
 
-    unsafe fn bytes_mut(&mut self) -> &mut [u8] {
+    fn bytes_mut(&mut self) -> &mut [MaybeUninit<u8>] {
         if self.a.has_remaining_mut() {
             self.a.bytes_mut()
         } else {
@@ -223,7 +227,7 @@ impl<T, U> BufMut for Chain<T, U>
     }
 
     #[cfg(feature = "std")]
-    unsafe fn bytes_vectored_mut<'a>(&'a mut self, dst: &mut [IoSliceMut<'a>]) -> usize {
+    fn bytes_vectored_mut<'a>(&'a mut self, dst: &mut [IoSliceMut<'a>]) -> usize {
         let mut n = self.a.bytes_vectored_mut(dst);
         n += self.b.bytes_vectored_mut(&mut dst[n..]);
         n

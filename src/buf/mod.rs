@@ -31,6 +31,8 @@ mod writer;
 
 pub use self::buf_impl::Buf;
 pub use self::buf_mut::BufMut;
+#[cfg(feature = "std")]
+pub use self::buf_mut::IoSliceMut;
 pub use self::chain::Chain;
 pub use self::iter::IntoIter;
 #[cfg(feature = "std")]
