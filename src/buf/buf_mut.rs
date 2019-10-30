@@ -1,6 +1,3 @@
-#[cfg(feature = "std")]
-use super::Writer;
-
 use core::{cmp, mem::{self, MaybeUninit}, ptr, usize};
 
 #[cfg(feature = "std")]
@@ -871,62 +868,6 @@ pub trait BufMut {
     /// `self`.
     fn put_f64_le(&mut self, n: f64) {
         self.put_u64_le(n.to_bits());
-    }
-
-    /// Creates a "by reference" adaptor for this instance of `BufMut`.
-    ///
-    /// The returned adapter also implements `BufMut` and will simply borrow
-    /// `self`.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use bytes::BufMut;
-    /// use std::io;
-    ///
-    /// let mut buf = vec![];
-    ///
-    /// {
-    ///     let mut reference = buf.by_ref();
-    ///
-    ///     // Adapt reference to `std::io::Write`.
-    ///     let mut writer = reference.writer();
-    ///
-    ///     // Use the buffer as a writer
-    ///     io::Write::write(&mut writer, &b"hello world"[..]).unwrap();
-    /// } // drop our &mut reference so that we can use `buf` again
-    ///
-    /// assert_eq!(buf, &b"hello world"[..]);
-    /// ```
-    fn by_ref(&mut self) -> &mut Self where Self: Sized {
-        self
-    }
-
-    /// Creates an adaptor which implements the `Write` trait for `self`.
-    ///
-    /// This function returns a new value which implements `Write` by adapting
-    /// the `Write` trait functions to the `BufMut` trait functions. Given that
-    /// `BufMut` operations are infallible, none of the `Write` functions will
-    /// return with `Err`.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use bytes::BufMut;
-    /// use std::io::Write;
-    ///
-    /// let mut buf = vec![].writer();
-    ///
-    /// let num = buf.write(&b"hello world"[..]).unwrap();
-    /// assert_eq!(11, num);
-    ///
-    /// let buf = buf.into_inner();
-    ///
-    /// assert_eq!(*buf, b"hello world"[..]);
-    /// ```
-    #[cfg(feature = "std")]
-    fn writer(self) -> Writer<Self> where Self: Sized {
-        super::writer::new(self)
     }
 }
 

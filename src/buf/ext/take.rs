@@ -25,7 +25,7 @@ impl<T> Take<T> {
     /// # Examples
     ///
     /// ```rust
-    /// use bytes::{Buf, BufMut};
+    /// use bytes::buf::{Buf, BufMut, BufExt};
     ///
     /// let mut buf = b"hello world".take(2);
     /// let mut dst = vec![];
@@ -50,7 +50,7 @@ impl<T> Take<T> {
     /// # Examples
     ///
     /// ```rust
-    /// use bytes::{Buf, BufMut};
+    /// use bytes::{Buf, buf::BufExt};
     ///
     /// let mut buf = b"hello world".take(2);
     ///
@@ -67,7 +67,7 @@ impl<T> Take<T> {
     /// # Examples
     ///
     /// ```rust
-    /// use bytes::{Buf, BufMut};
+    /// use bytes::{Buf, BufMut, buf::BufExt};
     ///
     /// let mut buf = b"hello world".take(2);
     /// let mut dst = vec![];
@@ -91,7 +91,7 @@ impl<T> Take<T> {
     /// # Examples
     ///
     /// ```rust
-    /// use bytes::Buf;
+    /// use bytes::{Buf, buf::BufExt};
     ///
     /// let mut buf = b"hello world".take(2);
     ///
@@ -113,7 +113,7 @@ impl<T> Take<T> {
     /// # Examples
     ///
     /// ```rust
-    /// use bytes::{Buf, BufMut};
+    /// use bytes::{Buf, BufMut, buf::BufExt};
     ///
     /// let mut buf = b"hello world".take(2);
     /// let mut dst = vec![];

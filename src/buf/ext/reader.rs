@@ -24,7 +24,7 @@ impl<B: Buf> Reader<B> {
     /// # Examples
     ///
     /// ```rust
-    /// use bytes::Buf;
+    /// use bytes::buf::BufExt;
     ///
     /// let mut buf = b"hello world".reader();
     ///
@@ -46,7 +46,7 @@ impl<B: Buf> Reader<B> {
     /// # Examples
     ///
     /// ```rust
-    /// use bytes::Buf;
+    /// use bytes::{Buf, buf::BufExt};
     /// use std::io;
     ///
     /// let mut buf = b"hello world".reader();
