@@ -20,11 +20,10 @@ use crate::buf::IoSliceMut;
 /// # Examples
 ///
 /// ```
-/// use bytes::{Bytes, Buf};
-/// use bytes::buf::Chain;
+/// use bytes::{Bytes, Buf, buf::BufExt};
 ///
-/// let mut buf = Bytes::from(&b"hello "[..])
-///             .chain(Bytes::from(&b"world"[..]));
+/// let mut buf = (&b"hello "[..])
+///     .chain(&b"world"[..]);
 ///
 /// let full: Bytes = buf.to_bytes();
 /// assert_eq!(full[..], b"hello world"[..]);
@@ -41,19 +40,6 @@ pub struct Chain<T, U> {
 
 impl<T, U> Chain<T, U> {
     /// Creates a new `Chain` sequencing the provided values.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use bytes::BytesMut;
-    /// use bytes::buf::Chain;
-    ///
-    /// let buf = Chain::new(
-    ///     BytesMut::with_capacity(1024),
-    ///     BytesMut::with_capacity(1024));
-    ///
-    /// // Use the chained buffer
-    /// ```
     pub fn new(a: T, b: U) -> Chain<T, U> {
         Chain {
             a,
@@ -66,10 +52,10 @@ impl<T, U> Chain<T, U> {
     /// # Examples
     ///
     /// ```
-    /// use bytes::{Bytes, Buf};
+    /// use bytes::buf::BufExt;
     ///
-    /// let buf = Bytes::from(&b"hello"[..])
-    ///             .chain(Bytes::from(&b"world"[..]));
+    /// let buf = (&b"hello"[..])
+    ///     .chain(&b"world"[..]);
     ///
     /// assert_eq!(buf.first_ref()[..], b"hello"[..]);
     /// ```
@@ -82,15 +68,15 @@ impl<T, U> Chain<T, U> {
     /// # Examples
     ///
     /// ```
-    /// use bytes::{Bytes, Buf};
+    /// use bytes::{Buf, buf::BufExt};
     ///
-    /// let mut buf = Bytes::from(&b"hello "[..])
-    ///                 .chain(Bytes::from(&b"world"[..]));
+    /// let mut buf = (&b"hello"[..])
+    ///     .chain(&b"world"[..]);
     ///
     /// buf.first_mut().advance(1);
     ///
-    /// let full: Bytes = buf.to_bytes();
-    /// assert_eq!(full[..], b"ello world"[..]);
+    /// let full = buf.to_bytes();
+    /// assert_eq!(full, b"elloworld"[..]);
     /// ```
     pub fn first_mut(&mut self) -> &mut T {
         &mut self.a
@@ -101,10 +87,10 @@ impl<T, U> Chain<T, U> {
     /// # Examples
     ///
     /// ```
-    /// use bytes::{Bytes, Buf};
+    /// use bytes::buf::BufExt;
     ///
-    /// let buf = Bytes::from(&b"hello"[..])
-    ///             .chain(Bytes::from(&b"world"[..]));
+    /// let buf = (&b"hello"[..])
+    ///     .chain(&b"world"[..]);
     ///
     /// assert_eq!(buf.last_ref()[..], b"world"[..]);
     /// ```
@@ -117,15 +103,15 @@ impl<T, U> Chain<T, U> {
     /// # Examples
     ///
     /// ```
-    /// use bytes::{Bytes, Buf};
+    /// use bytes::{Buf, buf::BufExt};
     ///
-    /// let mut buf = Bytes::from(&b"hello "[..])
-    ///                 .chain(Bytes::from(&b"world"[..]));
+    /// let mut buf = (&b"hello "[..])
+    ///     .chain(&b"world"[..]);
     ///
     /// buf.last_mut().advance(1);
     ///
-    /// let full: Bytes = buf.to_bytes();
-    /// assert_eq!(full[..], b"hello orld"[..]);
+    /// let full = buf.to_bytes();
+    /// assert_eq!(full, b"hello orld"[..]);
     /// ```
     pub fn last_mut(&mut self) -> &mut U {
         &mut self.b
@@ -136,10 +122,10 @@ impl<T, U> Chain<T, U> {
     /// # Examples
     ///
     /// ```
-    /// use bytes::{Bytes, Buf};
+    /// use bytes::buf::BufExt;
     ///
-    /// let chain = Bytes::from(&b"hello"[..])
-    ///             .chain(Bytes::from(&b"world"[..]));
+    /// let chain = (&b"hello"[..])
+    ///     .chain(&b"world"[..]);
     ///
     /// let (first, last) = chain.into_inner();
     /// assert_eq!(first[..], b"hello"[..]);

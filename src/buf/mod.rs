@@ -18,25 +18,14 @@
 
 mod buf_impl;
 mod buf_mut;
-mod chain;
+pub mod ext;
 mod iter;
-mod take;
 mod vec_deque;
-
-// When std::io::Reader etc. traits are not available, skip these
-#[cfg(feature = "std")]
-mod reader;
-#[cfg(feature = "std")]
-mod writer;
 
 pub use self::buf_impl::Buf;
 pub use self::buf_mut::BufMut;
+pub use self::ext::{BufExt, BufMutExt};
 #[cfg(feature = "std")]
 pub use self::buf_mut::IoSliceMut;
-pub use self::chain::Chain;
 pub use self::iter::IntoIter;
-#[cfg(feature = "std")]
-pub use self::reader::Reader;
-pub use self::take::Take;
-#[cfg(feature = "std")]
-pub use self::writer::Writer;
+

@@ -1,7 +1,7 @@
 #![deny(warnings, rust_2018_idioms)]
 
 use bytes::{Buf, BufMut, Bytes, BytesMut};
-use bytes::buf::Chain;
+use bytes::buf::BufExt;
 use std::io::IoSlice;
 
 #[test]
@@ -19,7 +19,7 @@ fn writing_chained() {
     let mut b = BytesMut::with_capacity(64);
 
     {
-        let mut buf = Chain::new(&mut a, &mut b);
+        let mut buf = (&mut a).chain(&mut b);
 
         for i in 0u8..128 {
             buf.put_u8(i);
