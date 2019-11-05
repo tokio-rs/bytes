@@ -892,6 +892,39 @@ impl Buf for Option<[u8; 1]> {
     }
 }
 
+#[cfg(feature = "std")]
+impl<T: AsRef<[u8]>> Buf for std::io::Cursor<T> {
+    fn remaining(&self) -> usize {
+        let len = self.get_ref().as_ref().len();
+        let pos = self.position();
+
+        if pos >= len as u64 {
+            return 0;
+        }
+
+        len - pos as usize
+    }
+
+    fn bytes(&self) -> &[u8] {
+        let len = self.get_ref().as_ref().len();
+        let pos = self.position();
+
+        if pos >= len as u64 {
+            return &[];
+        }
+
+        &self.get_ref().as_ref()[pos as usize..]
+    }
+
+    fn advance(&mut self, cnt: usize) {
+        let pos = (self.position() as usize)
+            .checked_add(cnt).expect("overflow");
+
+        assert!(pos <= self.get_ref().as_ref().len());
+        self.set_position(pos as u64);
+    }
+}
+
 // The existence of this function makes the compiler catch if the Buf
 // trait is "object-safe" or not.
 fn _assert_trait_object(_b: &dyn Buf) {}
