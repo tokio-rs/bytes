@@ -513,6 +513,7 @@ impl BytesMut {
     /// # Panics
     ///
     /// Panics if the new capacity overflows `usize`.
+    #[inline]
     pub fn reserve(&mut self, additional: usize) {
         let len = self.len();
         let rem = self.capacity() - len;
@@ -523,6 +524,13 @@ impl BytesMut {
             return;
         }
 
+        self.reserve_inner(additional);
+    }
+
+    // In separate function to allow the short-circuits in `reserve` to
+    // be inline-able. Significant helps performance.
+    fn reserve_inner(&mut self, additional: usize) {
+        let len = self.len();
         let kind = self.kind();
 
         if kind == KIND_VEC {
@@ -637,6 +645,7 @@ impl BytesMut {
 
         // Forget the vector handle
         mem::forget(v);
+
     }
     /// Appends given bytes to this object.
     ///
