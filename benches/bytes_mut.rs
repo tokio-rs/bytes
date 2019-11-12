@@ -141,10 +141,25 @@ fn fmt_write(b: &mut Bencher) {
     })
 }
 
+#[bench]
+fn bytes_mut_extend(b: &mut Bencher) {
+    let mut buf = BytesMut::with_capacity(256);
+    let data = [33u8; 32];
+
+    b.bytes = data.len() as u64 * 4;
+    b.iter(|| {
+        for _ in 0..4 {
+            buf.extend(&data);
+        }
+        test::black_box(&buf);
+        unsafe { buf.set_len(0); }
+    });
+}
+
 // BufMut for BytesMut vs Vec<u8>
 
 #[bench]
-fn put_bytes_mut(b: &mut Bencher) {
+fn put_slice_bytes_mut(b: &mut Bencher) {
     let mut buf = BytesMut::with_capacity(256);
     let data = [33u8; 32];
 
@@ -174,7 +189,7 @@ fn put_u8_bytes_mut(b: &mut Bencher) {
 }
 
 #[bench]
-fn put_vec(b: &mut Bencher) {
+fn put_slice_vec(b: &mut Bencher) {
     let mut buf = Vec::<u8>::with_capacity(256);
     let data = [33u8; 32];
 
@@ -204,7 +219,7 @@ fn put_u8_vec(b: &mut Bencher) {
 }
 
 #[bench]
-fn put_vec_extend(b: &mut Bencher) {
+fn put_slice_vec_extend(b: &mut Bencher) {
     let mut buf = Vec::<u8>::with_capacity(256);
     let data = [33u8; 32];
 
