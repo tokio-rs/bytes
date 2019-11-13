@@ -51,6 +51,13 @@ jobs:
     name: tsan
     rust_version: nightly
 
+# Loom
+- template: ci/azure-loom.yml
+  parameters:
+    name: loom
+    rust_version: stable
+
+
 - template: ci/azure-deploy-docs.yml
   parameters:
     dependsOn:
