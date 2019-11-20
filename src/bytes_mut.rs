@@ -924,7 +924,7 @@ impl Buf for BytesMut {
 impl BufMut for BytesMut {
     #[inline]
     fn remaining_mut(&self) -> usize {
-        self.capacity() - self.len()
+        usize::MAX - self.len()
     }
 
     #[inline]
@@ -936,6 +936,10 @@ impl BufMut for BytesMut {
 
     #[inline]
     fn bytes_mut(&mut self) -> &mut [mem::MaybeUninit<u8>] {
+        if self.capacity() == self.len() {
+            self.reserve(64);
+        }
+
         unsafe {
             slice::from_raw_parts_mut(self.ptr.as_ptr().offset(self.len as isize) as *mut mem::MaybeUninit<u8>, self.cap)
         }

@@ -124,6 +124,32 @@ pub trait BufMutExt: BufMut {
     fn writer(self) -> Writer<Self> where Self: Sized {
         writer::new(self)
     }
+
+    /// Creates an adaptor which will chain this buffer with another.
+    ///
+    /// The returned `BufMut` instance will first write to all bytes from
+    /// `self`. Afterwards, it will write to `next`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::{BufMut, buf::BufMutExt};
+    ///
+    /// let mut a = [0u8; 5];
+    /// let mut b = [0u8; 6];
+    ///
+    /// let mut chain = (&mut a[..]).chain_mut(&mut b[..]);
+    ///
+    /// chain.put_slice(b"hello world");
+    ///
+    /// assert_eq!(&a[..], b"hello");
+    /// assert_eq!(&b[..], b" world");
+    /// ```
+    fn chain_mut<U: BufMut>(self, next: U) -> Chain<Self, U>
+        where Self: Sized
+    {
+        Chain::new(self, next)
+    }
 }
 
 impl<B: BufMut + ?Sized> BufMutExt for B {}

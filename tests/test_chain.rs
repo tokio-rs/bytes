@@ -1,7 +1,7 @@
 #![deny(warnings, rust_2018_idioms)]
 
-use bytes::{Buf, BufMut, Bytes, BytesMut};
-use bytes::buf::BufExt;
+use bytes::{Buf, BufMut, Bytes};
+use bytes::buf::{BufExt, BufMutExt};
 use std::io::IoSlice;
 
 #[test]
@@ -15,19 +15,16 @@ fn collect_two_bufs() {
 
 #[test]
 fn writing_chained() {
-    let mut a = BytesMut::with_capacity(64);
-    let mut b = BytesMut::with_capacity(64);
+    let mut a = [0u8; 64];
+    let mut b = [0u8; 64];
 
     {
-        let mut buf = (&mut a).chain(&mut b);
+        let mut buf = (&mut a[..]).chain_mut(&mut b[..]);
 
         for i in 0u8..128 {
             buf.put_u8(i);
         }
     }
-
-    assert_eq!(64, a.len());
-    assert_eq!(64, b.len());
 
     for i in 0..64 {
         let expect = i as u8;
