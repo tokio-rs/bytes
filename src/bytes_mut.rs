@@ -941,7 +941,10 @@ impl BufMut for BytesMut {
         }
 
         unsafe {
-            slice::from_raw_parts_mut(self.ptr.as_ptr().offset(self.len as isize) as *mut mem::MaybeUninit<u8>, self.cap - self.len)
+            let ptr = self.ptr.as_ptr().offset(self.len as isize);
+            let len = self.cap - self.len
+
+            slice::from_raw_parts_mut(ptr as *mut mem::MaybeUninit<u8>, len)
         }
     }
 }
