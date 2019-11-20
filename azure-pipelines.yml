@@ -37,7 +37,7 @@ jobs:
   parameters:
     name: nightly
     # Pin nightly to avoid being impacted by breakage
-    rust_version: nightly-2019-11-20
+    rust_version: nightly-2019-09-25
     benches: true
 
 # Run tests on some extra platforms
