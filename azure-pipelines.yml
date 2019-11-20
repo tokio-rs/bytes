@@ -30,7 +30,6 @@ jobs:
     cross: true
     features:
       - serde
-      - either
 
 # Nightly
 - template: ci/azure-test-stable.yml

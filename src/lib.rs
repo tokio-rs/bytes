@@ -96,11 +96,6 @@ pub use crate::bytes::Bytes;
 #[cfg(feature = "serde")]
 mod serde;
 
-// Optional `Either` support
-#[cfg(feature = "either")]
-mod either;
-
-
 #[inline(never)]
 #[cold]
 fn abort() -> ! {
