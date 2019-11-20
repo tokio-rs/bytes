@@ -114,6 +114,17 @@ impl Bytes {
     /// assert_eq!(&b[..], b"hello");
     /// ```
     #[inline]
+    #[cfg(not(all(loom, test)))]
+    pub const fn from_static(bytes: &'static [u8]) -> Bytes {
+        Bytes {
+            ptr: bytes.as_ptr(),
+            len: bytes.len(),
+            data: AtomicPtr::new(ptr::null_mut()),
+            vtable: &STATIC_VTABLE,
+        }
+    }
+
+    #[cfg(all(loom, test))]
     pub fn from_static(bytes: &'static [u8]) -> Bytes {
         Bytes {
             ptr: bytes.as_ptr(),
@@ -732,7 +743,7 @@ impl fmt::Debug for Vtable {
 
 // ===== impl StaticVtable =====
 
-static STATIC_VTABLE: Vtable = Vtable {
+const STATIC_VTABLE: Vtable = Vtable {
     clone: static_clone,
     drop: static_drop,
 };
