@@ -3,12 +3,14 @@
 use super::{Buf, BufMut};
 
 mod chain;
+mod limit;
 #[cfg(feature = "std")]
 mod reader;
 mod take;
 #[cfg(feature = "std")]
 mod writer;
 
+use self::limit::Limit;
 use self::take::Take;
 use self::chain::Chain;
 
@@ -98,6 +100,25 @@ impl<B: Buf + ?Sized> BufExt for B {}
 
 /// Extra methods for implementations of `BufMut`.
 pub trait BufMutExt: BufMut {
+    /// Creates an adaptor which can write at most `limit` bytes to `self`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::{BufMut, buf::BufMutExt};
+    ///
+    /// let arr = &mut [0u8; 128][..];
+    /// assert_eq!(arr.remaining_mut(), 128);
+    ///
+    /// let dst = arr.limit(10);
+    /// assert_eq!(dst.remaining_mut(), 10);
+    /// ```
+    fn limit(self, limit: usize) -> Limit<Self>
+        where Self: Sized
+    {
+        limit::new(self, limit)
+    }
+
     /// Creates an adaptor which implements the `Write` trait for `self`.
     ///
     /// This function returns a new value which implements `Write` by adapting
