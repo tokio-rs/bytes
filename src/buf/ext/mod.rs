@@ -125,7 +125,7 @@ pub trait BufMutExt: BufMut {
         writer::new(self)
     }
 
-    /// Creates an adaptor which will chain this buffer with another.
+    /// Creates an adapter which will chain this buffer with another.
     ///
     /// The returned `BufMut` instance will first write to all bytes from
     /// `self`. Afterwards, it will write to `next`.
