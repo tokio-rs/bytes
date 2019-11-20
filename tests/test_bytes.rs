@@ -2,6 +2,8 @@
 
 use bytes::{Bytes, BytesMut, Buf, BufMut};
 
+use std::usize;
+
 const LONG: &'static [u8] = b"mary had a little lamb, little lamb, little lamb";
 const SHORT: &'static [u8] = b"hello world";
 
@@ -841,4 +843,13 @@ fn bytes_buf_mut_advance() {
         // The buffer size is doubled
         assert_eq!(1024, bytes.bytes_mut().len());
     }
+}
+
+#[test]
+#[should_panic]
+fn bytes_reserve_overflow() {
+    let mut bytes = BytesMut::with_capacity(1024);
+    bytes.put_slice(b"hello world");
+
+    bytes.reserve(usize::MAX);
 }
