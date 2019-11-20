@@ -820,3 +820,25 @@ fn empty_slice_ref_catches_not_an_empty_subset() {
 
     bytes.slice_ref(slice);
 }
+
+#[test]
+fn bytes_buf_mut_advance() {
+    let mut bytes = BytesMut::with_capacity(1024);
+
+    unsafe {
+        let ptr = bytes.bytes_mut().as_ptr();
+        assert_eq!(1024, bytes.bytes_mut().len());
+
+        bytes.advance_mut(10);
+
+        let next = bytes.bytes_mut().as_ptr();
+        assert_eq!(1024 - 10, bytes.bytes_mut().len());
+        assert_eq!(ptr.offset(10), next);
+
+        // advance to the end
+        bytes.advance_mut(1024 - 10);
+
+        // The buffer size is doubled
+        assert_eq!(1024, bytes.bytes_mut().len());
+    }
+}

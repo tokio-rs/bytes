@@ -930,7 +930,7 @@ impl BufMut for BytesMut {
     #[inline]
     unsafe fn advance_mut(&mut self, cnt: usize) {
         let new_len = self.len() + cnt;
-        assert!(new_len <= self.cap);
+        assert!(new_len <= self.cap, "new_len = {}; capacity = {}", new_len, self.cap);
         self.len = new_len;
     }
 
@@ -941,7 +941,7 @@ impl BufMut for BytesMut {
         }
 
         unsafe {
-            slice::from_raw_parts_mut(self.ptr.as_ptr().offset(self.len as isize) as *mut mem::MaybeUninit<u8>, self.cap)
+            slice::from_raw_parts_mut(self.ptr.as_ptr().offset(self.len as isize) as *mut mem::MaybeUninit<u8>, self.cap - self.len)
         }
     }
 }
