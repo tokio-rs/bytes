@@ -2,6 +2,8 @@
 
 use bytes::{Bytes, BytesMut, Buf, BufMut};
 
+use std::usize;
+
 const LONG: &'static [u8] = b"mary had a little lamb, little lamb, little lamb";
 const SHORT: &'static [u8] = b"hello world";
 
@@ -93,8 +95,8 @@ fn fmt_write() {
 
 
     let mut c = BytesMut::with_capacity(64);
-    write!(c, "{}", s).unwrap_err();
-    assert!(c.is_empty());
+    write!(c, "{}", s).unwrap();
+    assert_eq!(c, s[..].as_bytes());
 }
 
 #[test]
@@ -819,4 +821,35 @@ fn empty_slice_ref_catches_not_an_empty_subset() {
     let slice = &b""[0..0];
 
     bytes.slice_ref(slice);
+}
+
+#[test]
+fn bytes_buf_mut_advance() {
+    let mut bytes = BytesMut::with_capacity(1024);
+
+    unsafe {
+        let ptr = bytes.bytes_mut().as_ptr();
+        assert_eq!(1024, bytes.bytes_mut().len());
+
+        bytes.advance_mut(10);
+
+        let next = bytes.bytes_mut().as_ptr();
+        assert_eq!(1024 - 10, bytes.bytes_mut().len());
+        assert_eq!(ptr.offset(10), next);
+
+        // advance to the end
+        bytes.advance_mut(1024 - 10);
+
+        // The buffer size is doubled
+        assert_eq!(1024, bytes.bytes_mut().len());
+    }
+}
+
+#[test]
+#[should_panic]
+fn bytes_reserve_overflow() {
+    let mut bytes = BytesMut::with_capacity(1024);
+    bytes.put_slice(b"hello world");
+
+    bytes.reserve(usize::MAX);
 }

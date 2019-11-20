@@ -270,7 +270,7 @@ pub trait BufMut {
     fn put_slice(&mut self, src: &[u8]) {
         let mut off = 0;
 
-        assert!(self.remaining_mut() >= src.len(), "buffer overflow");
+        assert!(self.remaining_mut() >= src.len(), "buffer overflow; remaining = {}; src = {}", self.remaining_mut(), src.len());
 
         while off < src.len() {
             let cnt;

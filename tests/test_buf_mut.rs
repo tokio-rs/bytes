@@ -74,7 +74,7 @@ fn test_bufs_vec_mut() {
     // with no capacity
     let mut buf = BytesMut::new();
     assert_eq!(buf.capacity(), 0);
-    assert_eq!(0, buf.bytes_vectored_mut(&mut dst[..]));
+    assert_eq!(1, buf.bytes_vectored_mut(&mut dst[..]));
 
     // with capacity
     let mut buf = BytesMut::with_capacity(64);
