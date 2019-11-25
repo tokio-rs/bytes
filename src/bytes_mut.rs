@@ -21,14 +21,9 @@ use crate::loom::sync::atomic::{self, AtomicPtr, AtomicUsize, Ordering};
 ///
 /// # Growth
 ///
-/// One key difference from `Vec<u8>` is that most operations **do not
-/// implicitly grow the buffer**. This means that calling `my_bytes.put("hello
-/// world");` could panic if `my_bytes` does not have enough capacity. Before
-/// writing to the buffer, ensure that there is enough remaining capacity by
-/// calling `my_bytes.remaining_mut()`. In general, avoiding calls to `reserve`
-/// is preferable.
-///
-/// The only exception is `extend` which implicitly reserves required capacity.
+/// `BytesMut`'s `BufMut` implementation will implicitly grow its buffer as
+/// necessary. However, explicitly reserving the required space up-front before
+/// a series of inserts will be more efficient.
 ///
 /// # Examples
 ///
