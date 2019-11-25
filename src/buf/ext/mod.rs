@@ -10,12 +10,12 @@ mod take;
 #[cfg(feature = "std")]
 mod writer;
 
-use self::limit::Limit;
-use self::take::Take;
-use self::chain::Chain;
+pub use self::limit::Limit;
+pub use self::take::Take;
+pub use self::chain::Chain;
 
 #[cfg(feature = "std")]
-use self::{reader::Reader, writer::Writer};
+pub use self::{reader::Reader, writer::Writer};
 
 /// Extra methods for implementations of `Buf`.
 pub trait BufExt: Buf {
