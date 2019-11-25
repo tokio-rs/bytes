@@ -1,4 +1,35 @@
-# 0.5.0 (unreleased)
+# 0.5.0 (November 25, 2019)
+
+### Fix
+- potential overflow in `copy_to_slice`
+
+### Changed
+- Increased minimum supported Rust version to 1.39.
+- `Bytes` is now a "trait object", allowing for custom allocation strategies (#298)
+- `BytesMut` implicitly grows internal storage. `remaining_mut()` returns
+  `usize::MAX` (#316).
+- `BufMut::bytes_mut` returns `&mut [MaybeUninit<u8>]` to reflect the unknown
+  initialization state (#305).
+- `Buf` / `BufMut` implementations for `&[u8]` and `&mut [u8]`
+  respectively (#261).
+- Move `Buf` / `BufMut` "extra" functions to an extension trait (#306).
+- `BufMutExt::limit` (#309).
+- `Bytes::slice` takes a `RangeBounds` argument (#265).
+- `Bytes::from_static` is now a `const fn` (#311).
+- A multitude of smaller performance optimizations.
+
+### Added
+- `no_std` support (#281).
+- `get_*`, `put_*`, `get_*_le`, and `put_*le` accessors for handling byte order.
+- `BorrowMut` implementation for `BytesMut` (#185).
+
+### Removed
+- `IntoBuf` (#288).
+- `Buf` implementation for `&str` (#301).
+- `byteorder` dependency (#280).
+- `iovec` dependency, use `std::IoSlice` instead (#263).
+- optional `either` dependency (#315).
+- optional `i128` feature -- now available on stable. (#276).
 
 # 0.4.12 (March 6, 2019)
 
