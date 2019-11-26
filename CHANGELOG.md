@@ -1,7 +1,12 @@
+# 0.5.1 (November 25, 2019)
+
+### Fix
+- Growth documentation for `BytesMut` (#321)
+
 # 0.5.0 (November 25, 2019)
 
 ### Fix
-- potential overflow in `copy_to_slice`
+- Potential overflow in `copy_to_slice`
 
 ### Changed
 - Increased minimum supported Rust version to 1.39.
