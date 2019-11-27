@@ -1,3 +1,8 @@
+# 0.5.2 (November 27, 2019)
+
+### Added
+- `Limit` methods `into_inner`, `get_ref`, `get_mut`, `limit`, and `set_limit` (#325).
+
 # 0.5.1 (November 25, 2019)
 
 ### Fix

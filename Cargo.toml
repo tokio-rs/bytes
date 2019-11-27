@@ -6,7 +6,7 @@ name = "bytes"
 # - Update CHANGELOG.md.
 # - Update doc URL.
 # - Create "v0.5.x" git tag.
-version = "0.5.1"
+version = "0.5.2"
 license = "MIT"
 authors = ["Carl Lerche <me@carllerche.com>"]
 description = "Types and traits for working with bytes"
