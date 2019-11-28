@@ -313,6 +313,18 @@ fn split_off_to_at_gt_len() {
 }
 
 #[test]
+fn truncate() {
+    let s = &b"helloworld"[..];
+    let mut hello = Bytes::from(s);
+    hello.truncate(15);
+    assert_eq!(hello, s);
+    hello.truncate(10);
+    assert_eq!(hello, s);
+    hello.truncate(5);
+    assert_eq!(hello, "hello");
+}
+
+#[test]
 fn freeze_clone_shared() {
     let s = &b"abcdefgh"[..];
     let b = BytesMut::from(s).split().freeze();
