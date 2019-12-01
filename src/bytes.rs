@@ -373,9 +373,7 @@ impl Bytes {
     /// [`split_off`]: #method.split_off
     #[inline]
     pub fn truncate(&mut self, len: usize) {
-        if len >= self.len {
-            self.len = 0;
-        } else {
+        if len < self.len {
             self.len = len;
         }
     }
