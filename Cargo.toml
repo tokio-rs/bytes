@@ -23,6 +23,7 @@ std = []
 
 [dependencies]
 serde = { version = "1.0", optional = true }
+zeroize = { version = "1.0", optional = true, default-features = false }
 
 [dev-dependencies]
 loom = "0.2.10"

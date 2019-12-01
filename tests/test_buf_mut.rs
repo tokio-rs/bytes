@@ -87,3 +87,13 @@ fn test_mut_slice() {
     let mut s = &mut v[..];
     s.put_u32(42);
 }
+
+#[cfg(feature = "zeroize")]
+#[test]
+fn test_zeroize() {
+    use zeroize::Zeroize;
+
+    let mut data = BytesMut::from("data");
+    data.zeroize();
+    assert!(data.is_empty());
+}

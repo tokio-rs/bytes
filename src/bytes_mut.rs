@@ -1392,6 +1392,16 @@ impl PartialEq<Bytes> for BytesMut {
     }
 }
 
+#[cfg(feature = "zeroize")]
+impl zeroize::Zeroize for BytesMut {
+    fn zeroize(&mut self) {
+        self.resize(self.capacity(), 0);
+        self.as_mut().zeroize();
+        debug_assert!(self.iter().all(|b| *b == 0));
+        self.clear();
+    }
+}
+
 fn vptr(ptr: *mut u8) -> NonNull<u8> {
     if cfg!(debug_assertions) {
         NonNull::new(ptr).expect("Vec pointer should be non-null")
