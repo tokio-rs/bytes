@@ -176,7 +176,7 @@ fn split_off() {
 #[should_panic]
 fn split_off_oob() {
     let mut hello = Bytes::from(&b"helloworld"[..]);
-    hello.split_off(44);
+    let _ = hello.split_off(44);
 }
 
 #[test]
@@ -273,14 +273,14 @@ fn split_to_2() {
 #[should_panic]
 fn split_to_oob() {
     let mut hello = Bytes::from(&b"helloworld"[..]);
-    hello.split_to(33);
+    let _ = hello.split_to(33);
 }
 
 #[test]
 #[should_panic]
 fn split_to_oob_mut() {
     let mut hello = BytesMut::from(&b"helloworld"[..]);
-    hello.split_to(33);
+    let _ = hello.split_to(33);
 }
 
 #[test]
@@ -300,15 +300,15 @@ fn split_off_to_at_gt_len() {
 
     use std::panic;
 
-    make_bytes().split_to(4);
-    make_bytes().split_off(4);
+    let _ = make_bytes().split_to(4);
+    let _ = make_bytes().split_off(4);
 
     assert!(panic::catch_unwind(move || {
-        make_bytes().split_to(5);
+        let _ = make_bytes().split_to(5);
     }).is_err());
 
     assert!(panic::catch_unwind(move || {
-        make_bytes().split_off(5);
+        let _ = make_bytes().split_off(5);
     }).is_err());
 }
 
@@ -428,7 +428,7 @@ fn reserve_vec_recycling() {
 #[test]
 fn reserve_in_arc_unique_does_not_overallocate() {
     let mut bytes = BytesMut::with_capacity(1000);
-    bytes.split();
+    let _ = bytes.split();
 
     // now bytes is Arc and refcount == 1
 
@@ -440,7 +440,7 @@ fn reserve_in_arc_unique_does_not_overallocate() {
 #[test]
 fn reserve_in_arc_unique_doubles() {
     let mut bytes = BytesMut::with_capacity(1000);
-    bytes.split();
+    let _ = bytes.split();
 
     // now bytes is Arc and refcount == 1
 
@@ -723,12 +723,12 @@ fn bytes_mut_unsplit_arc_different() {
     let mut buf = BytesMut::with_capacity(64);
     buf.extend_from_slice(b"aaaabbbbeeee");
 
-    buf.split_off(8); //arc
+    let _ = buf.split_off(8); //arc
 
     let mut buf2 = BytesMut::with_capacity(64);
     buf2.extend_from_slice(b"ccccddddeeee");
 
-    buf2.split_off(8); //arc
+    let _ = buf2.split_off(8); //arc
 
     buf.unsplit(buf2);
     assert_eq!(b"aaaabbbbccccdddd", &buf[..]);

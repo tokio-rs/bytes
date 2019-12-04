@@ -275,6 +275,7 @@ impl BytesMut {
     /// # Panics
     ///
     /// Panics if `at > capacity`.
+    #[must_use = "consider BytesMut::truncate if you don't need the other half"]
     pub fn split_off(&mut self, at: usize) -> BytesMut {
         assert!(at <= self.capacity());
         unsafe {
@@ -310,6 +311,7 @@ impl BytesMut {
     ///
     /// assert_eq!(other, b"hello world"[..]);
     /// ```
+    #[must_use = "consider BytesMut::advance(len()) if you don't need the other half"]
     pub fn split(&mut self) -> BytesMut {
         let len = self.len();
         self.split_to(len)
@@ -341,6 +343,7 @@ impl BytesMut {
     /// # Panics
     ///
     /// Panics if `at > len`.
+    #[must_use = "consider BytesMut::advance if you don't need the other half"]
     pub fn split_to(&mut self, at: usize) -> BytesMut {
         assert!(at <= self.len());
 
@@ -1427,6 +1430,38 @@ unsafe fn shared_v_drop(data: &mut AtomicPtr<()>, _ptr: *const u8, _len: usize) 
     let shared = (*data.get_mut()) as *mut Shared;
     release_shared(shared as *mut Shared);
 }
+
+// compile-fails
+
+/// ```compile_fail
+/// use bytes::BytesMut;
+/// #[deny(unused_must_use)]
+/// {
+///     let mut b1 = BytesMut::from("hello world");
+///     b1.split_to(6);
+/// }
+/// ```
+fn _split_to_must_use() {}
+
+/// ```compile_fail
+/// use bytes::BytesMut;
+/// #[deny(unused_must_use)]
+/// {
+///     let mut b1 = BytesMut::from("hello world");
+///     b1.split_off(6);
+/// }
+/// ```
+fn _split_off_must_use() {}
+
+/// ```compile_fail
+/// use bytes::BytesMut;
+/// #[deny(unused_must_use)]
+/// {
+///     let mut b1 = BytesMut::from("hello world");
+///     b1.split();
+/// }
+/// ```
+fn _split_must_use() {}
 
 // fuzz tests
 #[cfg(all(test, loom))]

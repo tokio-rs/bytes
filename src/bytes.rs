@@ -288,6 +288,7 @@ impl Bytes {
     /// # Panics
     ///
     /// Panics if `at > len`.
+    #[must_use = "consider Bytes::truncate if you don't need the other half"]
     pub fn split_off(&mut self, at: usize) -> Bytes {
         assert!(at <= self.len());
 
@@ -331,6 +332,7 @@ impl Bytes {
     /// # Panics
     ///
     /// Panics if `at > len`.
+    #[must_use = "consider Bytes::advance if you don't need the other half"]
     pub fn split_to(&mut self, at: usize) -> Bytes {
         assert!(at <= self.len());
 
@@ -912,6 +914,28 @@ unsafe fn release_shared(ptr: *mut Shared) {
     // Drop the data
     Box::from_raw(ptr);
 }
+
+// compile-fails
+
+/// ```compile_fail
+/// use bytes::Bytes;
+/// #[deny(unused_must_use)]
+/// {
+///     let mut b1 = Bytes::from("hello world");
+///     b1.split_to(6);
+/// }
+/// ```
+fn _split_to_must_use() {}
+
+/// ```compile_fail
+/// use bytes::Bytes;
+/// #[deny(unused_must_use)]
+/// {
+///     let mut b1 = Bytes::from("hello world");
+///     b1.split_off(6);
+/// }
+/// ```
+fn _split_off_must_use() {}
 
 // fuzz tests
 #[cfg(all(test, loom))]
