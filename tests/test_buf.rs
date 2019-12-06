@@ -69,3 +69,41 @@ fn test_vec_deque() {
     buffer.copy_to_slice(&mut out);
     assert_eq!(b"world piece", &out[..]);
 }
+
+#[test]
+fn test_take() {
+    // Pulling Read into the scope would result in a conflict between
+    // Buf::bytes() from Read::bytes().
+    let mut buf = std::io::Read::take(&b"hello world"[..], 5);
+    assert_eq!(buf.bytes(), b"hello");
+    assert_eq!(buf.remaining(), 5);
+
+    buf.advance(3);
+    assert_eq!(buf.bytes(), b"lo");
+    assert_eq!(buf.remaining(), 2);
+
+    buf.advance(2);
+    assert_eq!(buf.bytes(), b"");
+    assert_eq!(buf.remaining(), 0);
+}
+
+#[test]
+#[should_panic]
+fn test_take_advance_too_far() {
+    let mut buf = std::io::Read::take(&b"hello world"[..], 5);
+    buf.advance(10);
+}
+
+#[test]
+fn test_take_limit_gt_length() {
+    // The byte array has only 11 bytes, but we take 15 bytes.
+    let mut buf = std::io::Read::take(&b"hello world"[..], 15);
+    assert_eq!(buf.remaining(), 11);
+    assert_eq!(buf.limit(), 15);
+
+    buf.advance(5);
+    assert_eq!(buf.remaining(), 6);
+    // The limit is reduced my more than the number of bytes we advanced, to
+    // the actual number of remaining bytes in the buffer.
+    assert_eq!(buf.limit(), 6);
+}
