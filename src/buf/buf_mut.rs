@@ -964,6 +964,31 @@ impl BufMut for Vec<u8> {
             &mut slice::from_raw_parts_mut(ptr, cap)[len..]
         }
     }
+
+    // Specialize these methods so they can skip checking `remaining_mut`
+    // and `advance_mut`.
+
+    fn put<T: super::Buf>(&mut self, mut src: T) where Self: Sized {
+        // In case the src isn't contiguous, reserve upfront
+        self.reserve(src.remaining());
+
+        while src.has_remaining() {
+            let l;
+
+            // a block to contain the src.bytes() borrow
+            {
+                let s = src.bytes();
+                l = s.len();
+                self.extend_from_slice(s);
+            }
+
+            src.advance(l);
+        }
+    }
+
+    fn put_slice(&mut self, src: &[u8]) {
+        self.extend_from_slice(src);
+    }
 }
 
 // The existence of this function makes the compiler catch if the BufMut
