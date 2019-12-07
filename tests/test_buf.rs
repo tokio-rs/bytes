@@ -69,3 +69,33 @@ fn test_vec_deque() {
     buffer.copy_to_slice(&mut out);
     assert_eq!(b"world piece", &out[..]);
 }
+
+#[test]
+fn test_deref_buf_forwards() {
+    struct Special;
+
+    impl Buf for Special {
+        fn remaining(&self) -> usize {
+            unreachable!("remaining");
+        }
+
+        fn bytes(&self) -> &[u8] {
+            unreachable!("bytes");
+        }
+
+        fn advance(&mut self, _: usize) {
+            unreachable!("advance");
+        }
+
+        fn get_u8(&mut self) -> u8 {
+            // specialized!
+            b'x'
+        }
+    }
+
+    // these should all use the specialized method
+    assert_eq!(Special.get_u8(), b'x');
+    assert_eq!((&mut Special as &mut dyn Buf).get_u8(), b'x');
+    assert_eq!((Box::new(Special) as Box<dyn Buf>).get_u8(), b'x');
+    assert_eq!(Box::new(Special).get_u8(), b'x');
+}

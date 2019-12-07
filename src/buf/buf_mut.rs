@@ -871,7 +871,8 @@ pub trait BufMut {
     }
 }
 
-impl<T: BufMut + ?Sized> BufMut for &mut T {
+macro_rules! deref_forward_bufmut {
+    () => (
     fn remaining_mut(&self) -> usize {
         (**self).remaining_mut()
     }
@@ -888,25 +889,75 @@ impl<T: BufMut + ?Sized> BufMut for &mut T {
     unsafe fn advance_mut(&mut self, cnt: usize) {
         (**self).advance_mut(cnt)
     }
+
+    fn put_slice(&mut self, src: &[u8]) {
+        (**self).put_slice(src)
+    }
+
+    fn put_u8(&mut self, n: u8) {
+        (**self).put_u8(n)
+    }
+
+    fn put_i8(&mut self, n: i8) {
+        (**self).put_i8(n)
+    }
+
+    fn put_u16(&mut self, n: u16) {
+        (**self).put_u16(n)
+    }
+
+    fn put_u16_le(&mut self, n: u16) {
+        (**self).put_u16_le(n)
+    }
+
+    fn put_i16(&mut self, n: i16) {
+        (**self).put_i16(n)
+    }
+
+    fn put_i16_le(&mut self, n: i16) {
+        (**self).put_i16_le(n)
+    }
+
+    fn put_u32(&mut self, n: u32) {
+        (**self).put_u32(n)
+    }
+
+    fn put_u32_le(&mut self, n: u32) {
+        (**self).put_u32_le(n)
+    }
+
+    fn put_i32(&mut self, n: i32) {
+        (**self).put_i32(n)
+    }
+
+    fn put_i32_le(&mut self, n: i32) {
+        (**self).put_i32_le(n)
+    }
+
+    fn put_u64(&mut self, n: u64) {
+        (**self).put_u64(n)
+    }
+
+    fn put_u64_le(&mut self, n: u64) {
+        (**self).put_u64_le(n)
+    }
+
+    fn put_i64(&mut self, n: i64) {
+        (**self).put_i64(n)
+    }
+
+    fn put_i64_le(&mut self, n: i64) {
+        (**self).put_i64_le(n)
+    }
+    )
+}
+
+impl<T: BufMut + ?Sized> BufMut for &mut T {
+    deref_forward_bufmut!();
 }
 
 impl<T: BufMut + ?Sized> BufMut for Box<T> {
-    fn remaining_mut(&self) -> usize {
-        (**self).remaining_mut()
-    }
-
-    fn bytes_mut(&mut self) -> &mut [MaybeUninit<u8>] {
-        (**self).bytes_mut()
-    }
-
-    #[cfg(feature = "std")]
-    fn bytes_vectored_mut<'b>(&'b mut self, dst: &mut [IoSliceMut<'b>]) -> usize {
-        (**self).bytes_vectored_mut(dst)
-    }
-
-    unsafe fn advance_mut(&mut self, cnt: usize) {
-        (**self).advance_mut(cnt)
-    }
+    deref_forward_bufmut!();
 }
 
 impl BufMut for &mut [u8] {
