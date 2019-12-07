@@ -87,3 +87,32 @@ fn test_mut_slice() {
     let mut s = &mut v[..];
     s.put_u32(42);
 }
+
+#[test]
+fn test_deref_bufmut_forwards() {
+    struct Special;
+
+    impl BufMut for Special {
+        fn remaining_mut(&self) -> usize {
+            unreachable!("remaining_mut");
+        }
+
+        fn bytes_mut(&mut self) -> &mut [std::mem::MaybeUninit<u8>] {
+            unreachable!("bytes_mut");
+        }
+
+        unsafe fn advance_mut(&mut self, _: usize) {
+            unreachable!("advance");
+        }
+
+        fn put_u8(&mut self, _: u8) {
+            // specialized!
+        }
+    }
+
+    // these should all use the specialized method
+    Special.put_u8(b'x');
+    (&mut Special as &mut dyn BufMut).put_u8(b'x');
+    (Box::new(Special) as Box<dyn BufMut>).put_u8(b'x');
+    Box::new(Special).put_u8(b'x');
+}
