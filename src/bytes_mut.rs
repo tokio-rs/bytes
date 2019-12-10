@@ -660,8 +660,22 @@ impl BytesMut {
     /// assert_eq!(b"aaabbbcccddd", &buf[..]);
     /// ```
     pub fn extend_from_slice(&mut self, extend: &[u8]) {
-        self.reserve(extend.len());
-        self.put_slice(extend);
+        let cnt = extend.len();
+        self.reserve(cnt);
+
+        unsafe {
+            let dst = self.maybe_uninit_bytes();
+            // Reserved above
+            debug_assert!(dst.len() >= cnt);
+
+            ptr::copy_nonoverlapping(
+                extend.as_ptr(),
+                dst.as_mut_ptr() as *mut u8,
+                cnt);
+
+        }
+
+        unsafe { self.advance_mut(cnt); }
     }
 
     /// Combine splitted BytesMut objects back as contiguous.
@@ -876,6 +890,16 @@ impl BytesMut {
 
         self.data = ((pos << VEC_POS_OFFSET) | (prev & NOT_VEC_POS_MASK)) as *mut _;
     }
+
+    #[inline]
+    fn maybe_uninit_bytes(&mut self) -> &mut [mem::MaybeUninit<u8>] {
+        unsafe {
+            let ptr = self.ptr.as_ptr().offset(self.len as isize);
+            let len = self.cap - self.len;
+
+            slice::from_raw_parts_mut(ptr as *mut mem::MaybeUninit<u8>, len)
+        }
+    }
 }
 
 impl Drop for BytesMut {
@@ -935,13 +959,23 @@ impl BufMut for BytesMut {
         if self.capacity() == self.len() {
             self.reserve(64);
         }
+        self.maybe_uninit_bytes()
+    }
 
-        unsafe {
-            let ptr = self.ptr.as_ptr().offset(self.len as isize);
-            let len = self.cap - self.len;
+    // Specialize these methods so they can skip checking `remaining_mut`
+    // and `advance_mut`.
 
-            slice::from_raw_parts_mut(ptr as *mut mem::MaybeUninit<u8>, len)
+    fn put<T: crate::Buf>(&mut self, mut src: T) where Self: Sized {
+        while src.has_remaining() {
+            let s = src.bytes();
+            let l = s.len();
+            self.extend_from_slice(s);
+            src.advance(l);
         }
+    }
+
+    fn put_slice(&mut self, src: &[u8]) {
+        self.extend_from_slice(src);
     }
 }
 
