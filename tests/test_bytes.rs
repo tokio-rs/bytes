@@ -829,8 +829,17 @@ fn slice_ref_catches_not_an_empty_subset() {
 #[test]
 #[should_panic]
 fn empty_slice_ref_catches_not_an_empty_subset() {
-    let bytes = Bytes::copy_from_slice(&b""[..]);
-    let slice = &b""[0..0];
+    let bytes = Bytes::new();
+    let slice = &b"some other slice"[0..0];
+
+    // Protect this test against Bytes internals.
+    //
+    // This should panic *because* the slice's ptr doesn't fit in the range
+    // of the `bytes`.
+    if bytes.as_ptr() as usize == slice.as_ptr() as usize {
+        // don't panic, failing the test
+        return;
+    }
 
     bytes.slice_ref(slice);
 }
@@ -864,4 +873,11 @@ fn bytes_reserve_overflow() {
     bytes.put_slice(b"hello world");
 
     bytes.reserve(usize::MAX);
+}
+
+#[test]
+fn bytes_with_capacity_but_empty() {
+    // See https://github.com/tokio-rs/bytes/issues/340
+    let vec = Vec::with_capacity(1);
+    let _ = Bytes::from(vec);
 }
