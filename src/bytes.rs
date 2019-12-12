@@ -257,8 +257,20 @@ impl Bytes {
         let sub_p = subset.as_ptr() as usize;
         let sub_len = subset.len();
 
-        assert!(sub_p >= bytes_p);
-        assert!(sub_p + sub_len <= bytes_p + bytes_len);
+        assert!(
+            sub_p >= bytes_p,
+            "subset pointer ({:p}) is smaller than self pointer ({:p})",
+            sub_p as *const u8,
+            bytes_p as *const u8,
+        );
+        assert!(
+            sub_p + sub_len <= bytes_p + bytes_len,
+            "subset is out of bounds: self = ({:p}, {}), subset = ({:p}, {})",
+            bytes_p as *const u8,
+            bytes_len,
+            sub_p as *const u8,
+            sub_len,
+        );
 
         let sub_offset = sub_p - bytes_p;
 
@@ -719,6 +731,12 @@ impl From<Vec<u8>> for Bytes {
         let slice = vec.into_boxed_slice();
         let len = slice.len();
         let ptr = slice.as_ptr();
+
+        assert!(
+            ptr as usize & KIND_VEC == 0,
+            "Vec pointer should not have LSB set: {:p}",
+            ptr,
+        );
         drop(Box::into_raw(slice));
 
         let data = ptr as usize | KIND_VEC;
@@ -808,7 +826,15 @@ unsafe fn shared_drop(data: &mut AtomicPtr<()>, ptr: *const u8, len: usize) {
 }
 
 unsafe fn rebuild_vec(shared: *const (), offset: *const u8, len: usize) -> Vec<u8> {
-    debug_assert_eq!(shared as usize & KIND_MASK, KIND_VEC);
+    debug_assert!(
+        shared as usize & KIND_MASK == KIND_VEC,
+        "rebuild_vec should have beeen called with KIND_VEC",
+    );
+    debug_assert!(
+        shared as usize & !KIND_MASK != 0,
+        "rebuild_vec should be called with non-null pointer: {:p}",
+        shared,
+    );
 
     let buf = (shared as usize & !KIND_MASK) as *mut u8;
     let cap = (offset as usize - buf as usize) + len;
