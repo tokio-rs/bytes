@@ -1,3 +1,12 @@
+# 0.5.3 (December 12, 2019)
+
+### Added
+- `must_use` attributes to `split`, `split_off`, and `split_to` methods (#337).
+
+### Fix
+- Potential freeing of a null pointer in `Bytes` when constructed with an empty `Vec<u8>` (#341, #342).
+- Calling `Bytes::truncate` with a size large than the length will no longer clear the `Bytes` (#333).
+
 # 0.5.2 (November 27, 2019)
 
 ### Added
