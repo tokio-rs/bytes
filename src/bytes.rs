@@ -731,20 +731,23 @@ impl From<Vec<u8>> for Bytes {
         let slice = vec.into_boxed_slice();
         let len = slice.len();
         let ptr = slice.as_ptr();
-
-        assert!(
-            ptr as usize & KIND_VEC == 0,
-            "Vec pointer should not have LSB set: {:p}",
-            ptr,
-        );
         drop(Box::into_raw(slice));
 
-        let data = ptr as usize | KIND_VEC;
-        Bytes {
-            ptr,
-            len,
-            data: AtomicPtr::new(data as *mut _),
-            vtable: &SHARED_VTABLE,
+        if ptr as usize & 0x1 == 0 {
+            let data = ptr as usize | KIND_VEC;
+            Bytes {
+                ptr,
+                len,
+                data: AtomicPtr::new(data as *mut _),
+                vtable: &PROMOTABLE_EVEN_VTABLE,
+            }
+        } else {
+            Bytes {
+                ptr,
+                len,
+                data: AtomicPtr::new(ptr as *mut _),
+                vtable: &PROMOTABLE_ODD_VTABLE,
+            }
         }
     }
 }
@@ -782,6 +785,74 @@ unsafe fn static_drop(_: &mut AtomicPtr<()>, _: *const u8, _: usize) {
     // nothing to drop for &'static [u8]
 }
 
+// ===== impl PromotableVtable =====
+
+static PROMOTABLE_EVEN_VTABLE: Vtable = Vtable {
+    clone: promotable_even_clone,
+    drop: promotable_even_drop,
+};
+
+static PROMOTABLE_ODD_VTABLE: Vtable = Vtable {
+    clone: promotable_odd_clone,
+    drop: promotable_odd_drop,
+};
+
+unsafe fn promotable_even_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Bytes {
+    let shared = data.load(Ordering::Acquire);
+    let kind = shared as usize & KIND_MASK;
+
+    if kind == KIND_ARC {
+        shallow_clone_arc(shared as _, ptr, len)
+    } else {
+        debug_assert_eq!(kind, KIND_VEC);
+        let buf = (shared as usize & !KIND_MASK) as *mut u8;
+        shallow_clone_vec(data, shared, buf, ptr, len)
+    }
+}
+
+unsafe fn promotable_even_drop(data: &mut AtomicPtr<()>, ptr: *const u8, len: usize) {
+    let shared = *data.get_mut();
+    let kind = shared as usize & KIND_MASK;
+
+    if kind == KIND_ARC {
+        release_shared(shared as *mut Shared);
+    } else {
+        debug_assert_eq!(kind, KIND_VEC);
+        let buf = (shared as usize & !KIND_MASK) as *mut u8;
+        drop(rebuild_vec(buf, ptr, len));
+    }
+}
+
+unsafe fn promotable_odd_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Bytes {
+    let shared = data.load(Ordering::Acquire);
+    let kind = shared as usize & KIND_MASK;
+
+    if kind == KIND_ARC {
+        shallow_clone_arc(shared as _, ptr, len)
+    } else {
+        debug_assert_eq!(kind, KIND_VEC);
+        shallow_clone_vec(data, shared, shared as *mut u8, ptr, len)
+    }
+}
+
+unsafe fn promotable_odd_drop(data: &mut AtomicPtr<()>, ptr: *const u8, len: usize) {
+    let shared = *data.get_mut();
+    let kind = shared as usize & KIND_MASK;
+
+    if kind == KIND_ARC {
+        release_shared(shared as *mut Shared);
+    } else {
+        debug_assert_eq!(kind, KIND_VEC);
+
+        drop(rebuild_vec(shared as *mut u8, ptr, len));
+    }
+}
+
+unsafe fn rebuild_vec(buf: *mut u8, offset: *const u8, len: usize) -> Vec<u8> {
+    let cap = (offset as usize - buf as usize) + len;
+    Vec::from_raw_parts(buf, cap, cap)
+}
+
 // ===== impl SharedVtable =====
 
 struct Shared {
@@ -801,44 +872,12 @@ const KIND_MASK: usize = 0b1;
 
 unsafe fn shared_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Bytes {
     let shared = data.load(Ordering::Acquire);
-    let kind = shared as usize & KIND_MASK;
-
-    if kind == KIND_ARC {
-        shallow_clone_arc(shared as _, ptr, len)
-    } else {
-        debug_assert_eq!(kind, KIND_VEC);
-        shallow_clone_vec(data, shared, ptr, len)
-    }
+    shallow_clone_arc(shared as _, ptr, len)
 }
 
-unsafe fn shared_drop(data: &mut AtomicPtr<()>, ptr: *const u8, len: usize) {
+unsafe fn shared_drop(data: &mut AtomicPtr<()>, _ptr: *const u8, _len: usize) {
     let shared = *data.get_mut();
-    let kind = shared as usize & KIND_MASK;
-
-
-    if kind == KIND_ARC {
-        release_shared(shared as *mut Shared);
-    } else {
-        debug_assert_eq!(kind, KIND_VEC);
-
-        drop(rebuild_vec(shared, ptr, len));
-    }
-}
-
-unsafe fn rebuild_vec(shared: *const (), offset: *const u8, len: usize) -> Vec<u8> {
-    debug_assert!(
-        shared as usize & KIND_MASK == KIND_VEC,
-        "rebuild_vec should have beeen called with KIND_VEC",
-    );
-    debug_assert!(
-        shared as usize & !KIND_MASK != 0,
-        "rebuild_vec should be called with non-null pointer: {:p}",
-        shared,
-    );
-
-    let buf = (shared as usize & !KIND_MASK) as *mut u8;
-    let cap = (offset as usize - buf as usize) + len;
-    Vec::from_raw_parts(buf, cap, cap)
+    release_shared(shared as *mut Shared);
 }
 
 unsafe fn shallow_clone_arc(shared: *mut Shared, ptr: *const u8, len: usize) -> Bytes {
@@ -857,12 +896,10 @@ unsafe fn shallow_clone_arc(shared: *mut Shared, ptr: *const u8, len: usize) -> 
 }
 
 #[cold]
-unsafe fn shallow_clone_vec(atom: &AtomicPtr<()>, ptr: *const (), offset: *const u8, len: usize) -> Bytes {
+unsafe fn shallow_clone_vec(atom: &AtomicPtr<()>, ptr: *const (), buf: *mut u8, offset: *const u8, len: usize) -> Bytes {
     // If  the buffer is still tracked in a `Vec<u8>`. It is time to
     // promote the vec to an `Arc`. This could potentially be called
     // concurrently, so some care must be taken.
-
-    debug_assert_eq!(ptr as usize & KIND_MASK, KIND_VEC);
 
     // First, allocate a new `Shared` instance containing the
     // `Vec` fields. It's important to note that `ptr`, `len`,
@@ -871,7 +908,7 @@ unsafe fn shallow_clone_vec(atom: &AtomicPtr<()>, ptr: *const (), offset: *const
     // updated and since the buffer hasn't been promoted to an
     // `Arc`, those three fields still are the components of the
     // vector.
-    let vec = rebuild_vec(ptr as *const (), offset, len);
+    let vec = rebuild_vec(buf, offset, len);
     let shared = Box::new(Shared {
         _vec: vec,
         // Initialize refcount to 2. One for this reference, and one
