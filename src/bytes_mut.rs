@@ -1020,6 +1020,12 @@ impl<'a> From<&'a str> for BytesMut {
     }
 }
 
+impl From<BytesMut> for Bytes {
+    fn from(src: BytesMut) -> Bytes {
+        src.freeze()
+    }
+}
+
 impl PartialEq for BytesMut {
     fn eq(&self, other: &BytesMut) -> bool {
         self.as_slice() == other.as_slice()
