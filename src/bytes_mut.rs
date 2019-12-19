@@ -277,7 +277,12 @@ impl BytesMut {
     /// Panics if `at > capacity`.
     #[must_use = "consider BytesMut::truncate if you don't need the other half"]
     pub fn split_off(&mut self, at: usize) -> BytesMut {
-        assert!(at <= self.capacity());
+        assert!(
+            at <= self.capacity(),
+            "split_off out of bounds: {:?} <= {:?}",
+            at,
+            self.capacity(),
+        );
         unsafe {
             let mut other = self.shallow_clone();
             other.set_start(at);
@@ -345,7 +350,12 @@ impl BytesMut {
     /// Panics if `at > len`.
     #[must_use = "consider BytesMut::advance if you don't need the other half"]
     pub fn split_to(&mut self, at: usize) -> BytesMut {
-        assert!(at <= self.len());
+        assert!(
+            at <= self.len(),
+            "split_to out of bounds: {:?} <= {:?}",
+            at,
+            self.len(),
+        );
 
         unsafe {
             let mut other = self.shallow_clone();
@@ -459,7 +469,7 @@ impl BytesMut {
     /// assert_eq!(&b[..], b"hello world");
     /// ```
     pub unsafe fn set_len(&mut self, len: usize) {
-        debug_assert!(len <= self.cap);
+        debug_assert!(len <= self.cap, "set_len out of bounds");
         self.len = len;
     }
 
@@ -755,7 +765,7 @@ impl BytesMut {
             return;
         }
 
-        debug_assert!(start <= self.cap);
+        debug_assert!(start <= self.cap, "internal: set_start out of bounds");
 
         let kind = self.kind();
 
@@ -794,7 +804,7 @@ impl BytesMut {
 
     unsafe fn set_end(&mut self, end: usize) {
         debug_assert_eq!(self.kind(), KIND_ARC);
-        assert!(end <= self.cap);
+        assert!(end <= self.cap, "set_end out of bounds");
 
         self.cap = end;
         self.len = cmp::min(self.len, end);
@@ -932,7 +942,12 @@ impl Buf for BytesMut {
 
     #[inline]
     fn advance(&mut self, cnt: usize) {
-        assert!(cnt <= self.remaining(), "cannot advance past `remaining`");
+        assert!(
+            cnt <= self.remaining(),
+            "cannot advance past `remaining`: {:?} <= {:?}",
+            cnt,
+            self.remaining(),
+        );
         unsafe { self.set_start(cnt); }
     }
 
