@@ -643,9 +643,11 @@ impl BytesMut {
         self.len = v.len();
         self.cap = v.capacity();
     }
-    /// Appends given bytes to this object.
+
+    /// Appends given bytes to this `BytesMut`.
     ///
-    /// If this `BytesMut` object has not enough capacity, it is resized first.
+    /// If this `BytesMut` object does not have enough capacity, it is resized
+    /// first.
     ///
     /// # Examples
     ///
@@ -677,9 +679,13 @@ impl BytesMut {
         unsafe { self.advance_mut(cnt); }
     }
 
-    /// Combine splitted BytesMut objects back as contiguous.
+    /// Absorbs a `BytesMut` that was previously split off.
     ///
-    /// If `BytesMut` objects were not contiguous originally, they will be extended.
+    /// If the two `BytesMut` objects were previously contiguous, i.e., if
+    /// `other` was created by calling `split_off` on this `BytesMut`, then
+    /// this is an `O(1)` operation that just decreases a reference
+    /// count and sets a few indices. Otherwise this method degenerates to
+    /// `self.extend_from_slice(other.as_ref())`.
     ///
     /// # Examples
     ///
@@ -689,11 +695,11 @@ impl BytesMut {
     /// let mut buf = BytesMut::with_capacity(64);
     /// buf.extend_from_slice(b"aaabbbcccddd");
     ///
-    /// let splitted = buf.split_off(6);
+    /// let split = buf.split_off(6);
     /// assert_eq!(b"aaabbb", &buf[..]);
-    /// assert_eq!(b"cccddd", &splitted[..]);
+    /// assert_eq!(b"cccddd", &split[..]);
     ///
-    /// buf.unsplit(splitted);
+    /// buf.unsplit(split);
     /// assert_eq!(b"aaabbbcccddd", &buf[..]);
     /// ```
     pub fn unsplit(&mut self, other: BytesMut) {
