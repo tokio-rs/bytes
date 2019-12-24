@@ -646,7 +646,6 @@ impl BytesMut {
     /// Appends given bytes to this object.
     ///
     /// If this `BytesMut` object has not enough capacity, it is resized first.
-    /// So unlike `put_slice` operation, `extend_from_slice` does not panic.
     ///
     /// # Examples
     ///
