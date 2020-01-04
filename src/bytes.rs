@@ -251,6 +251,12 @@ impl Bytes {
     /// Requires that the given `sub` slice is in fact contained within the
     /// `Bytes` buffer; otherwise this function will panic.
     pub fn slice_ref(&self, subset: &[u8]) -> Bytes {
+        // Empty slice and empty Bytes may have their pointers reset
+        // so explicitly allow empty slice to be a subslice of any slice.
+        if subset.is_empty() {
+            return Bytes::new();
+        }
+
         let bytes_p = self.as_ptr() as usize;
         let bytes_len = self.len();
 
