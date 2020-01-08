@@ -209,8 +209,18 @@ impl Bytes {
             Bound::Unbounded => len,
         };
 
-        assert!(begin <= end);
-        assert!(end <= len);
+        assert!(
+            begin <= end,
+            "range start must not be greater than end: {:?} <= {:?}",
+            begin,
+            end,
+        );
+        assert!(
+            end <= len,
+            "range end out of bounds: {:?} <= {:?}",
+            end,
+            len,
+        );
 
         if end == begin {
             return Bytes::new();
@@ -302,7 +312,12 @@ impl Bytes {
     /// Panics if `at > len`.
     #[must_use = "consider Bytes::truncate if you don't need the other half"]
     pub fn split_off(&mut self, at: usize) -> Bytes {
-        assert!(at <= self.len());
+        assert!(
+            at <= self.len(),
+            "split_off out of bounds: {:?} <= {:?}",
+            at,
+            self.len(),
+        );
 
         if at == self.len() {
             return Bytes::new();
@@ -346,7 +361,12 @@ impl Bytes {
     /// Panics if `at > len`.
     #[must_use = "consider Bytes::advance if you don't need the other half"]
     pub fn split_to(&mut self, at: usize) -> Bytes {
-        assert!(at <= self.len());
+        assert!(
+            at <= self.len(),
+            "split_to out of bounds: {:?} <= {:?}",
+            at,
+            self.len(),
+        );
 
         if at == self.len() {
             return mem::replace(self, Bytes::new());
@@ -430,7 +450,7 @@ impl Bytes {
     #[inline]
     unsafe fn inc_start(&mut self, by: usize) {
         // should already be asserted, but debug assert for tests
-        debug_assert!(self.len >= by);
+        debug_assert!(self.len >= by, "internal: inc_start out of bounds");
         self.len -= by;
         self.ptr = self.ptr.offset(by as isize);
     }
@@ -477,7 +497,13 @@ impl Buf for Bytes {
 
     #[inline]
     fn advance(&mut self, cnt: usize) {
-        assert!(cnt <= self.len(), "cannot advance past `remaining`");
+        assert!(
+            cnt <= self.len(),
+            "cannot advance past `remaining`: {:?} <= {:?}",
+            cnt,
+            self.len(),
+        );
+
         unsafe {
             self.inc_start(cnt);
         }
@@ -921,7 +947,10 @@ unsafe fn shallow_clone_vec(atom: &AtomicPtr<()>, ptr: *const (), buf: *mut u8, 
 
     // The pointer should be aligned, so this assert should
     // always succeed.
-    debug_assert!(0 == (shared as usize & KIND_MASK));
+    debug_assert!(
+        0 == (shared as usize & KIND_MASK),
+        "internal: Box<Shared> should have an aligned pointer",
+    );
 
     // Try compare & swapping the pointer into the `arc` field.
     // `Release` is used synchronize with other threads that
