@@ -96,8 +96,18 @@ impl Bytes {
     /// assert_eq!(&b[..], b"");
     /// ```
     #[inline]
+    #[cfg(not(all(loom, test)))]
+    pub const fn new() -> Bytes {
+        // Make it a named const to work around
+        // "unsizing casts are not allowed in const fn"
+        const EMPTY: &[u8] = &[];
+        Bytes::from_static(EMPTY)
+    }
+
+    #[cfg(all(loom, test))]
     pub fn new() -> Bytes {
-        Bytes::from_static(b"")
+        const EMPTY: &[u8] = &[];
+        Bytes::from_static(EMPTY)
     }
 
     /// Creates a new `Bytes` from a static slice.
