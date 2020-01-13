@@ -86,8 +86,7 @@ pub use crate::buf::{
 
 mod bytes_mut;
 mod bytes;
-mod debug;
-mod hex;
+mod fmt;
 mod loom;
 pub use crate::bytes_mut::BytesMut;
 pub use crate::bytes::Bytes;
