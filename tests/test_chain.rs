@@ -131,3 +131,58 @@ fn vectored_read() {
         assert_eq!(iovecs[3][..], b""[..]);
     }
 }
+
+#[test]
+fn chain_to_bytes() {
+    let mut ab = Bytes::copy_from_slice(b"ab");
+    let mut cd = Bytes::copy_from_slice(b"cd");
+    let mut chain = (&mut ab).chain(&mut cd);
+    assert_eq!(Bytes::copy_from_slice(b"abcd"), chain.to_bytes());
+    assert_eq!(Bytes::new(), ab);
+    assert_eq!(Bytes::new(), cd);
+}
+
+#[test]
+fn chain_to_bytes_first_empty() {
+    let mut cd = Bytes::copy_from_slice(b"cd");
+    let cd_ptr = cd.as_ptr();
+    let mut chain = Bytes::new().chain(&mut cd);
+    let cd_to_bytes = chain.to_bytes();
+    assert_eq!(b"cd", cd_to_bytes.as_ref());
+    // assert `to_bytes` did not allocate
+    assert_eq!(cd_ptr, cd_to_bytes.as_ptr());
+    assert_eq!(Bytes::new(), cd);
+}
+
+#[test]
+fn chain_to_bytes_second_empty() {
+    let mut ab = Bytes::copy_from_slice(b"ab");
+    let ab_ptr = ab.as_ptr();
+    let mut chain = (&mut ab).chain(Bytes::new());
+    let ab_to_bytes = chain.to_bytes();
+    assert_eq!(b"ab", ab_to_bytes.as_ref());
+    // assert `to_bytes` did not allocate
+    assert_eq!(ab_ptr, ab_to_bytes.as_ptr());
+    assert_eq!(Bytes::new(), ab);
+}
+
+#[test]
+fn chain_get_bytes() {
+    let mut ab = Bytes::copy_from_slice(b"ab");
+    let mut cd = Bytes::copy_from_slice(b"cd");
+    let ab_ptr = ab.as_ptr();
+    let cd_ptr = cd.as_ptr();
+    let mut chain = (&mut ab).chain(&mut cd);
+    let a = chain.get_bytes(1);
+    let bc = chain.get_bytes(2);
+    let d = chain.get_bytes(1);
+
+    assert_eq!(Bytes::copy_from_slice(b"a"), a);
+    assert_eq!(Bytes::copy_from_slice(b"bc"), bc);
+    assert_eq!(Bytes::copy_from_slice(b"d"), d);
+
+    // assert `get_bytes` did not allocate
+    assert_eq!(ab_ptr, a.as_ptr());
+    // assert `get_bytes` did not allocate
+    assert_eq!(cd_ptr.wrapping_offset(1), d.as_ptr());
+}

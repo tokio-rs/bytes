@@ -529,6 +529,10 @@ impl Buf for Bytes {
     fn to_bytes(&mut self) -> crate::Bytes {
         core::mem::replace(self, Bytes::new())
     }
+
+    fn get_bytes(&mut self, count: usize) -> Bytes {
+        self.split_to(count)
+    }
 }
 
 impl Deref for Bytes {

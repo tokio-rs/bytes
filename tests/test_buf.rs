@@ -1,6 +1,6 @@
 #![deny(warnings, rust_2018_idioms)]
 
-use bytes::Buf;
+use bytes::{Buf, Bytes};
 use std::io::IoSlice;
 
 #[test]
@@ -25,6 +25,20 @@ fn test_fresh_cursor_vec() {
 fn test_get_u8() {
     let mut buf = &b"\x21zomg"[..];
     assert_eq!(0x21, buf.get_u8());
+}
+
+#[test]
+fn get_to_bytes() {
+    let mut buf = &b"abcd"[..];
+    assert_eq!(Bytes::copy_from_slice(b"abcd"), buf.to_bytes());
+    assert_eq!(b"", buf);
+}
+
+#[test]
+fn get_get_bytes() {
+    let mut buf = &b"abcd"[..];
+    assert_eq!(Bytes::copy_from_slice(b"abc"), buf.get_bytes(3));
+    assert_eq!(b"d", buf);
 }
 
 #[test]

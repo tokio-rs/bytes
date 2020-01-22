@@ -946,3 +946,37 @@ fn bytes_with_capacity_but_empty() {
     let vec = Vec::with_capacity(1);
     let _ = Bytes::from(vec);
 }
+
+#[test]
+fn bytes_get_bytes() {
+    let mut bytes = Bytes::from(b"abc".to_vec());
+
+    let a = bytes.get_bytes(1);
+    assert_eq!(b"a", a.as_ref());
+    // assert returned bytes object is a subslice of original bytes object
+    assert_eq!(a.as_ref().as_ptr() as usize + 1, bytes.as_ref().as_ptr() as usize);
+
+    let bc = bytes.get_bytes(2);
+    assert_eq!(b"bc", bc.as_ref());
+    // assert returned bytes object is a subslice of original bytes object
+    assert_eq!(bc.as_ref().as_ptr() as usize, a.as_ref().as_ptr() as usize + 1);
+
+    assert_eq!(Bytes::new(), bytes);
+}
+
+#[test]
+fn bytes_mut_get_bytes() {
+    let mut bytes = BytesMut::from(&b"abc"[..]);
+
+    let a = bytes.get_bytes(1);
+    assert_eq!(b"a", a.as_ref());
+    // assert returned bytes object is a subslice of original bytes object
+    assert_eq!(a.as_ref().as_ptr() as usize + 1, bytes.as_ref().as_ptr() as usize);
+
+    let bc = bytes.get_bytes(2);
+    assert_eq!(b"bc", bc.as_ref());
+    // assert returned bytes object is a subslice of original bytes object
+    assert_eq!(bc.as_ref().as_ptr() as usize, a.as_ref().as_ptr() as usize + 1);
+
+    assert_eq!(BytesMut::new(), bytes);
+}

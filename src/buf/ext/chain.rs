@@ -1,5 +1,5 @@
 use crate::{Buf, BufMut};
-use crate::buf::IntoIter;
+use crate::buf::{IntoIter, BufExt};
 
 use core::mem::MaybeUninit;
 
@@ -175,6 +175,35 @@ impl<T, U> Buf for Chain<T, U>
         let mut n = self.a.bytes_vectored(dst);
         n += self.b.bytes_vectored(&mut dst[n..]);
         n
+    }
+
+    fn to_bytes(&mut self) -> crate::Bytes {
+        if !self.a.has_remaining() {
+            self.b.to_bytes()
+        } else if !self.b.has_remaining() {
+            self.a.to_bytes()
+        } else {
+            let mut ret = crate::BytesMut::with_capacity(self.a.remaining() + self.b.remaining());
+            ret.put(&mut self.a);
+            ret.put(&mut self.b);
+            ret.freeze()
+        }
+    }
+
+    fn get_bytes(&mut self, cnt: usize) -> crate::Bytes {
+        let a_rem = self.a.remaining();
+        if a_rem >= cnt {
+            self.a.get_bytes(cnt)
+        } else if !self.a.has_remaining() {
+            self.b.get_bytes(cnt)
+        } else {
+            assert!(cnt <= a_rem + self.b.remaining());
+
+            let mut ret = crate::BytesMut::with_capacity(cnt);
+            ret.put(&mut self.a);
+            ret.put((&mut self.b).take(cnt - a_rem));
+            ret.freeze()
+        }
     }
 }
 

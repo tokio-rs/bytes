@@ -960,6 +960,10 @@ impl Buf for BytesMut {
     fn to_bytes(&mut self) -> crate::Bytes {
         self.split().freeze()
     }
+
+    fn get_bytes(&mut self, cnt: usize) -> crate::Bytes {
+        self.split_to(cnt).freeze()
+    }
 }
 
 impl BufMut for BytesMut {

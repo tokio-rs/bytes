@@ -807,6 +807,45 @@ pub trait Buf {
         ret.put(self);
         ret.freeze()
     }
+
+    /// Consumes requested number of bytes from `self`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Buf;
+    ///
+    /// let bytes = (&b"hello world"[..]).get_bytes(5);
+    /// assert_eq!(&bytes[..], &b"hello"[..]);
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// This function panics if there is not enough remaining data in `self`.
+    fn get_bytes(&mut self, mut cnt: usize) -> crate::Bytes {
+        use super::BufMut;
+
+        if cnt == 0 {
+            return crate::Bytes::new();
+        }
+
+        assert!(self.remaining() >= cnt);
+
+        // Could be as simple as self.take(count).to_bytes()
+        // but compiler stack overflows on instantiation of test Buf impl for some types
+
+        let mut ret = crate::BytesMut::with_capacity(cnt);
+
+        while cnt != 0 {
+            let bytes = self.bytes();
+            let step = cmp::min(bytes.len(), cnt);
+            ret.put_slice(&bytes[..step]);
+            self.advance(step);
+            cnt -= step;
+        }
+
+        ret.freeze()
+    }
 }
 
 macro_rules! deref_forward_buf {
@@ -910,6 +949,10 @@ macro_rules! deref_forward_buf {
 
     fn to_bytes(&mut self) -> crate::Bytes {
         (**self).to_bytes()
+    }
+
+    fn get_bytes(&mut self, count: usize) -> crate::Bytes {
+        (**self).get_bytes(count)
     }
 
     )

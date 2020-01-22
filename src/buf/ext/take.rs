@@ -147,4 +147,15 @@ impl<T: Buf> Buf for Take<T> {
         self.inner.advance(cnt);
         self.limit -= cnt;
     }
+
+    fn to_bytes(&mut self) -> crate::Bytes {
+        self.get_bytes(self.remaining())
+    }
+
+    fn get_bytes(&mut self, cnt: usize) -> crate::Bytes {
+        assert!(cnt <= self.remaining());
+        let ret = self.inner.get_bytes(cnt);
+        self.limit -= cnt;
+        ret
+    }
 }
