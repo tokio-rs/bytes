@@ -1,8 +1,9 @@
 use core::{cmp, fmt, hash, mem, ptr, slice, usize};
 use core::iter::{FromIterator};
 use core::ops::{Deref, RangeBounds};
+use core::alloc::Layout;
 
-use alloc::{vec::Vec, string::String, boxed::Box, borrow::Borrow};
+use alloc::{self, vec::Vec, string::String, boxed::Box, borrow::Borrow};
 
 use crate::Buf;
 use crate::buf::IntoIter;
@@ -177,7 +178,25 @@ impl Bytes {
 
     ///Creates `Bytes` instance from slice, by copying it.
     pub fn copy_from_slice(data: &[u8]) -> Self {
-        data.to_vec().into()
+        if data.is_empty() {
+            return Bytes::new();
+        }
+        unsafe {
+            let (layout, offset) = shared_inline_layout(data.len());
+            let alloc = alloc::alloc::alloc(layout) as *mut SharedInline;
+            ptr::write(alloc, SharedInline {
+                ref_cnt: AtomicUsize::new(1),
+                cap: data.len(),
+            });
+            let ptr = (alloc as *mut u8).offset(offset as isize);
+            ptr::copy_nonoverlapping(data.as_ptr(), ptr, data.len());
+            Bytes {
+                ptr,
+                len: data.len(),
+                data: AtomicPtr::new(alloc as *mut ()),
+                vtable: &SHARED_INLINE_VTABLE,
+            }
+        }
     }
 
     /// Returns a slice of self for the provided range.
@@ -902,6 +921,17 @@ static SHARED_VTABLE: Vtable = Vtable {
     drop: shared_drop,
 };
 
+struct SharedInline {
+    ref_cnt: AtomicUsize,
+    cap: usize,
+    // data: [u8; cap]
+}
+
+static SHARED_INLINE_VTABLE: Vtable = Vtable {
+    clone: shared_inline_clone,
+    drop: shared_inline_drop,
+};
+
 const KIND_ARC: usize = 0b0;
 const KIND_VEC: usize = 0b1;
 const KIND_MASK: usize = 0b1;
@@ -914,6 +944,39 @@ unsafe fn shared_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Byte
 unsafe fn shared_drop(data: &mut AtomicPtr<()>, _ptr: *const u8, _len: usize) {
     let shared = *data.get_mut();
     release_shared(shared as *mut Shared);
+}
+
+/// `Layout` of `SharedInline` for a slice of given capacity.
+fn shared_inline_layout(cap: usize) -> (Layout, usize) {
+    let shared_inline_layout = Layout::new::<SharedInline>();
+    let offset = shared_inline_layout.size();
+    let layout = Layout::from_size_align(
+        shared_inline_layout.size().checked_add(cap).unwrap(),
+        shared_inline_layout.align()).unwrap();
+    (layout, offset)
+}
+
+unsafe fn shared_inline_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Bytes {
+    let shared = data.load(Ordering::Acquire) as *mut SharedInline;
+    let old_size = (&*shared).ref_cnt.fetch_add(1, Ordering::Relaxed);
+
+    if old_size > usize::MAX >> 1 {
+        crate::abort();
+    }
+
+    Bytes {
+        ptr,
+        len,
+        data: AtomicPtr::new(shared as _),
+        vtable: &SHARED_INLINE_VTABLE,
+    }
+}
+
+unsafe fn shared_inline_drop(data: &mut AtomicPtr<()>, _ptr: *const u8, _len: usize) {
+    let shared = data.load(Ordering::Acquire) as *mut SharedInline;
+    if (&*shared).ref_cnt.fetch_sub(1, Ordering::Release) == 1 {
+        alloc::alloc::dealloc(shared as _, shared_inline_layout((*shared).cap).0);
+    }
 }
 
 unsafe fn shallow_clone_arc(shared: *mut Shared, ptr: *const u8, len: usize) -> Bytes {
