@@ -28,5 +28,9 @@ std = []
 serde = { version = "1.0", optional = true }
 
 [dev-dependencies]
-loom = "0.2.10"
 serde_test = "1.0"
+
+# loom is currently not compiling on windows.
+# See: https://github.com/Xudong-Huang/generator-rs/issues/19
+[target.'cfg(not(windows))'.dev-dependencies]
+loom = "0.2.13"
