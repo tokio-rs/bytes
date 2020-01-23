@@ -626,7 +626,7 @@ impl PartialEq<Bytes> for [u8] {
 
 impl PartialOrd<Bytes> for [u8] {
     fn partial_cmp(&self, other: &Bytes) -> Option<cmp::Ordering> {
-        other.partial_cmp(self)
+        <[u8] as PartialOrd<[u8]>>::partial_cmp(self, other)
     }
 }
 
@@ -650,7 +650,7 @@ impl PartialEq<Bytes> for str {
 
 impl PartialOrd<Bytes> for str {
     fn partial_cmp(&self, other: &Bytes) -> Option<cmp::Ordering> {
-        other.partial_cmp(self)
+        <[u8] as PartialOrd<[u8]>>::partial_cmp(self.as_bytes(), other)
     }
 }
 
@@ -674,7 +674,7 @@ impl PartialEq<Bytes> for Vec<u8> {
 
 impl PartialOrd<Bytes> for Vec<u8> {
     fn partial_cmp(&self, other: &Bytes) -> Option<cmp::Ordering> {
-        other.partial_cmp(self)
+        <[u8] as PartialOrd<[u8]>>::partial_cmp(self, other)
     }
 }
 
@@ -698,7 +698,7 @@ impl PartialEq<Bytes> for String {
 
 impl PartialOrd<Bytes> for String {
     fn partial_cmp(&self, other: &Bytes) -> Option<cmp::Ordering> {
-        other.partial_cmp(self)
+        <[u8] as PartialOrd<[u8]>>::partial_cmp(self.as_bytes(), other)
     }
 }
 
@@ -710,7 +710,7 @@ impl PartialEq<Bytes> for &[u8] {
 
 impl PartialOrd<Bytes> for &[u8] {
     fn partial_cmp(&self, other: &Bytes) -> Option<cmp::Ordering> {
-        other.partial_cmp(self)
+        <[u8] as PartialOrd<[u8]>>::partial_cmp(self, other)
     }
 }
 
@@ -722,7 +722,7 @@ impl PartialEq<Bytes> for &str {
 
 impl PartialOrd<Bytes> for &str {
     fn partial_cmp(&self, other: &Bytes) -> Option<cmp::Ordering> {
-        other.partial_cmp(self)
+        <[u8] as PartialOrd<[u8]>>::partial_cmp(self.as_bytes(), other)
     }
 }
 
