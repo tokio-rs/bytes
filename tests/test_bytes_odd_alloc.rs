@@ -41,7 +41,7 @@ unsafe impl GlobalAlloc for Odd {
             };
             System.dealloc(ptr.offset(-1), new_layout);
         } else {
-            System.alloc(layout);
+            System.dealloc(ptr, layout);
         }
     }
 }
