@@ -905,6 +905,12 @@ struct Shared {
     ref_cnt: AtomicUsize,
 }
 
+// Assert that the alignment of `Shared` is divisible by 2.
+// This is a necessary invariant since we depend on allocating `Shared` a
+// shared object to implicitly carry the `KIND_ARC` flag in its pointer.
+// This flag is set when the LSB is 0.
+const _: [(); 0 - mem::align_of::<Shared>() % 2] = []; // Assert that the alignment of `Shared` is divisible by 2.
+
 static SHARED_VTABLE: Vtable = Vtable {
     clone: shared_clone,
     drop: shared_drop,
