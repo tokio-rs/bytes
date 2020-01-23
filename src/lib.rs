@@ -1,5 +1,5 @@
 #![deny(warnings, missing_docs, missing_debug_implementations, rust_2018_idioms)]
-#![doc(html_root_url = "https://docs.rs/bytes/0.5.3")]
+#![doc(html_root_url = "https://docs.rs/bytes/0.5.4")]
 #![no_std]
 
 //! Provides abstractions for working with bytes.

@@ -1,3 +1,15 @@
+# 0.5.4 (January 23, 2020)
+
+### Added
+- Make `Bytes::new` a `const fn`.
+- Add `From<BytesMut>` for `Bytes`.
+
+### Fix
+- Fix reversed arguments in `PartialOrd` for `Bytes`.
+- Fix `Bytes::truncate` losing original capacity when repr is an unshared `Vec`.
+- Fix `Bytes::from(Vec)` when allocator gave `Vec` a pointer with LSB set.
+- Fix panic in `Bytes::slice_ref` if argument is an empty slice.
+
 # 0.5.3 (December 12, 2019)
 
 ### Added
