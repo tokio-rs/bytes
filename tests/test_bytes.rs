@@ -809,6 +809,16 @@ fn slice_ref_empty() {
 }
 
 #[test]
+fn slice_ref_empty_subslice() {
+    let bytes = Bytes::from(&b"abcde"[..]);
+    let subbytes = bytes.slice(0..0);
+    let slice = &subbytes[..];
+    // The `slice` object is derived from the original `bytes` object
+    // so `slice_ref` should work.
+    assert_eq!(Bytes::new(), bytes.slice_ref(slice));
+}
+
+#[test]
 #[should_panic]
 fn slice_ref_catches_not_a_subset() {
     let bytes = Bytes::from(&b"012345678"[..]);
@@ -818,30 +828,19 @@ fn slice_ref_catches_not_a_subset() {
 }
 
 #[test]
-#[should_panic]
-fn slice_ref_catches_not_an_empty_subset() {
+fn slice_ref_not_an_empty_subset() {
     let bytes = Bytes::from(&b"012345678"[..]);
     let slice = &b""[0..0];
 
-    bytes.slice_ref(slice);
+    assert_eq!(Bytes::new(), bytes.slice_ref(slice));
 }
 
 #[test]
-#[should_panic]
-fn empty_slice_ref_catches_not_an_empty_subset() {
+fn empty_slice_ref_not_an_empty_subset() {
     let bytes = Bytes::new();
     let slice = &b"some other slice"[0..0];
 
-    // Protect this test against Bytes internals.
-    //
-    // This should panic *because* the slice's ptr doesn't fit in the range
-    // of the `bytes`.
-    if bytes.as_ptr() as usize == slice.as_ptr() as usize {
-        // don't panic, failing the test
-        return;
-    }
-
-    bytes.slice_ref(slice);
+    assert_eq!(Bytes::new(), bytes.slice_ref(slice));
 }
 
 #[test]
