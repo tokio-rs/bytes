@@ -6,7 +6,6 @@ use alloc::{vec::Vec, string::String, boxed::Box, borrow::Borrow};
 
 use crate::Buf;
 use crate::buf::IntoIter;
-use crate::debug;
 use crate::loom::sync::atomic::{self, AtomicPtr, AtomicUsize, Ordering};
 
 /// A reference counted contiguous slice of memory.
@@ -493,12 +492,6 @@ impl Clone for Bytes {
         unsafe {
             (self.vtable.clone)(&self.data, self.ptr, self.len)
         }
-    }
-}
-
-impl fmt::Debug for Bytes {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Debug::fmt(&debug::BsDebug(&self.as_slice()), f)
     }
 }
 

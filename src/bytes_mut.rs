@@ -9,7 +9,6 @@ use alloc::{vec::Vec, string::String, boxed::Box, borrow::{Borrow, BorrowMut}};
 use crate::{Bytes, Buf, BufMut};
 use crate::bytes::Vtable;
 use crate::buf::IntoIter;
-use crate::debug;
 use crate::loom::sync::atomic::{self, AtomicPtr, AtomicUsize, Ordering};
 
 /// A unique reference to a contiguous slice of memory.
@@ -1071,12 +1070,6 @@ impl Default for BytesMut {
     #[inline]
     fn default() -> BytesMut {
         BytesMut::new()
-    }
-}
-
-impl fmt::Debug for BytesMut {
-    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Debug::fmt(&debug::BsDebug(&self.as_slice()), fmt)
     }
 }
 
