@@ -863,7 +863,7 @@ unsafe fn promotable_even_drop(data: &mut AtomicPtr<()>, ptr: *const u8, len: us
     } else {
         debug_assert_eq!(kind, KIND_VEC);
         let buf = (shared as usize & !KIND_MASK) as *mut u8;
-        drop(rebuild_vec(buf, ptr, len));
+        drop(rebuild_boxed_slice(buf, ptr, len));
     }
 }
 
@@ -888,13 +888,13 @@ unsafe fn promotable_odd_drop(data: &mut AtomicPtr<()>, ptr: *const u8, len: usi
     } else {
         debug_assert_eq!(kind, KIND_VEC);
 
-        drop(rebuild_vec(shared as *mut u8, ptr, len));
+        drop(rebuild_boxed_slice(shared as *mut u8, ptr, len));
     }
 }
 
-unsafe fn rebuild_vec(buf: *mut u8, offset: *const u8, len: usize) -> Vec<u8> {
+unsafe fn rebuild_boxed_slice(buf: *mut u8, offset: *const u8, len: usize) -> Box<[u8]> {
     let cap = (offset as usize - buf as usize) + len;
-    Vec::from_raw_parts(buf, cap, cap)
+    Box::from_raw(slice::from_raw_parts_mut(buf, cap))
 }
 
 // ===== impl SharedVtable =====
@@ -952,7 +952,7 @@ unsafe fn shallow_clone_vec(atom: &AtomicPtr<()>, ptr: *const (), buf: *mut u8, 
     // updated and since the buffer hasn't been promoted to an
     // `Arc`, those three fields still are the components of the
     // vector.
-    let vec = rebuild_vec(buf, offset, len);
+    let vec = rebuild_boxed_slice(buf, offset, len).into_vec();
     let shared = Box::new(Shared {
         _vec: vec,
         // Initialize refcount to 2. One for this reference, and one
