@@ -21,6 +21,7 @@ mod buf_mut;
 pub mod ext;
 mod iter;
 mod vec_deque;
+mod buf_queue;
 
 pub use self::buf_impl::Buf;
 pub use self::buf_mut::BufMut;
@@ -28,4 +29,4 @@ pub use self::ext::{BufExt, BufMutExt};
 #[cfg(feature = "std")]
 pub use self::buf_mut::IoSliceMut;
 pub use self::iter::IntoIter;
-
+pub use self::buf_queue::BufQueue;
