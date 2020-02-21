@@ -542,6 +542,64 @@ fn advance_past_len() {
 }
 
 #[test]
+fn into_vec_kind_static() {
+    let bytes = Bytes::from_static(b"abcde");
+    let vec = bytes.into_vec();
+    assert_eq!(b"abcde", &vec[..]);
+}
+
+#[test]
+fn into_vec_kind_inline() {
+    let bytes = Bytes::from(&b"abcde"[..]);
+    let vec = bytes.into_vec();
+    assert_eq!(b"abcde", &vec[..]);
+}
+
+#[test]
+fn into_vec_kind_vec() {
+    let vec = Vec::from(&b"abcde"[..]);
+    let ptr = vec.as_slice().as_ptr();
+
+    let bytes = Bytes::from(vec);
+
+    let vec = bytes.into_vec();
+    assert_eq!(&b"abcde"[..], &vec[..]);
+    assert_eq!(ptr, vec.as_slice().as_ptr())
+}
+
+#[test]
+fn into_vec_kind_arc_unique() {
+    let vec = Vec::from(&b"abcde"[..]);
+    let ptr = vec.as_slice().as_ptr();
+
+    let mut bytes = Bytes::from(vec);
+
+    let split_bytes = bytes.split_off(3);
+    assert_eq!(&b"de"[..], split_bytes);
+    assert_eq!(&b"de"[..], &split_bytes.into_vec()[..]);
+
+    let bytes_vec = bytes.into_vec();
+    assert_eq!(&b"abc"[..], &bytes_vec[..]);
+    assert_eq!(ptr, bytes_vec.as_slice().as_ptr())
+}
+
+#[test]
+fn into_vec_kind_arc_unique_move() {
+    let vec = Vec::from(&b"abcde"[..]);
+    let ptr = vec.as_slice().as_ptr();
+
+    let mut bytes = Bytes::from(vec);
+
+    let split_bytes = bytes.split_to(2);
+    assert_eq!(&b"ab"[..], split_bytes);
+    assert_eq!(&b"ab"[..], &split_bytes.into_vec()[..]);
+
+    let vec = bytes.into_vec();
+    assert_eq!(&b"cde"[..], &vec[..]);
+    assert_eq!(ptr, vec.as_slice().as_ptr())
+}
+
+#[test]
 // Only run these tests on little endian systems. CI uses qemu for testing
 // little endian... and qemu doesn't really support threading all that well.
 #[cfg(target_endian = "little")]

@@ -65,7 +65,7 @@ pub struct BytesMut {
 struct Shared {
     vec: Vec<u8>,
     original_capacity_repr: usize,
-    ref_count: AtomicUsize,
+    ref_cnt: AtomicUsize,
 }
 
 // Buffer storage strategy flags.
@@ -788,7 +788,7 @@ impl BytesMut {
                 // on 64 bit systems and will only happen on 32 bit systems
                 // when shifting past 134,217,727 bytes. As such, we don't
                 // worry too much about performance here.
-                self.promote_to_shared(/*ref_count = */1);
+                self.promote_to_shared(/*ref_cnt = */1);
             }
         }
 
@@ -860,7 +860,7 @@ impl BytesMut {
         let shared = Box::new(Shared {
             vec: rebuild_vec(self.ptr.as_ptr(), self.len, self.cap, off),
             original_capacity_repr,
-            ref_count: AtomicUsize::new(ref_cnt),
+            ref_cnt: AtomicUsize::new(ref_cnt),
         });
 
         let shared = Box::into_raw(shared);
@@ -884,7 +884,7 @@ impl BytesMut {
             increment_shared(self.data);
             ptr::read(self)
         } else {
-            self.promote_to_shared(/*ref_count = */2);
+            self.promote_to_shared(/*ref_cnt = */2);
             ptr::read(self)
         }
     }
@@ -1175,7 +1175,7 @@ impl<'a> FromIterator<&'a u8> for BytesMut {
  */
 
 unsafe fn increment_shared(ptr: *mut Shared) {
-    let old_size = (*ptr).ref_count.fetch_add(1, Ordering::Relaxed);
+    let old_size = (*ptr).ref_cnt.fetch_add(1, Ordering::Relaxed);
 
     if old_size > isize::MAX as usize {
         crate::abort();
@@ -1184,12 +1184,12 @@ unsafe fn increment_shared(ptr: *mut Shared) {
 
 unsafe fn release_shared(ptr: *mut Shared) {
     // `Shared` storage... follow the drop steps from Arc.
-    if (*ptr).ref_count.fetch_sub(1, Ordering::Release) != 1 {
+    if (*ptr).ref_cnt.fetch_sub(1, Ordering::Release) != 1 {
         return;
     }
 
     // This fence is needed to prevent reordering of use of the data and
-    // deletion of the data.  Because it is marked `Release`, the decreasing
+    // deletion of the data. Because it is marked `Release`, the decreasing
     // of the reference count synchronizes with this `Acquire` fence. This
     // means that use of the data happens before decreasing the reference
     // count, which happens before this fence, which happens before the
@@ -1211,19 +1211,58 @@ unsafe fn release_shared(ptr: *mut Shared) {
     Box::from_raw(ptr);
 }
 
+unsafe fn release_shared_into_vec(data_ptr: *mut Shared, offset: *const u8, len: usize) -> Vec<u8> {
+    // `Shared` storage... follow the drop steps from Arc.
+    let ref_cnt = (*data_ptr).ref_cnt.fetch_sub(1, Ordering::Release);
+
+    // See the comment in `release_shared` for the reasoning.
+    atomic::fence(Ordering::Acquire);
+
+    if ref_cnt != 1 {
+        // We wish extract the vec, but there are other shared references
+        // meaning we have to clone the data.
+        return slice::from_raw_parts(offset, len).to_vec();
+    }
+
+    // Re-construct the shared box.
+    let mut shared = Box::from_raw(data_ptr);
+
+    // We want to extract the vec data from the box, so we
+    // first create an empty vec to swap with the one we care about.
+    let mut vec = Vec::new();
+
+    // Swap the empty vec, and the vec with the data.
+    mem::swap(&mut vec, &mut shared.vec);
+
+    // Drop the shared data.
+    drop(shared);
+
+    // Because bytes is a window into the vec, we need to
+    // calculate the relative offset into the vec we are
+    // pointing to.
+    let rel_offset = offset as usize - vec.as_ptr() as usize;
+
+    // Drop any data at the end and start of the vec we don't care about.
+    vec.truncate(rel_offset + len);
+    vec.drain(..rel_offset);
+
+    // Return the vec
+    vec
+}
+
 impl Shared {
     fn is_unique(&self) -> bool {
         // The goal is to check if the current handle is the only handle
         // that currently has access to the buffer. This is done by
-        // checking if the `ref_count` is currently 1.
+        // checking if the `ref_cnt` is currently 1.
         //
         // The `Acquire` ordering synchronizes with the `Release` as
         // part of the `fetch_sub` in `release_shared`. The `fetch_sub`
         // operation guarantees that any mutations done in other threads
-        // are ordered before the `ref_count` is decremented. As such,
+        // are ordered before the `ref_cnt` is decremented. As such,
         // this `Acquire` will guarantee that those mutations are
         // visible to the current thread.
-        self.ref_count.load(Ordering::Acquire) == 1
+        self.ref_cnt.load(Ordering::Acquire) == 1
     }
 }
 
@@ -1469,6 +1508,7 @@ unsafe fn rebuild_vec(ptr: *mut u8, mut len: usize, mut cap: usize, off: usize) 
 static SHARED_VTABLE: Vtable = Vtable {
     clone: shared_v_clone,
     drop: shared_v_drop,
+    into_vec: shared_v_into_vec,
 };
 
 unsafe fn shared_v_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Bytes {
@@ -1482,6 +1522,11 @@ unsafe fn shared_v_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> By
 unsafe fn shared_v_drop(data: &mut AtomicPtr<()>, _ptr: *const u8, _len: usize) {
     let shared = (*data.get_mut()) as *mut Shared;
     release_shared(shared as *mut Shared);
+}
+
+unsafe fn shared_v_into_vec(data: &mut AtomicPtr<()>, ptr: *const u8, len: usize) -> Vec<u8> {
+    let shared = (*data.get_mut()) as *mut Shared;
+    release_shared_into_vec(shared, ptr, len)
 }
 
 // compile-fails
