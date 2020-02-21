@@ -843,6 +843,12 @@ impl From<String> for Bytes {
     }
 }
 
+impl From<Bytes> for Vec<u8> {
+    fn from(b: Bytes) -> Self {
+        b.into_vec()
+    }
+}
+
 // ===== impl Vtable =====
 
 impl fmt::Debug for Vtable {
