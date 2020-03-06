@@ -15,8 +15,12 @@ use crate::loom::sync::atomic::{self, AtomicPtr, AtomicUsize, Ordering};
 ///
 /// `BytesMut` represents a unique view into a potentially shared memory region.
 /// Given the uniqueness guarantee, owners of `BytesMut` handles are able to
-/// mutate the memory. It is similar to a `Vec<u8>` but with less copies and
-/// allocations.
+/// mutate the memory.
+///
+/// `BytesMut` can be thought of as containing a `buf: Arc<Vec<u8>>`, an offset
+/// into `buf`, a slice length, and a guarantee that no other `BytesMut` for the
+/// same `buf` overlaps with its slice. That guarantee means that a write lock
+/// is not required.
 ///
 /// # Growth
 ///
