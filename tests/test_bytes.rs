@@ -343,6 +343,72 @@ fn freeze_clone_unique() {
 }
 
 #[test]
+fn freeze_after_advance() {
+    let s = &b"abcdefgh"[..];
+    let mut b = BytesMut::from(s);
+    b.advance(1);
+    assert_eq!(b, s[1..]);
+    let b = b.freeze();
+    // Verify fix for #352. Previously, freeze would ignore the start offset
+    // for BytesMuts in Vec mode.
+    assert_eq!(b, s[1..]);
+}
+
+#[test]
+fn freeze_after_advance_arc() {
+    let s = &b"abcdefgh"[..];
+    let mut b = BytesMut::from(s);
+    // Make b Arc
+    let _ = b.split_to(0);
+    b.advance(1);
+    assert_eq!(b, s[1..]);
+    let b = b.freeze();
+    assert_eq!(b, s[1..]);
+}
+
+#[test]
+fn freeze_after_split_to() {
+    let s = &b"abcdefgh"[..];
+    let mut b = BytesMut::from(s);
+    let _ = b.split_to(1);
+    assert_eq!(b, s[1..]);
+    let b = b.freeze();
+    assert_eq!(b, s[1..]);
+}
+
+#[test]
+fn freeze_after_truncate() {
+    let s = &b"abcdefgh"[..];
+    let mut b = BytesMut::from(s);
+    b.truncate(7);
+    assert_eq!(b, s[..7]);
+    let b = b.freeze();
+    assert_eq!(b, s[..7]);
+}
+
+#[test]
+fn freeze_after_truncate_arc() {
+    let s = &b"abcdefgh"[..];
+    let mut b = BytesMut::from(s);
+    // Make b Arc
+    let _ = b.split_to(0);
+    b.truncate(7);
+    assert_eq!(b, s[..7]);
+    let b = b.freeze();
+    assert_eq!(b, s[..7]);
+}
+
+#[test]
+fn freeze_after_split_off() {
+    let s = &b"abcdefgh"[..];
+    let mut b = BytesMut::from(s);
+    let _ = b.split_off(7);
+    assert_eq!(b, s[..7]);
+    let b = b.freeze();
+    assert_eq!(b, s[..7]);
+}
+
+#[test]
 fn fns_defined_for_bytes_mut() {
     let mut bytes = BytesMut::from(&b"hello world"[..]);
 

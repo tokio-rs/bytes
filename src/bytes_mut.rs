@@ -233,7 +233,9 @@ impl BytesMut {
                 let (off, _) = self.get_vec_pos();
                 let vec = rebuild_vec(self.ptr.as_ptr(), self.len, self.cap, off);
                 mem::forget(self);
-                vec.into()
+                let mut b: Bytes = vec.into();
+                b.advance(off);
+                b
             }
         } else {
             debug_assert_eq!(self.kind(), KIND_ARC);
