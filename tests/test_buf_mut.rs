@@ -45,13 +45,12 @@ fn test_put_u16() {
 }
 
 #[test]
+#[should_panic(expected = "cannot advance")]
 fn test_vec_advance_mut() {
-    // Regression test for carllerche/bytes#108.
+    // Verify fix for #354
     let mut buf = Vec::with_capacity(8);
     unsafe {
         buf.advance_mut(12);
-        assert_eq!(buf.len(), 12);
-        assert!(buf.capacity() >= 12, "capacity: {}", buf.capacity());
     }
 }
 
