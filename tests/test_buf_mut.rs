@@ -1,8 +1,10 @@
 #![deny(warnings, rust_2018_idioms)]
 
-use bytes::{buf::IoSliceMut, BufMut, BytesMut};
-use std::usize;
-use std::fmt::Write;
+use bytes::{BufMut, BytesMut};
+#[cfg(feature = "std")]
+use bytes::buf::IoSliceMut;
+use core::usize;
+use core::fmt::Write;
 
 #[test]
 fn test_vec_as_mut_buf() {
@@ -64,6 +66,7 @@ fn test_clone() {
     assert!(buf != buf2);
 }
 
+#[cfg(feature = "std")]
 #[test]
 fn test_bufs_vec_mut() {
     let b1: &mut [u8] = &mut [];
