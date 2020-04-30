@@ -25,7 +25,7 @@ default = ["std"]
 std = []
 
 [dependencies]
-serde = { version = "1.0", optional = true }
+serde = { version = "1.0", optional = true, default-features = false, features = ["alloc"] }
 
 [dev-dependencies]
 serde_test = "1.0"
