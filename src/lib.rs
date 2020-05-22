@@ -82,6 +82,7 @@ pub mod buf;
 pub use crate::buf::{
     Buf,
     BufMut,
+    TryGetError,
 };
 
 mod bytes_mut;

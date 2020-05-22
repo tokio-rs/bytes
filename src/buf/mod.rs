@@ -22,7 +22,7 @@ pub mod ext;
 mod iter;
 mod vec_deque;
 
-pub use self::buf_impl::Buf;
+pub use self::buf_impl::{Buf, TryGetError};
 pub use self::buf_mut::BufMut;
 pub use self::ext::{BufExt, BufMutExt};
 #[cfg(feature = "std")]
