@@ -116,3 +116,17 @@ fn split_off_and_drop(b: &mut Bencher) {
         }
     })
 }
+
+#[bench]
+fn copy_from_slice(b: &mut Bencher) {
+    b.iter(|| {
+        Bytes::copy_from_slice(b"abcdef")
+    });
+}
+
+#[bench]
+fn copy_from_slice_and_clone(b: &mut Bencher) {
+    b.iter(|| {
+        Bytes::copy_from_slice(b"abcdef").clone()
+    });
+}
