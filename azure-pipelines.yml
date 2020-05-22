@@ -3,9 +3,10 @@ pr: ["master"]
 
 jobs:
 # Check formatting
-# - template: ci/azure-rustfmt.yml
-#   parameters:
-#     name: rustfmt
+- template: ci/azure-rustfmt.yml
+  parameters:
+    name: rustfmt
+    rust_version: stable
 
 # Apply clippy lints
 # - template: ci/azure-clippy.yml
@@ -60,7 +61,7 @@ jobs:
 - template: ci/azure-deploy-docs.yml
   parameters:
     dependsOn:
-      # - rustfmt
+      - rustfmt
       # - clippy
       - stable
       - nightly

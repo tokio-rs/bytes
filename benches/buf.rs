@@ -3,8 +3,8 @@
 
 extern crate test;
 
-use test::Bencher;
 use bytes::Buf;
+use test::Bencher;
 
 /// Dummy Buf implementation
 struct TestBuf {

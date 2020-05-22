@@ -1,7 +1,7 @@
 use core::fmt::{Formatter, LowerHex, Result, UpperHex};
 
-use crate::{Bytes, BytesMut};
 use super::BytesRef;
+use crate::{Bytes, BytesMut};
 
 impl LowerHex for BytesRef<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {

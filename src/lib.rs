@@ -1,4 +1,9 @@
-#![deny(warnings, missing_docs, missing_debug_implementations, rust_2018_idioms)]
+#![deny(
+    warnings,
+    missing_docs,
+    missing_debug_implementations,
+    rust_2018_idioms
+)]
 #![doc(html_root_url = "https://docs.rs/bytes/0.5.4")]
 #![no_std]
 
@@ -72,24 +77,20 @@
 //! perform a syscall, which has the potential of failing. Operations on `Buf`
 //! and `BufMut` are infallible.
 
-
 extern crate alloc;
 
 #[cfg(feature = "std")]
 extern crate std;
 
 pub mod buf;
-pub use crate::buf::{
-    Buf,
-    BufMut,
-};
+pub use crate::buf::{Buf, BufMut};
 
-mod bytes_mut;
 mod bytes;
+mod bytes_mut;
 mod fmt;
 mod loom;
-pub use crate::bytes_mut::BytesMut;
 pub use crate::bytes::Bytes;
+pub use crate::bytes_mut::BytesMut;
 
 // Optional Serde support
 #[cfg(feature = "serde")]

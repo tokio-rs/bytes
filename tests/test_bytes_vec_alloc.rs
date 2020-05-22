@@ -39,7 +39,11 @@ unsafe impl GlobalAlloc for Ledger {
             let off_ptr = (ptr as *mut usize).offset(-1);
             let orig_size = off_ptr.read();
             if orig_size != layout.size() {
-                panic!("bad dealloc: alloc size was {}, dealloc size is {}", orig_size, layout.size());
+                panic!(
+                    "bad dealloc: alloc size was {}, dealloc size is {}",
+                    orig_size,
+                    layout.size()
+                );
             }
 
             let new_layout = match Layout::from_size_align(layout.size() + USIZE_SIZE, 1) {

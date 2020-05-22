@@ -11,7 +11,6 @@ fn iter_len() {
     assert_eq!(iter.len(), 11);
 }
 
-
 #[test]
 fn empty_iter_len() {
     let buf = Bytes::from_static(b"");

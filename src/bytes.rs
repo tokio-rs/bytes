@@ -1,12 +1,14 @@
-use core::{cmp, fmt, hash, mem, ptr, slice, usize};
-use core::iter::{FromIterator};
+use core::iter::FromIterator;
 use core::ops::{Deref, RangeBounds};
+use core::{cmp, fmt, hash, mem, ptr, slice, usize};
 
-use alloc::{vec::Vec, string::String, boxed::Box, borrow::Borrow};
+use alloc::{borrow::Borrow, boxed::Box, string::String, vec::Vec};
 
-use crate::Buf;
 use crate::buf::IntoIter;
+#[allow(unused)]
+use crate::loom::sync::atomic::AtomicMut;
 use crate::loom::sync::atomic::{self, AtomicPtr, AtomicUsize, Ordering};
+use crate::Buf;
 
 /// A reference counted contiguous slice of memory.
 ///
@@ -173,7 +175,6 @@ impl Bytes {
         self.len == 0
     }
 
-
     ///Creates `Bytes` instance from slice, by copying it.
     pub fn copy_from_slice(data: &[u8]) -> Self {
         data.to_vec().into()
@@ -234,7 +235,6 @@ impl Bytes {
         if end == begin {
             return Bytes::new();
         }
-
 
         let mut ret = self.clone();
 
@@ -391,7 +391,6 @@ impl Bytes {
             return Bytes::new();
         }
 
-
         let mut ret = self.clone();
 
         unsafe { self.inc_start(at) };
@@ -426,8 +425,9 @@ impl Bytes {
             // The Vec "promotable" vtables do not store the capacity,
             // so we cannot truncate while using this repr. We *have* to
             // promote using `split_off` so the capacity can be stored.
-            if self.vtable as *const Vtable == &PROMOTABLE_EVEN_VTABLE ||
-                self.vtable as *const Vtable == &PROMOTABLE_ODD_VTABLE {
+            if self.vtable as *const Vtable == &PROMOTABLE_EVEN_VTABLE
+                || self.vtable as *const Vtable == &PROMOTABLE_ODD_VTABLE
+            {
                 drop(self.split_off(len));
             } else {
                 self.len = len;
@@ -452,7 +452,12 @@ impl Bytes {
     }
 
     #[inline]
-    pub(crate) unsafe fn with_vtable(ptr: *const u8, len: usize, data: AtomicPtr<()>, vtable: &'static Vtable) -> Bytes {
+    pub(crate) unsafe fn with_vtable(
+        ptr: *const u8,
+        len: usize,
+        data: AtomicPtr<()>,
+        vtable: &'static Vtable,
+    ) -> Bytes {
         Bytes {
             ptr,
             len,
@@ -465,9 +470,7 @@ impl Bytes {
 
     #[inline]
     fn as_slice(&self) -> &[u8] {
-        unsafe {
-            slice::from_raw_parts(self.ptr, self.len)
-        }
+        unsafe { slice::from_raw_parts(self.ptr, self.len) }
     }
 
     #[inline]
@@ -486,18 +489,14 @@ unsafe impl Sync for Bytes {}
 impl Drop for Bytes {
     #[inline]
     fn drop(&mut self) {
-        unsafe {
-            (self.vtable.drop)(&mut self.data, self.ptr, self.len)
-        }
+        unsafe { (self.vtable.drop)(&mut self.data, self.ptr, self.len) }
     }
 }
 
 impl Clone for Bytes {
     #[inline]
     fn clone(&self) -> Bytes {
-        unsafe {
-            (self.vtable.clone)(&self.data, self.ptr, self.len)
-        }
+        unsafe { (self.vtable.clone)(&self.data, self.ptr, self.len) }
     }
 }
 
@@ -548,7 +547,10 @@ impl AsRef<[u8]> for Bytes {
 }
 
 impl hash::Hash for Bytes {
-    fn hash<H>(&self, state: &mut H) where H: hash::Hasher {
+    fn hash<H>(&self, state: &mut H)
+    where
+        H: hash::Hasher,
+    {
         self.as_slice().hash(state);
     }
 }
@@ -726,7 +728,8 @@ impl PartialOrd<Bytes> for &str {
 }
 
 impl<'a, T: ?Sized> PartialEq<&'a T> for Bytes
-    where Bytes: PartialEq<T>
+where
+    Bytes: PartialEq<T>,
 {
     fn eq(&self, other: &&'a T) -> bool {
         *self == **other
@@ -734,7 +737,8 @@ impl<'a, T: ?Sized> PartialEq<&'a T> for Bytes
 }
 
 impl<'a, T: ?Sized> PartialOrd<&'a T> for Bytes
-    where Bytes: PartialOrd<T>
+where
+    Bytes: PartialOrd<T>,
 {
     fn partial_cmp(&self, other: &&'a T) -> Option<cmp::Ordering> {
         self.partial_cmp(&**other)
@@ -854,16 +858,18 @@ unsafe fn promotable_even_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize
 }
 
 unsafe fn promotable_even_drop(data: &mut AtomicPtr<()>, ptr: *const u8, len: usize) {
-    let shared = *data.get_mut();
-    let kind = shared as usize & KIND_MASK;
+    data.with_mut(|shared| {
+        let shared = *shared;
+        let kind = shared as usize & KIND_MASK;
 
-    if kind == KIND_ARC {
-        release_shared(shared as *mut Shared);
-    } else {
-        debug_assert_eq!(kind, KIND_VEC);
-        let buf = (shared as usize & !KIND_MASK) as *mut u8;
-        drop(rebuild_boxed_slice(buf, ptr, len));
-    }
+        if kind == KIND_ARC {
+            release_shared(shared as *mut Shared);
+        } else {
+            debug_assert_eq!(kind, KIND_VEC);
+            let buf = (shared as usize & !KIND_MASK) as *mut u8;
+            drop(rebuild_boxed_slice(buf, ptr, len));
+        }
+    });
 }
 
 unsafe fn promotable_odd_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Bytes {
@@ -879,16 +885,18 @@ unsafe fn promotable_odd_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize)
 }
 
 unsafe fn promotable_odd_drop(data: &mut AtomicPtr<()>, ptr: *const u8, len: usize) {
-    let shared = *data.get_mut();
-    let kind = shared as usize & KIND_MASK;
+    data.with_mut(|shared| {
+        let shared = *shared;
+        let kind = shared as usize & KIND_MASK;
 
-    if kind == KIND_ARC {
-        release_shared(shared as *mut Shared);
-    } else {
-        debug_assert_eq!(kind, KIND_VEC);
+        if kind == KIND_ARC {
+            release_shared(shared as *mut Shared);
+        } else {
+            debug_assert_eq!(kind, KIND_VEC);
 
-        drop(rebuild_boxed_slice(shared as *mut u8, ptr, len));
-    }
+            drop(rebuild_boxed_slice(shared as *mut u8, ptr, len));
+        }
+    });
 }
 
 unsafe fn rebuild_boxed_slice(buf: *mut u8, offset: *const u8, len: usize) -> Box<[u8]> {
@@ -925,8 +933,9 @@ unsafe fn shared_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Byte
 }
 
 unsafe fn shared_drop(data: &mut AtomicPtr<()>, _ptr: *const u8, _len: usize) {
-    let shared = *data.get_mut();
-    release_shared(shared as *mut Shared);
+    data.with_mut(|shared| {
+        release_shared(*shared as *mut Shared);
+    });
 }
 
 unsafe fn shallow_clone_arc(shared: *mut Shared, ptr: *const u8, len: usize) -> Bytes {
@@ -945,7 +954,13 @@ unsafe fn shallow_clone_arc(shared: *mut Shared, ptr: *const u8, len: usize) -> 
 }
 
 #[cold]
-unsafe fn shallow_clone_vec(atom: &AtomicPtr<()>, ptr: *const (), buf: *mut u8, offset: *const u8, len: usize) -> Bytes {
+unsafe fn shallow_clone_vec(
+    atom: &AtomicPtr<()>,
+    ptr: *const (),
+    buf: *mut u8,
+    offset: *const u8,
+    len: usize,
+) -> Bytes {
     // If  the buffer is still tracked in a `Vec<u8>`. It is time to
     // promote the vec to an `Arc`. This could potentially be called
     // concurrently, so some care must be taken.
@@ -1062,7 +1077,7 @@ fn _split_off_must_use() {}
 // fuzz tests
 #[cfg(all(test, loom))]
 mod fuzz {
-    use std::sync::Arc;
+    use loom::sync::Arc;
     use loom::thread;
 
     use super::Bytes;

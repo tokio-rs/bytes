@@ -13,10 +13,7 @@ pub struct Take<T> {
 }
 
 pub fn new<T>(inner: T, limit: usize) -> Take<T> {
-    Take {
-        inner,
-        limit,
-    }
+    Take { inner, limit }
 }
 
 impl<T> Take<T> {
