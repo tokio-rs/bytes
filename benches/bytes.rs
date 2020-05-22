@@ -3,8 +3,8 @@
 
 extern crate test;
 
-use test::Bencher;
 use bytes::Bytes;
+use test::Bencher;
 
 #[bench]
 fn deref_unique(b: &mut Bencher) {
@@ -42,7 +42,8 @@ fn deref_static(b: &mut Bencher) {
 
 #[bench]
 fn clone_static(b: &mut Bencher) {
-    let bytes = Bytes::from_static("hello world 1234567890 and have a good byte 0987654321".as_bytes());
+    let bytes =
+        Bytes::from_static("hello world 1234567890 and have a good byte 0987654321".as_bytes());
 
     b.iter(|| {
         for _ in 0..1024 {

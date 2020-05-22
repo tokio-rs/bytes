@@ -1,7 +1,7 @@
 use core::fmt::{Debug, Formatter, Result};
 
-use crate::{Bytes, BytesMut};
 use super::BytesRef;
+use crate::{Bytes, BytesMut};
 
 /// Alternative implementation of `std::fmt::Debug` for byte slice.
 ///

@@ -1,7 +1,7 @@
 #![deny(warnings, rust_2018_idioms)]
 
-use bytes::{Buf, BufMut, Bytes};
 use bytes::buf::{BufExt, BufMutExt};
+use bytes::{Buf, BufMut, Bytes};
 #[cfg(feature = "std")]
 use std::io::IoSlice;
 
