@@ -10,6 +10,9 @@ use crate::{Bytes, Buf, BufMut};
 use crate::bytes::Vtable;
 use crate::buf::IntoIter;
 use crate::loom::sync::atomic::{self, AtomicPtr, AtomicUsize, Ordering};
+#[allow(unused)]
+use crate::loom::sync::atomic::AtomicMut;
+
 
 /// A unique reference to a contiguous slice of memory.
 ///
@@ -1482,8 +1485,9 @@ unsafe fn shared_v_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> By
 }
 
 unsafe fn shared_v_drop(data: &mut AtomicPtr<()>, _ptr: *const u8, _len: usize) {
-    let shared = (*data.get_mut()) as *mut Shared;
-    release_shared(shared as *mut Shared);
+    data.with_mut(|shared| {
+        release_shared(*shared as *mut Shared);
+    });
 }
 
 // compile-fails
@@ -1521,7 +1525,7 @@ fn _split_must_use() {}
 // fuzz tests
 #[cfg(all(test, loom))]
 mod fuzz {
-    use std::sync::Arc;
+    use loom::sync::Arc;
     use loom::thread;
 
     use crate::Bytes;

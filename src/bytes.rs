@@ -7,6 +7,9 @@ use alloc::{vec::Vec, string::String, boxed::Box, borrow::Borrow};
 use crate::Buf;
 use crate::buf::IntoIter;
 use crate::loom::sync::atomic::{self, AtomicPtr, AtomicUsize, Ordering};
+#[allow(unused)]
+use crate::loom::sync::atomic::AtomicMut;
+
 
 /// A reference counted contiguous slice of memory.
 ///
@@ -854,16 +857,18 @@ unsafe fn promotable_even_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize
 }
 
 unsafe fn promotable_even_drop(data: &mut AtomicPtr<()>, ptr: *const u8, len: usize) {
-    let shared = *data.get_mut();
-    let kind = shared as usize & KIND_MASK;
+    data.with_mut(|shared| {
+        let shared = *shared;
+        let kind = shared as usize & KIND_MASK;
 
-    if kind == KIND_ARC {
-        release_shared(shared as *mut Shared);
-    } else {
-        debug_assert_eq!(kind, KIND_VEC);
-        let buf = (shared as usize & !KIND_MASK) as *mut u8;
-        drop(rebuild_boxed_slice(buf, ptr, len));
-    }
+        if kind == KIND_ARC {
+            release_shared(shared as *mut Shared);
+        } else {
+            debug_assert_eq!(kind, KIND_VEC);
+            let buf = (shared as usize & !KIND_MASK) as *mut u8;
+            drop(rebuild_boxed_slice(buf, ptr, len));
+        }
+    });
 }
 
 unsafe fn promotable_odd_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Bytes {
@@ -879,16 +884,18 @@ unsafe fn promotable_odd_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize)
 }
 
 unsafe fn promotable_odd_drop(data: &mut AtomicPtr<()>, ptr: *const u8, len: usize) {
-    let shared = *data.get_mut();
-    let kind = shared as usize & KIND_MASK;
+    data.with_mut(|shared| {
+        let shared = *shared;
+        let kind = shared as usize & KIND_MASK;
 
-    if kind == KIND_ARC {
-        release_shared(shared as *mut Shared);
-    } else {
-        debug_assert_eq!(kind, KIND_VEC);
+        if kind == KIND_ARC {
+            release_shared(shared as *mut Shared);
+        } else {
+            debug_assert_eq!(kind, KIND_VEC);
 
-        drop(rebuild_boxed_slice(shared as *mut u8, ptr, len));
-    }
+            drop(rebuild_boxed_slice(shared as *mut u8, ptr, len));
+        }
+    });
 }
 
 unsafe fn rebuild_boxed_slice(buf: *mut u8, offset: *const u8, len: usize) -> Box<[u8]> {
@@ -925,8 +932,9 @@ unsafe fn shared_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Byte
 }
 
 unsafe fn shared_drop(data: &mut AtomicPtr<()>, _ptr: *const u8, _len: usize) {
-    let shared = *data.get_mut();
-    release_shared(shared as *mut Shared);
+    data.with_mut(|shared| {
+        release_shared(*shared as *mut Shared);
+    });
 }
 
 unsafe fn shallow_clone_arc(shared: *mut Shared, ptr: *const u8, len: usize) -> Bytes {
@@ -1062,7 +1070,7 @@ fn _split_off_must_use() {}
 // fuzz tests
 #[cfg(all(test, loom))]
 mod fuzz {
-    use std::sync::Arc;
+    use loom::sync::Arc;
     use loom::thread;
 
     use super::Bytes;
