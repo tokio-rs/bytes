@@ -1,10 +1,10 @@
 #![deny(warnings, rust_2018_idioms)]
 
-use bytes::{BufMut, BytesMut};
 #[cfg(feature = "std")]
 use bytes::buf::IoSliceMut;
-use core::usize;
+use bytes::{BufMut, BytesMut};
 use core::fmt::Write;
+use core::usize;
 
 #[test]
 fn test_vec_as_mut_buf() {
