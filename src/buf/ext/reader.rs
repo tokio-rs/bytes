@@ -26,7 +26,7 @@ impl<B: Buf> Reader<B> {
     /// ```rust
     /// use bytes::buf::BufExt;
     ///
-    /// let mut buf = b"hello world".reader();
+    /// let buf = b"hello world".reader();
     ///
     /// assert_eq!(b"hello world", buf.get_ref());
     /// ```
