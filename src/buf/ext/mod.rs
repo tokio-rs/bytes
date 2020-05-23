@@ -27,7 +27,7 @@ pub trait BufExt: Buf {
     /// # Examples
     ///
     /// ```
-    /// use bytes::{Buf, BufMut, buf::BufExt};
+    /// use bytes::{BufMut, buf::BufExt};
     ///
     /// let mut buf = b"hello world"[..].take(5);
     /// let mut dst = vec![];
@@ -79,7 +79,7 @@ pub trait BufExt: Buf {
     /// # Examples
     ///
     /// ```
-    /// use bytes::{Buf, Bytes, buf::BufExt};
+    /// use bytes::{Bytes, buf::BufExt};
     /// use std::io::Read;
     ///
     /// let buf = Bytes::from("hello world");
@@ -135,7 +135,7 @@ pub trait BufMutExt: BufMut {
     /// # Examples
     ///
     /// ```
-    /// use bytes::{BufMut, buf::BufMutExt};
+    /// use bytes::buf::BufMutExt;
     /// use std::io::Write;
     ///
     /// let mut buf = vec![].writer();

@@ -4,6 +4,10 @@
     missing_debug_implementations,
     rust_2018_idioms
 )]
+#![doc(test(
+    no_crate_inject,
+    attr(deny(warnings, rust_2018_idioms), allow(dead_code, unused_variables))
+))]
 #![doc(html_root_url = "https://docs.rs/bytes/0.5.4")]
 #![no_std]
 
