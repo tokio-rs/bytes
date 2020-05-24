@@ -126,11 +126,14 @@ jobs:
   # Loom
   loom:
     name: loom
+    env:
+      # Pin nightly to avoid being impacted by breakage
+      RUST_VERSION: nightly-2020-05-19
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
       - name: Install Rust
-        run: rustup update nightly && rustup default nightly
+        run: rustup update $RUST_VERSION && rustup default $RUST_VERSION
       - name: Loom tests
         run: RUSTFLAGS="--cfg loom -Dwarnings" cargo test --lib
 
