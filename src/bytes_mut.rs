@@ -618,9 +618,11 @@ impl BytesMut {
                     // The capacity is sufficient, reclaim the buffer
                     let ptr = v.as_mut_ptr();
 
-                    ptr::copy(self.ptr.as_ptr(), ptr, len);
+                    if self.ptr.as_ptr() != ptr {
+                        ptr::copy(self.ptr.as_ptr(), ptr, len);
+                        self.ptr = vptr(ptr);
+                    }
 
-                    self.ptr = vptr(ptr);
                     self.cap = v.capacity();
 
                     return;
