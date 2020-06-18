@@ -1,3 +1,12 @@
+# 0.5.5 (June 18, 2020)
+
+### Added
+- Allow using the `serde` feature in `no_std` environments (#385).
+
+### Fix
+- Fix `BufMut::advance_mut` to panic if advanced passed the capacity (#354)..
+- Fix `BytesMut::freeze` ignoring amount previously `advance`d (#352).
+
 # 0.5.4 (January 23, 2020)
 
 ### Added
