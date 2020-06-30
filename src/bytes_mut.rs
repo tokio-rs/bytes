@@ -914,6 +914,33 @@ impl BytesMut {
             slice::from_raw_parts_mut(ptr as *mut mem::MaybeUninit<u8>, len)
         }
     }
+
+    /// Returns an unsafe mutable pointer to the current buffer position.
+    ///
+    /// # Safety
+    /// Make sure current allocation is as big as what you write at mut pointer
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::mem::MaybeUninit;
+    /// use bytes::{BytesMut, BufMut};
+    ///
+    /// const SIZE: u8 = 6;
+    /// let mut buf = BytesMut::with_capacity(SIZE as usize);
+    /// for c in 0..SIZE {
+    ///     unsafe {
+    ///         buf.as_maybe_uninit_mut_ptr().offset(c as isize).write(MaybeUninit::new(b'a' + c))
+    ///     }
+    /// }
+    /// unsafe { buf.advance_mut(SIZE as usize) }
+    ///
+    /// assert_eq!(b"abcdef", &buf[..]);
+    /// ```
+    #[inline]
+    pub unsafe fn as_maybe_uninit_mut_ptr(&mut self) -> *mut mem::MaybeUninit<u8> {
+        self.ptr.as_ptr().offset(self.len as isize) as *mut mem::MaybeUninit<u8>
+    }
 }
 
 impl Drop for BytesMut {
