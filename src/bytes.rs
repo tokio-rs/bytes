@@ -7,7 +7,7 @@ use alloc::{borrow::Borrow, boxed::Box, string::String, vec::Vec};
 use crate::buf::IntoIter;
 #[allow(unused)]
 use crate::loom::sync::atomic::AtomicMut;
-use crate::loom::sync::atomic::{self, AtomicPtr, AtomicUsize, Ordering};
+use crate::loom::sync::atomic::{AtomicPtr, AtomicUsize, Ordering};
 use crate::Buf;
 
 /// A reference counted contiguous slice of memory.
@@ -1046,7 +1046,9 @@ unsafe fn release_shared(ptr: *mut Shared) {
     // > "acquire" operation before deleting the object.
     //
     // [1]: (www.boost.org/doc/libs/1_55_0/doc/html/atomic/usage_examples.html)
-    atomic::fence(Ordering::Acquire);
+    //
+    // Use atomic load instead of fence for compatibility with ThreadSanitizer.
+    (*ptr).ref_cnt.load(Ordering::Acquire);
 
     // Drop the data
     Box::from_raw(ptr);
