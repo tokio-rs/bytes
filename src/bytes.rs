@@ -928,7 +928,7 @@ const KIND_VEC: usize = 0b1;
 const KIND_MASK: usize = 0b1;
 
 unsafe fn shared_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Bytes {
-    let shared = data.load(Ordering::Acquire);
+    let shared = data.load(Ordering::Relaxed);
     shallow_clone_arc(shared as _, ptr, len)
 }
 
