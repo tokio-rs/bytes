@@ -559,9 +559,8 @@ impl BytesMut {
             unsafe {
                 let (off, prev) = self.get_vec_pos();
 
-                // Only reuse space if we stand to gain at least capacity/2
-                // bytes of space back
-                if off >= additional && off >= (self.cap / 2) {
+                // Only reuse space if we can satisfy the requested additional space.
+                if self.capacity() - self.len() + off >= additional {
                     // There's space - reuse it
                     //
                     // Just move the pointer back to the start after copying
