@@ -930,6 +930,22 @@ fn bytes_buf_mut_advance() {
 }
 
 #[test]
+fn bytes_buf_mut_reuse_when_fully_consumed() {
+    use bytes::{Buf, BytesMut};
+    let mut buf = BytesMut::new();
+    buf.reserve(8192);
+    buf.extend_from_slice(&[0u8; 100][..]);
+
+    let p = &buf[0] as *const u8;
+    buf.advance(100);
+
+    buf.reserve(8192);
+    buf.extend_from_slice(b" ");
+
+    assert_eq!(&buf[0] as *const u8, p);
+}
+
+#[test]
 #[should_panic]
 fn bytes_reserve_overflow() {
     let mut bytes = BytesMut::with_capacity(1024);
