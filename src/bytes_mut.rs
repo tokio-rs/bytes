@@ -1048,6 +1048,12 @@ impl<'a> From<&'a [u8]> for BytesMut {
     }
 }
 
+impl From<Vec<u8>> for BytesMut {
+    fn from(src: Vec<u8>) -> BytesMut {
+        BytesMut::from_vec(src)
+    }
+}
+
 impl<'a> From<&'a str> for BytesMut {
     fn from(src: &'a str) -> BytesMut {
         BytesMut::from(src.as_bytes())
