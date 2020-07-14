@@ -1,3 +1,10 @@
+# 0.5.6 (July 13, 2020)
+
+- Improve `BytesMut` to reuse buffer when fully `advance`d.
+- Mark `BytesMut::{as_mut, set_len}` with `#[inline]`.
+- Relax synchronization when cloning in shared vtable of `Bytes`.
+- Move `loom` to `dev-dependencies`.
+
 # 0.5.5 (June 18, 2020)
 
 ### Added
