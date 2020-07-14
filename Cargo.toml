@@ -6,7 +6,7 @@ name = "bytes"
 # - Update CHANGELOG.md.
 # - Update doc URL.
 # - Create "v0.5.x" git tag.
-version = "0.5.5"
+version = "0.5.6"
 license = "MIT"
 authors = [
     "Carl Lerche <me@carllerche.com>",
