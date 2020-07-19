@@ -768,17 +768,15 @@ impl From<&'static str> for Bytes {
 
 impl From<Vec<u8>> for Bytes {
     fn from(vec: Vec<u8>) -> Bytes {
-        // into_boxed_slice doesn't return a heap allocation for empty vectors,
-        // so the pointer isn't aligned enough for the KIND_VEC stashing to
-        // work.
+        // Empty Vec doesn't have a heap allocation, so the pointer isn't
+        // aligned enough for the KIND_VEC stashing to work.
         if vec.is_empty() {
             return Bytes::new();
         }
 
-        let slice = vec.into_boxed_slice();
-        let len = slice.len();
-        let ptr = slice.as_ptr();
-        drop(Box::into_raw(slice));
+        let mut v = mem::ManuallyDrop::new(vec);
+        let len = v.len();
+        let ptr = v.as_mut_ptr();
 
         if ptr as usize & 0x1 == 0 {
             let data = ptr as usize | KIND_VEC;
