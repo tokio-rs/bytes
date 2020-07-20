@@ -325,6 +325,7 @@ impl BytesMut {
     ///
     /// assert_eq!(other, b"hello world"[..]);
     /// ```
+    #[inline]
     #[must_use = "consider BytesMut::advance(len()) if you don't need the other half"]
     pub fn split(&mut self) -> BytesMut {
         let len = self.len();
