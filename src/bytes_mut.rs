@@ -5,6 +5,7 @@ use core::ptr::{self, NonNull};
 use core::{cmp, fmt, hash, isize, slice, usize};
 
 use alloc::{
+    alloc::{alloc, handle_alloc_error, realloc, Layout},
     borrow::{Borrow, BorrowMut},
     boxed::Box,
     string::String,
@@ -139,7 +140,16 @@ impl BytesMut {
     /// ```
     #[inline]
     pub fn with_capacity(capacity: usize) -> BytesMut {
-        BytesMut::from_vec(Vec::with_capacity(capacity))
+        let ptr = alloc_buf(capacity);
+        let original_capacity_repr = original_capacity_to_repr(capacity);
+        let data = (original_capacity_repr << ORIGINAL_CAPACITY_OFFSET) | KIND_VEC;
+
+        BytesMut {
+            ptr,
+            len: 0,
+            cap: capacity,
+            data: data as *mut _,
+        }
     }
 
     /// Creates a new `BytesMut` with default capacity.
@@ -561,9 +571,16 @@ impl BytesMut {
             //
             // Otherwise, since backed by a vector, use `Vec::reserve`
             unsafe {
+                // Only reuse space if we can satisfy the requested additional space.
+                if self.capacity() == 0 {
+                    self.ptr = alloc_buf(additional);
+                    self.cap = additional;
+
+                    return;
+                }
+
                 let (off, prev) = self.get_vec_pos();
 
-                // Only reuse space if we can satisfy the requested additional space.
                 if self.capacity() - self.len() + off >= additional {
                     // There's space - reuse it
                     //
@@ -579,14 +596,20 @@ impl BytesMut {
                     self.cap += off;
                 } else {
                     // No space - allocate more
-                    let mut v =
-                        ManuallyDrop::new(rebuild_vec(self.ptr.as_ptr(), self.len, self.cap, off));
-                    v.reserve(additional);
+                    let cap = self.len() + additional;
+                    let cap = cmp::max(self.cap * 2, cap);
+                    let cap = cmp::max(8, cap);
+                    check_capacity_overflow(cap);
+
+                    let ptr = self.ptr.as_ptr().offset(-(off as isize));
+                    let old_layout = Layout::from_size_align_unchecked(self.cap + off, 1);
 
                     // Update the info
-                    self.ptr = vptr(v.as_mut_ptr().offset(off as isize));
-                    self.len = v.len() - off;
-                    self.cap = v.capacity() - off;
+                    self.ptr = non_null(
+                        realloc(ptr, old_layout, cap).offset(off as isize),
+                        old_layout,
+                    );
+                    self.cap = cap;
                 }
 
                 return;
@@ -1250,6 +1273,7 @@ impl Shared {
     }
 }
 
+#[inline]
 fn original_capacity_to_repr(cap: usize) -> usize {
     let width = PTR_WIDTH - ((cap >> MIN_ORIGINAL_CAPACITY_WIDTH).leading_zeros() as usize);
     cmp::min(
@@ -1258,12 +1282,45 @@ fn original_capacity_to_repr(cap: usize) -> usize {
     )
 }
 
+#[inline]
 fn original_capacity_from_repr(repr: usize) -> usize {
     if repr == 0 {
         return 0;
     }
 
     1 << (repr + (MIN_ORIGINAL_CAPACITY_WIDTH - 1))
+}
+
+#[inline]
+fn check_capacity_overflow(capacity: usize) {
+    if mem::size_of::<usize>() < 8 && capacity > isize::MAX as usize {
+        capacity_overflow()
+    }
+}
+
+fn capacity_overflow() -> ! {
+    panic!("capacity overflow")
+}
+
+#[inline]
+fn alloc_buf(capacity: usize) -> NonNull<u8> {
+    if capacity == 0 {
+        NonNull::dangling()
+    } else {
+        check_capacity_overflow(capacity);
+        unsafe {
+            let layout = Layout::from_size_align_unchecked(capacity, 1);
+            non_null(alloc(layout), layout)
+        }
+    }
+}
+
+#[inline]
+fn non_null(ptr: *mut u8, layout: Layout) -> NonNull<u8> {
+    match NonNull::new(ptr) {
+        Some(ptr) => ptr,
+        None => handle_alloc_error(layout),
+    }
 }
 
 /*
@@ -1476,6 +1533,7 @@ impl PartialEq<Bytes> for BytesMut {
     }
 }
 
+#[inline]
 fn vptr(ptr: *mut u8) -> NonNull<u8> {
     if cfg!(debug_assertions) {
         NonNull::new(ptr).expect("Vec pointer should be non-null")
@@ -1484,6 +1542,7 @@ fn vptr(ptr: *mut u8) -> NonNull<u8> {
     }
 }
 
+#[inline]
 unsafe fn rebuild_vec(ptr: *mut u8, mut len: usize, mut cap: usize, off: usize) -> Vec<u8> {
     let ptr = ptr.offset(-(off as isize));
     len += off;
