@@ -151,6 +151,8 @@ impl Bytes {
     /// Make sure `bytes.kind()` is `KIND_VEC`
     #[inline]
     pub(crate) unsafe fn from_bytes_mut_vec(bytes: BytesMut, off: usize) -> Bytes {
+        debug_assert_eq!(bytes.kind(), KIND_VEC);
+
         if bytes.is_empty() {
             return Bytes::new();
         }
@@ -160,21 +162,17 @@ impl Bytes {
         let len = bytes.len();
         mem::forget(bytes);
 
-        if ptr as usize & KIND_MASK == 0 {
-            let data = ptr as usize | KIND_VEC;
-            Bytes {
-                ptr: off_ptr,
-                len,
-                data: AtomicPtr::new(data as *mut _),
-                vtable: &PROMOTABLE_EVEN_VTABLE,
-            }
+        let (data, vtable) = if ptr as usize & KIND_MASK == 0 {
+            ((ptr as usize | KIND_VEC) as *mut _, &PROMOTABLE_EVEN_VTABLE)
         } else {
-            Bytes {
-                ptr: off_ptr,
-                len,
-                data: AtomicPtr::new(ptr as *mut _),
-                vtable: &PROMOTABLE_ODD_VTABLE,
-            }
+            (ptr as *mut _, &PROMOTABLE_ODD_VTABLE)
+        };
+
+        Bytes {
+            ptr: off_ptr,
+            len,
+            data: AtomicPtr::new(data),
+            vtable,
         }
     }
 

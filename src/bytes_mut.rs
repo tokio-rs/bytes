@@ -859,7 +859,7 @@ impl BytesMut {
     }
 
     #[inline]
-    fn kind(&self) -> usize {
+    pub(crate) fn kind(&self) -> usize {
         self.data as usize & KIND_MASK
     }
 
@@ -1299,6 +1299,10 @@ fn capacity_overflow() -> ! {
     panic!("capacity overflow")
 }
 
+/// Allocate a new vector kind `BytesMut`
+///
+/// # Panics
+/// For pointer sizes less than 64 bits, the `capacity` has to be less than `isize::MAX`.
 #[inline]
 fn alloc_buf(capacity: usize) -> NonNull<u8> {
     if capacity == 0 {
