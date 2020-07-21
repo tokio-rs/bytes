@@ -5,7 +5,7 @@ use core::ptr::{self, NonNull};
 use core::{cmp, fmt, hash, isize, slice, usize};
 
 use alloc::{
-    alloc::{alloc, handle_alloc_error, realloc, Layout},
+    alloc::{alloc, dealloc, handle_alloc_error, Layout},
     borrow::{Borrow, BorrowMut},
     boxed::Box,
     string::String,
@@ -598,15 +598,18 @@ impl BytesMut {
                     let cap = cmp::max(8, cap);
                     check_capacity_overflow(cap);
 
-                    let ptr = self.ptr.as_ptr().offset(-(off as isize));
+                    let old_ptr = self.ptr.as_ptr().offset(-(off as isize));
                     let old_layout = Layout::from_size_align_unchecked(self.cap + off, 1);
 
+                    let new_layout = Layout::from_size_align_unchecked(cap, 1);
+                    let ptr = non_null(alloc(new_layout), new_layout);
+
+                    ptr::copy_nonoverlapping(old_ptr, ptr.as_ptr(), self.len() + off);
+                    dealloc(old_ptr, old_layout);
+
                     // Update the info
-                    self.ptr = non_null(
-                        realloc(ptr, old_layout, cap).offset(off as isize),
-                        old_layout,
-                    );
-                    self.cap = cap;
+                    self.ptr = vptr(ptr.as_ptr().add(off));
+                    self.cap = cap - off;
                 }
 
                 return;
