@@ -24,8 +24,8 @@ fn test_layout() {
 
     assert_eq!(
         mem::size_of::<Bytes>(),
-        mem::size_of::<usize>() * 4,
-        "Bytes size should be 4 words",
+        mem::size_of::<usize>() * 5,
+        "Bytes size should be 5 words",
     );
     assert_eq!(
         mem::size_of::<BytesMut>(),

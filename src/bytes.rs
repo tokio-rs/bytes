@@ -71,6 +71,7 @@ use crate::{Buf, BytesMut};
 pub struct Bytes {
     ptr: *const u8,
     len: usize,
+    cap: usize,
     // inlined "trait object"
     data: AtomicPtr<()>,
     vtable: &'static Vtable,
@@ -130,6 +131,7 @@ impl Bytes {
         Bytes {
             ptr: bytes.as_ptr(),
             len: bytes.len(),
+            cap: bytes.len(),
             data: AtomicPtr::new(ptr::null_mut()),
             vtable: &STATIC_VTABLE,
         }
@@ -140,6 +142,7 @@ impl Bytes {
         Bytes {
             ptr: bytes.as_ptr(),
             len: bytes.len(),
+            cap: bytes.len(),
             data: AtomicPtr::new(ptr::null_mut()),
             vtable: &STATIC_VTABLE,
         }
@@ -160,6 +163,7 @@ impl Bytes {
         let off_ptr = bytes.as_ptr();
         let ptr = off_ptr.offset(-(off as isize));
         let len = bytes.len();
+        let cap = bytes.capacity();
         mem::forget(bytes);
 
         let (data, vtable) = if ptr as usize & KIND_MASK == 0 {
@@ -171,6 +175,7 @@ impl Bytes {
         Bytes {
             ptr: off_ptr,
             len,
+            cap,
             data: AtomicPtr::new(data),
             vtable,
         }
@@ -492,6 +497,7 @@ impl Bytes {
         Bytes {
             ptr,
             len,
+            cap: len,
             data,
             vtable,
         }
@@ -509,6 +515,7 @@ impl Bytes {
         // should already be asserted, but debug assert for tests
         debug_assert!(self.len >= by, "internal: inc_start out of bounds");
         self.len -= by;
+        self.cap -= by;
         self.ptr = self.ptr.offset(by as isize);
     }
 }
@@ -520,7 +527,7 @@ unsafe impl Sync for Bytes {}
 impl Drop for Bytes {
     #[inline]
     fn drop(&mut self) {
-        unsafe { (self.vtable.drop)(&mut self.data, self.ptr, self.len) }
+        unsafe { (self.vtable.drop)(&mut self.data, self.ptr, self.cap) }
     }
 }
 
@@ -816,6 +823,7 @@ impl From<Vec<u8>> for Bytes {
             Bytes {
                 ptr,
                 len,
+                cap: len,
                 data: AtomicPtr::new(data as *mut _),
                 vtable: &PROMOTABLE_EVEN_VTABLE,
             }
@@ -823,6 +831,7 @@ impl From<Vec<u8>> for Bytes {
             Bytes {
                 ptr,
                 len,
+                cap: len,
                 data: AtomicPtr::new(ptr as *mut _),
                 vtable: &PROMOTABLE_ODD_VTABLE,
             }
@@ -979,6 +988,7 @@ unsafe fn shallow_clone_arc(shared: *mut Shared, ptr: *const u8, len: usize) -> 
     Bytes {
         ptr,
         len,
+        cap: len,
         data: AtomicPtr::new(shared as _),
         vtable: &SHARED_VTABLE,
     }
@@ -1038,6 +1048,7 @@ unsafe fn shallow_clone_vec(
         return Bytes {
             ptr: offset,
             len,
+            cap: len,
             data: AtomicPtr::new(shared as _),
             vtable: &SHARED_VTABLE,
         };
