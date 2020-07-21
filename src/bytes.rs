@@ -151,9 +151,6 @@ impl Bytes {
     /// Make sure `bytes.kind()` is `KIND_VEC`
     #[inline]
     pub(crate) unsafe fn from_bytes_mut_vec(bytes: BytesMut, off: usize) -> Bytes {
-        // into_boxed_slice doesn't return a heap allocation for empty vectors,
-        // so the pointer isn't aligned enough for the KIND_VEC stashing to
-        // work.
         if bytes.is_empty() {
             return Bytes::new();
         }
@@ -163,7 +160,7 @@ impl Bytes {
         let len = bytes.len();
         mem::forget(bytes);
 
-        if ptr as usize & 0x1 == 0 {
+        if ptr as usize & KIND_MASK == 0 {
             let data = ptr as usize | KIND_VEC;
             Bytes {
                 ptr: off_ptr,
