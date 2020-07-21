@@ -8,7 +8,7 @@ use crate::buf::IntoIter;
 #[allow(unused)]
 use crate::loom::sync::atomic::AtomicMut;
 use crate::loom::sync::atomic::{self, AtomicPtr, AtomicUsize, Ordering};
-use crate::Buf;
+use crate::{Buf, BytesMut};
 
 /// A reference counted contiguous slice of memory.
 ///
@@ -142,6 +142,42 @@ impl Bytes {
             len: bytes.len(),
             data: AtomicPtr::new(ptr::null_mut()),
             vtable: &STATIC_VTABLE,
+        }
+    }
+
+    /// No cost BytesMut to Bytes converter
+    ///
+    /// # Safety
+    /// Make sure `bytes.kind()` is `KIND_VEC`
+    #[inline]
+    pub(crate) unsafe fn from_bytes_mut_vec(bytes: BytesMut, off: usize) -> Bytes {
+        // into_boxed_slice doesn't return a heap allocation for empty vectors,
+        // so the pointer isn't aligned enough for the KIND_VEC stashing to
+        // work.
+        if bytes.is_empty() {
+            return Bytes::new();
+        }
+
+        let off_ptr = bytes.as_ptr();
+        let ptr = off_ptr.offset(-(off as isize));
+        let len = bytes.len();
+        mem::forget(bytes);
+
+        if ptr as usize & 0x1 == 0 {
+            let data = ptr as usize | KIND_VEC;
+            Bytes {
+                ptr: off_ptr,
+                len,
+                data: AtomicPtr::new(data as *mut _),
+                vtable: &PROMOTABLE_EVEN_VTABLE,
+            }
+        } else {
+            Bytes {
+                ptr: off_ptr,
+                len,
+                data: AtomicPtr::new(ptr as *mut _),
+                vtable: &PROMOTABLE_ODD_VTABLE,
+            }
         }
     }
 

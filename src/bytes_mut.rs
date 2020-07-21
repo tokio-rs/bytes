@@ -249,13 +249,10 @@ impl BytesMut {
     pub fn freeze(mut self) -> Bytes {
         if self.kind() == KIND_VEC {
             // Just re-use `Bytes` internal Vec vtable
+            // SAFETY: checked kind is KIND_VEC
             unsafe {
                 let (off, _) = self.get_vec_pos();
-                let vec = rebuild_vec(self.ptr.as_ptr(), self.len, self.cap, off);
-                mem::forget(self);
-                let mut b: Bytes = vec.into();
-                b.advance(off);
-                b
+                Bytes::from_bytes_mut_vec(self, off)
             }
         } else {
             debug_assert_eq!(self.kind(), KIND_ARC);
