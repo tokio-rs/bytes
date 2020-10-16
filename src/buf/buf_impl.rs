@@ -1,8 +1,5 @@
 use core::{cmp, mem, ptr};
 
-#[cfg(feature = "std")]
-use std::io::IoSlice;
-
 use alloc::boxed::Box;
 
 macro_rules! buf_get_impl {
@@ -124,47 +121,6 @@ pub trait Buf {
     /// i.e., `Buf::remaining` returns 0, calls to `bytes` should return an
     /// empty slice.
     fn bytes(&self) -> &[u8];
-
-    /// Fills `dst` with potentially multiple slices starting at `self`'s
-    /// current position.
-    ///
-    /// If the `Buf` is backed by disjoint slices of bytes, `bytes_vectored` enables
-    /// fetching more than one slice at once. `dst` is a slice of `IoSlice`
-    /// references, enabling the slice to be directly used with [`writev`]
-    /// without any further conversion. The sum of the lengths of all the
-    /// buffers in `dst` will be less than or equal to `Buf::remaining()`.
-    ///
-    /// The entries in `dst` will be overwritten, but the data **contained** by
-    /// the slices **will not** be modified. If `bytes_vectored` does not fill every
-    /// entry in `dst`, then `dst` is guaranteed to contain all remaining slices
-    /// in `self.
-    ///
-    /// This is a lower level function. Most operations are done with other
-    /// functions.
-    ///
-    /// # Implementer notes
-    ///
-    /// This function should never panic. Once the end of the buffer is reached,
-    /// i.e., `Buf::remaining` returns 0, calls to `bytes_vectored` must return 0
-    /// without mutating `dst`.
-    ///
-    /// Implementations should also take care to properly handle being called
-    /// with `dst` being a zero length slice.
-    ///
-    /// [`writev`]: http://man7.org/linux/man-pages/man2/readv.2.html
-    #[cfg(feature = "std")]
-    fn bytes_vectored<'a>(&'a self, dst: &mut [IoSlice<'a>]) -> usize {
-        if dst.is_empty() {
-            return 0;
-        }
-
-        if self.has_remaining() {
-            dst[0] = IoSlice::new(self.bytes());
-            1
-        } else {
-            0
-        }
-    }
 
     /// Advance the internal cursor of the Buf
     ///
@@ -817,11 +773,6 @@ macro_rules! deref_forward_buf {
 
         fn bytes(&self) -> &[u8] {
             (**self).bytes()
-        }
-
-        #[cfg(feature = "std")]
-        fn bytes_vectored<'b>(&'b self, dst: &mut [IoSlice<'b>]) -> usize {
-            (**self).bytes_vectored(dst)
         }
 
         fn advance(&mut self, cnt: usize) {

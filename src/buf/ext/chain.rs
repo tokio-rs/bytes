@@ -4,10 +4,6 @@ use crate::{Buf, BufMut};
 use core::mem::MaybeUninit;
 
 #[cfg(feature = "std")]
-use crate::buf::IoSliceMut;
-#[cfg(feature = "std")]
-use std::io::IoSlice;
-
 /// A `Chain` sequences two buffers.
 ///
 /// `Chain` is an adapter that links two underlying buffers and provides a
@@ -167,13 +163,6 @@ where
 
         self.b.advance(cnt);
     }
-
-    #[cfg(feature = "std")]
-    fn bytes_vectored<'a>(&'a self, dst: &mut [IoSlice<'a>]) -> usize {
-        let mut n = self.a.bytes_vectored(dst);
-        n += self.b.bytes_vectored(&mut dst[n..]);
-        n
-    }
 }
 
 impl<T, U> BufMut for Chain<T, U>
@@ -209,13 +198,6 @@ where
         }
 
         self.b.advance_mut(cnt);
-    }
-
-    #[cfg(feature = "std")]
-    fn bytes_vectored_mut<'a>(&'a mut self, dst: &mut [IoSliceMut<'a>]) -> usize {
-        let mut n = self.a.bytes_vectored_mut(dst);
-        n += self.b.bytes_vectored_mut(&mut dst[n..]);
-        n
     }
 }
 

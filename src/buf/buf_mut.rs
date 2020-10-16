@@ -168,48 +168,6 @@ pub trait BufMut {
     /// return an empty slice.
     fn bytes_mut(&mut self) -> &mut [MaybeUninit<u8>];
 
-    /// Fills `dst` with potentially multiple mutable slices starting at `self`'s
-    /// current position.
-    ///
-    /// If the `BufMut` is backed by disjoint slices of bytes, `bytes_vectored_mut`
-    /// enables fetching more than one slice at once. `dst` is a slice of
-    /// mutable `IoSliceMut` references, enabling the slice to be directly used with
-    /// [`readv`] without any further conversion. The sum of the lengths of all
-    /// the buffers in `dst` will be less than or equal to
-    /// `Buf::remaining_mut()`.
-    ///
-    /// The entries in `dst` will be overwritten, but the data **contained** by
-    /// the slices **will not** be modified. If `bytes_vectored_mut` does not fill every
-    /// entry in `dst`, then `dst` is guaranteed to contain all remaining slices
-    /// in `self.
-    ///
-    /// This is a lower level function. Most operations are done with other
-    /// functions.
-    ///
-    /// # Implementer notes
-    ///
-    /// This function should never panic. Once the end of the buffer is reached,
-    /// i.e., `BufMut::remaining_mut` returns 0, calls to `bytes_vectored_mut` must
-    /// return 0 without mutating `dst`.
-    ///
-    /// Implementations should also take care to properly handle being called
-    /// with `dst` being a zero length slice.
-    ///
-    /// [`readv`]: http://man7.org/linux/man-pages/man2/readv.2.html
-    #[cfg(feature = "std")]
-    fn bytes_vectored_mut<'a>(&'a mut self, dst: &mut [IoSliceMut<'a>]) -> usize {
-        if dst.is_empty() {
-            return 0;
-        }
-
-        if self.has_remaining_mut() {
-            dst[0] = IoSliceMut::from(self.bytes_mut());
-            1
-        } else {
-            0
-        }
-    }
-
     /// Transfer bytes into `self` from `src` and advance the cursor by the
     /// number of bytes written.
     ///
@@ -888,11 +846,6 @@ macro_rules! deref_forward_bufmut {
 
         fn bytes_mut(&mut self) -> &mut [MaybeUninit<u8>] {
             (**self).bytes_mut()
-        }
-
-        #[cfg(feature = "std")]
-        fn bytes_vectored_mut<'b>(&'b mut self, dst: &mut [IoSliceMut<'b>]) -> usize {
-            (**self).bytes_vectored_mut(dst)
         }
 
         unsafe fn advance_mut(&mut self, cnt: usize) {

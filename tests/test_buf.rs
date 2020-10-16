@@ -43,19 +43,6 @@ fn test_get_u16_buffer_underflow() {
     buf.get_u16();
 }
 
-#[cfg(feature = "std")]
-#[test]
-fn test_bufs_vec() {
-    let buf = &b"hello world"[..];
-
-    let b1: &[u8] = &mut [];
-    let b2: &[u8] = &mut [];
-
-    let mut dst = [IoSlice::new(b1), IoSlice::new(b2)];
-
-    assert_eq!(1, buf.bytes_vectored(&mut dst[..]));
-}
-
 #[test]
 fn test_vec_deque() {
     use std::collections::VecDeque;
