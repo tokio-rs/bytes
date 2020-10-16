@@ -174,7 +174,7 @@ where
     }
 }
 
-impl<T, U> BufMut for Chain<T, U>
+unsafe impl<T, U> BufMut for Chain<T, U>
 where
     T: BufMut,
     U: BufMut,

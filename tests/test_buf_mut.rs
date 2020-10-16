@@ -75,7 +75,7 @@ fn test_mut_slice() {
 fn test_deref_bufmut_forwards() {
     struct Special;
 
-    impl BufMut for Special {
+    unsafe impl BufMut for Special {
         fn remaining_mut(&self) -> usize {
             unreachable!("remaining_mut");
         }

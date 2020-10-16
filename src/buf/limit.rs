@@ -55,7 +55,7 @@ impl<T> Limit<T> {
     }
 }
 
-impl<T: BufMut> BufMut for Limit<T> {
+unsafe impl<T: BufMut> BufMut for Limit<T> {
     fn remaining_mut(&self) -> usize {
         cmp::min(self.inner.remaining_mut(), self.limit)
     }
