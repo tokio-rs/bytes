@@ -10,6 +10,11 @@ use core::{
 
 use alloc::{boxed::Box, vec::Vec};
 
+/// TODO
+#[derive(Debug)]
+#[repr(transparent)]
+pub struct UninitSlice([MaybeUninit<u8>]);
+
 /// A trait for values that provide sequential write access to bytes.
 ///
 /// Write bytes to a buffer
@@ -167,7 +172,7 @@ pub unsafe trait BufMut {
     /// `bytes_mut` returning an empty slice implies that `remaining_mut` will
     /// return 0 and `remaining_mut` returning 0 implies that `bytes_mut` will
     /// return an empty slice.
-    fn bytes_mut(&mut self) -> &mut [MaybeUninit<u8>];
+    fn bytes_mut(&mut self) -> &mut UninitSlice;
 
     /// Transfer bytes into `self` from `src` and advance the cursor by the
     /// number of bytes written.
@@ -922,7 +927,7 @@ macro_rules! deref_forward_bufmut {
             (**self).remaining_mut()
         }
 
-        fn bytes_mut(&mut self) -> &mut [MaybeUninit<u8>] {
+        fn bytes_mut(&mut self) -> &mut UninitSlice {
             (**self).bytes_mut()
         }
 
@@ -1007,8 +1012,8 @@ unsafe impl BufMut for &mut [u8] {
     }
 
     #[inline]
-    fn bytes_mut(&mut self) -> &mut [MaybeUninit<u8>] {
-        // MaybeUninit is repr(transparent), so safe to transmute
+    fn bytes_mut(&mut self) -> &mut UninitSlice {
+        // UninitSlice is repr(transparent), so safe to transmute
         unsafe { mem::transmute(&mut **self) }
     }
 
@@ -1042,7 +1047,7 @@ unsafe impl BufMut for Vec<u8> {
     }
 
     #[inline]
-    fn bytes_mut(&mut self) -> &mut [MaybeUninit<u8>] {
+    fn bytes_mut(&mut self) -> &mut UninitSlice {
         use core::slice;
 
         if self.capacity() == self.len() {
@@ -1053,7 +1058,11 @@ unsafe impl BufMut for Vec<u8> {
         let len = self.len();
 
         let ptr = self.as_mut_ptr() as *mut MaybeUninit<u8>;
-        unsafe { &mut slice::from_raw_parts_mut(ptr, cap)[len..] }
+        unsafe {
+            let maybe_uninit: &mut [MaybeUninit<u8>] =
+                &mut slice::from_raw_parts_mut(ptr, cap)[len..];
+            &mut *(maybe_uninit as *mut [MaybeUninit<u8>] as *mut _)
+        }
     }
 
     // Specialize these methods so they can skip checking `remaining_mut`
@@ -1088,3 +1097,41 @@ unsafe impl BufMut for Vec<u8> {
 // The existence of this function makes the compiler catch if the BufMut
 // trait is "object-safe" or not.
 fn _assert_trait_object(_b: &dyn BufMut) {}
+
+impl UninitSlice {
+    /// TODO
+    pub unsafe fn from_raw_parts_mut<'a>(ptr: *mut u8, len: usize) -> &'a mut UninitSlice {
+        let maybe_init: &mut [MaybeUninit<u8>] = std::slice::from_raw_parts_mut(ptr as *mut _, len);
+        &mut *(maybe_init as *mut [MaybeUninit<u8>] as *mut UninitSlice)
+    }
+
+    /// TODO
+    pub fn as_mut_ptr(&mut self) -> *mut u8 {
+        self.0.as_mut_ptr() as *mut _
+    }
+
+    /// TODO
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    // /// TODO
+    // pub fn slice_mut(&mut self, range: std::ops::Range<usize>) -> &mut UninitSlice {
+    //     let maybe_init = &mut self.0[range];
+    //     unsafe { &mut *(maybe_init as *mut [MaybeUninit<u8>] as *mut Uni)}
+    // }
+}
+
+impl std::ops::Index<std::ops::RangeTo<usize>> for UninitSlice {
+    type Output = UninitSlice;
+
+    fn index(&self, index: std::ops::RangeTo<usize>) -> &UninitSlice {
+        unimplemented!()
+    }
+}
+
+impl std::ops::IndexMut<std::ops::RangeTo<usize>> for UninitSlice {
+    fn index_mut(&mut self, index: std::ops::RangeTo<usize>) -> &mut Self::Output {
+        unimplemented!()
+    }
+}

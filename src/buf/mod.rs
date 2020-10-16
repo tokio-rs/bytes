@@ -29,7 +29,7 @@ mod vec_deque;
 mod writer;
 
 pub use self::buf_impl::Buf;
-pub use self::buf_mut::BufMut;
+pub use self::buf_mut::{BufMut, UninitSlice};
 pub use self::chain::Chain;
 pub use self::iter::IntoIter;
 pub use self::limit::Limit;
