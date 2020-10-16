@@ -966,7 +966,7 @@ impl Buf for BytesMut {
     }
 }
 
-impl BufMut for BytesMut {
+unsafe impl BufMut for BytesMut {
     #[inline]
     fn remaining_mut(&self) -> usize {
         usize::MAX - self.len()

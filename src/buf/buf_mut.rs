@@ -30,7 +30,7 @@ use alloc::{boxed::Box, vec::Vec};
 ///
 /// assert_eq!(buf, b"hello world");
 /// ```
-pub trait BufMut {
+pub unsafe trait BufMut {
     /// Returns the number of bytes that can be written from the current
     /// position until the end of the buffer is reached.
     ///
@@ -992,15 +992,15 @@ macro_rules! deref_forward_bufmut {
     };
 }
 
-impl<T: BufMut + ?Sized> BufMut for &mut T {
+unsafe impl<T: BufMut + ?Sized> BufMut for &mut T {
     deref_forward_bufmut!();
 }
 
-impl<T: BufMut + ?Sized> BufMut for Box<T> {
+unsafe impl<T: BufMut + ?Sized> BufMut for Box<T> {
     deref_forward_bufmut!();
 }
 
-impl BufMut for &mut [u8] {
+unsafe impl BufMut for &mut [u8] {
     #[inline]
     fn remaining_mut(&self) -> usize {
         self.len()
@@ -1020,7 +1020,7 @@ impl BufMut for &mut [u8] {
     }
 }
 
-impl BufMut for Vec<u8> {
+unsafe impl BufMut for Vec<u8> {
     #[inline]
     fn remaining_mut(&self) -> usize {
         usize::MAX - self.len()
