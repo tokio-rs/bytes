@@ -1,4 +1,4 @@
-use crate::buf::{Chain, limit, Limit};
+use crate::buf::{limit, Chain, Limit};
 #[cfg(feature = "std")]
 use crate::buf::{writer, Writer};
 

@@ -1,6 +1,6 @@
-use crate::buf::{Chain, take, Take};
 #[cfg(feature = "std")]
 use crate::buf::{reader, Reader};
+use crate::buf::{take, Chain, Take};
 
 use core::{cmp, mem, ptr};
 
