@@ -1,4 +1,6 @@
-use crate::buf::{Chain, limit, Limit, writer, Writer};
+use crate::buf::{Chain, limit, Limit};
+#[cfg(feature = "std")]
+use crate::buf::{writer, Writer};
 
 use core::{
     cmp,
