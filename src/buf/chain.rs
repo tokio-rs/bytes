@@ -20,7 +20,7 @@ use std::io::IoSlice;
 /// # Examples
 ///
 /// ```
-/// use bytes::{Bytes, Buf, buf::BufExt};
+/// use bytes::{Bytes, Buf};
 ///
 /// let mut buf = (&b"hello "[..])
 ///     .chain(&b"world"[..]);
@@ -49,7 +49,7 @@ impl<T, U> Chain<T, U> {
     /// # Examples
     ///
     /// ```
-    /// use bytes::buf::BufExt;
+    /// use bytes::Buf;
     ///
     /// let buf = (&b"hello"[..])
     ///     .chain(&b"world"[..]);
@@ -65,7 +65,7 @@ impl<T, U> Chain<T, U> {
     /// # Examples
     ///
     /// ```
-    /// use bytes::{Buf, buf::BufExt};
+    /// use bytes::Buf;
     ///
     /// let mut buf = (&b"hello"[..])
     ///     .chain(&b"world"[..]);
@@ -84,7 +84,7 @@ impl<T, U> Chain<T, U> {
     /// # Examples
     ///
     /// ```
-    /// use bytes::buf::BufExt;
+    /// use bytes::Buf;
     ///
     /// let buf = (&b"hello"[..])
     ///     .chain(&b"world"[..]);
@@ -100,7 +100,7 @@ impl<T, U> Chain<T, U> {
     /// # Examples
     ///
     /// ```
-    /// use bytes::{Buf, buf::BufExt};
+    /// use bytes::Buf;
     ///
     /// let mut buf = (&b"hello "[..])
     ///     .chain(&b"world"[..]);
@@ -119,7 +119,7 @@ impl<T, U> Chain<T, U> {
     /// # Examples
     ///
     /// ```
-    /// use bytes::buf::BufExt;
+    /// use bytes::Buf;
     ///
     /// let chain = (&b"hello"[..])
     ///     .chain(&b"world"[..]);

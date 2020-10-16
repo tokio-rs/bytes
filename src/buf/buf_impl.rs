@@ -1,3 +1,5 @@
+use crate::buf::{Chain, reader, Reader, take, Take};
+
 use core::{cmp, mem, ptr};
 
 #[cfg(feature = "std")]
@@ -806,6 +808,87 @@ pub trait Buf {
         let mut ret = crate::BytesMut::with_capacity(self.remaining());
         ret.put(self);
         ret.freeze()
+    }
+
+    /// Creates an adaptor which will read at most `limit` bytes from `self`.
+    ///
+    /// This function returns a new instance of `Buf` which will read at most
+    /// `limit` bytes.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::{Buf, BufMut};
+    ///
+    /// let mut buf = b"hello world"[..].take(5);
+    /// let mut dst = vec![];
+    ///
+    /// dst.put(&mut buf);
+    /// assert_eq!(dst, b"hello");
+    ///
+    /// let mut buf = buf.into_inner();
+    /// dst.clear();
+    /// dst.put(&mut buf);
+    /// assert_eq!(dst, b" world");
+    /// ```
+    fn take(self, limit: usize) -> Take<Self>
+    where
+        Self: Sized,
+    {
+        take::new(self, limit)
+    }
+
+    /// Creates an adaptor which will chain this buffer with another.
+    ///
+    /// The returned `Buf` instance will first consume all bytes from `self`.
+    /// Afterwards the output is equivalent to the output of next.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Buf;
+    ///
+    /// let mut chain = b"hello "[..].chain(&b"world"[..]);
+    ///
+    /// let full = chain.to_bytes();
+    /// assert_eq!(full.bytes(), b"hello world");
+    /// ```
+    fn chain<U: Buf>(self, next: U) -> Chain<Self, U>
+    where
+        Self: Sized,
+    {
+        Chain::new(self, next)
+    }
+
+    /// Creates an adaptor which implements the `Read` trait for `self`.
+    ///
+    /// This function returns a new value which implements `Read` by adapting
+    /// the `Read` trait functions to the `Buf` trait functions. Given that
+    /// `Buf` operations are infallible, none of the `Read` functions will
+    /// return with `Err`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::{Bytes, Buf};
+    /// use std::io::Read;
+    ///
+    /// let buf = Bytes::from("hello world");
+    ///
+    /// let mut reader = buf.reader();
+    /// let mut dst = [0; 1024];
+    ///
+    /// let num = reader.read(&mut dst).unwrap();
+    ///
+    /// assert_eq!(11, num);
+    /// assert_eq!(&dst[..11], &b"hello world"[..]);
+    /// ```
+    #[cfg(feature = "std")]
+    fn reader(self) -> Reader<Self>
+    where
+        Self: Sized,
+    {
+        reader::new(self)
     }
 }
 

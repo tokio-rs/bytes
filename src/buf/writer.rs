@@ -24,7 +24,7 @@ impl<B: BufMut> Writer<B> {
     /// # Examples
     ///
     /// ```rust
-    /// use bytes::buf::BufMutExt;
+    /// use bytes::BufMut;
     ///
     /// let buf = Vec::with_capacity(1024).writer();
     ///
@@ -41,7 +41,7 @@ impl<B: BufMut> Writer<B> {
     /// # Examples
     ///
     /// ```rust
-    /// use bytes::buf::BufMutExt;
+    /// use bytes::BufMut;
     ///
     /// let mut buf = vec![].writer();
     ///
@@ -58,7 +58,7 @@ impl<B: BufMut> Writer<B> {
     /// # Examples
     ///
     /// ```rust
-    /// use bytes::buf::BufMutExt;
+    /// use bytes::BufMut;
     /// use std::io;
     ///
     /// let mut buf = vec![].writer();
