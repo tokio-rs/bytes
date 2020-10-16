@@ -4,9 +4,6 @@ use core::{
     ptr, usize,
 };
 
-#[cfg(feature = "std")]
-use std::fmt;
-
 use alloc::{boxed::Box, vec::Vec};
 
 /// A trait for values that provide sequential write access to bytes.
@@ -1010,44 +1007,3 @@ impl BufMut for Vec<u8> {
 // The existence of this function makes the compiler catch if the BufMut
 // trait is "object-safe" or not.
 fn _assert_trait_object(_b: &dyn BufMut) {}
-
-// ===== impl IoSliceMut =====
-
-/// A buffer type used for `readv`.
-///
-/// This is a wrapper around an `std::io::IoSliceMut`, but does not expose
-/// the inner bytes in a safe API, as they may point at uninitialized memory.
-///
-/// This is `repr(transparent)` of the `std::io::IoSliceMut`, so it is valid to
-/// transmute them. However, as the memory might be uninitialized, care must be
-/// taken to not *read* the internal bytes, only *write* to them.
-#[repr(transparent)]
-#[cfg(feature = "std")]
-pub struct IoSliceMut<'a>(std::io::IoSliceMut<'a>);
-
-#[cfg(feature = "std")]
-impl fmt::Debug for IoSliceMut<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("IoSliceMut")
-            .field("len", &self.0.len())
-            .finish()
-    }
-}
-
-#[cfg(feature = "std")]
-impl<'a> From<&'a mut [u8]> for IoSliceMut<'a> {
-    fn from(buf: &'a mut [u8]) -> IoSliceMut<'a> {
-        IoSliceMut(std::io::IoSliceMut::new(buf))
-    }
-}
-
-#[cfg(feature = "std")]
-impl<'a> From<&'a mut [MaybeUninit<u8>]> for IoSliceMut<'a> {
-    fn from(buf: &'a mut [MaybeUninit<u8>]) -> IoSliceMut<'a> {
-        IoSliceMut(std::io::IoSliceMut::new(unsafe {
-            // We don't look at the contents, and `std::io::IoSliceMut`
-            // doesn't either.
-            mem::transmute::<&'a mut [MaybeUninit<u8>], &'a mut [u8]>(buf)
-        }))
-    }
-}
