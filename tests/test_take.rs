@@ -1,6 +1,6 @@
 #![warn(rust_2018_idioms)]
 
-use bytes::buf::{Buf, BufExt};
+use bytes::buf::Buf;
 
 #[test]
 fn long_take() {

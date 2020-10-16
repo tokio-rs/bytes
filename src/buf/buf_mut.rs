@@ -1,3 +1,7 @@
+use crate::buf::{limit, Chain, Limit};
+#[cfg(feature = "std")]
+use crate::buf::{writer, Writer};
+
 use core::{
     cmp,
     mem::{self, MaybeUninit},
@@ -832,6 +836,83 @@ pub trait BufMut {
     /// `self`.
     fn put_f64_le(&mut self, n: f64) {
         self.put_u64_le(n.to_bits());
+    }
+
+    /// Creates an adaptor which can write at most `limit` bytes to `self`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::BufMut;
+    ///
+    /// let arr = &mut [0u8; 128][..];
+    /// assert_eq!(arr.remaining_mut(), 128);
+    ///
+    /// let dst = arr.limit(10);
+    /// assert_eq!(dst.remaining_mut(), 10);
+    /// ```
+    fn limit(self, limit: usize) -> Limit<Self>
+    where
+        Self: Sized,
+    {
+        limit::new(self, limit)
+    }
+
+    /// Creates an adaptor which implements the `Write` trait for `self`.
+    ///
+    /// This function returns a new value which implements `Write` by adapting
+    /// the `Write` trait functions to the `BufMut` trait functions. Given that
+    /// `BufMut` operations are infallible, none of the `Write` functions will
+    /// return with `Err`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::BufMut;
+    /// use std::io::Write;
+    ///
+    /// let mut buf = vec![].writer();
+    ///
+    /// let num = buf.write(&b"hello world"[..]).unwrap();
+    /// assert_eq!(11, num);
+    ///
+    /// let buf = buf.into_inner();
+    ///
+    /// assert_eq!(*buf, b"hello world"[..]);
+    /// ```
+    #[cfg(feature = "std")]
+    fn writer(self) -> Writer<Self>
+    where
+        Self: Sized,
+    {
+        writer::new(self)
+    }
+
+    /// Creates an adapter which will chain this buffer with another.
+    ///
+    /// The returned `BufMut` instance will first write to all bytes from
+    /// `self`. Afterwards, it will write to `next`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::BufMut;
+    ///
+    /// let mut a = [0u8; 5];
+    /// let mut b = [0u8; 6];
+    ///
+    /// let mut chain = (&mut a[..]).chain_mut(&mut b[..]);
+    ///
+    /// chain.put_slice(b"hello world");
+    ///
+    /// assert_eq!(&a[..], b"hello");
+    /// assert_eq!(&b[..], b" world");
+    /// ```
+    fn chain_mut<U: BufMut>(self, next: U) -> Chain<Self, U>
+    where
+        Self: Sized,
+    {
+        Chain::new(self, next)
     }
 }
 
