@@ -1,7 +1,5 @@
 #![warn(rust_2018_idioms)]
 
-#[cfg(feature = "std")]
-use bytes::buf::IoSliceMut;
 use bytes::{BufMut, BytesMut};
 use core::fmt::Write;
 use core::usize;
@@ -64,23 +62,6 @@ fn test_clone() {
 
     buf.write_str(" of our emergency broadcast system").unwrap();
     assert!(buf != buf2);
-}
-
-#[cfg(feature = "std")]
-#[test]
-fn test_bufs_vec_mut() {
-    let b1: &mut [u8] = &mut [];
-    let b2: &mut [u8] = &mut [];
-    let mut dst = [IoSliceMut::from(b1), IoSliceMut::from(b2)];
-
-    // with no capacity
-    let mut buf = BytesMut::new();
-    assert_eq!(buf.capacity(), 0);
-    assert_eq!(1, buf.bytes_vectored_mut(&mut dst[..]));
-
-    // with capacity
-    let mut buf = BytesMut::with_capacity(64);
-    assert_eq!(1, buf.bytes_vectored_mut(&mut dst[..]));
 }
 
 #[test]
