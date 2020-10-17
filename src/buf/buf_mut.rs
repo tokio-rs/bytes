@@ -71,14 +71,14 @@ pub unsafe trait BufMut {
     ///
     /// unsafe {
     ///     // MaybeUninit::as_mut_ptr
-    ///     buf.bytes_mut()[0].as_mut_ptr().write(b'h');
-    ///     buf.bytes_mut()[1].as_mut_ptr().write(b'e');
+    ///     buf.bytes_mut()[0..].as_mut_ptr().write(b'h');
+    ///     buf.bytes_mut()[1..].as_mut_ptr().write(b'e');
     ///
     ///     buf.advance_mut(2);
     ///
-    ///     buf.bytes_mut()[0].as_mut_ptr().write(b'l');
-    ///     buf.bytes_mut()[1].as_mut_ptr().write(b'l');
-    ///     buf.bytes_mut()[2].as_mut_ptr().write(b'o');
+    ///     buf.bytes_mut()[0..].as_mut_ptr().write(b'l');
+    ///     buf.bytes_mut()[1..].as_mut_ptr().write(b'l');
+    ///     buf.bytes_mut()[2..].as_mut_ptr().write(b'o');
     ///
     ///     buf.advance_mut(3);
     /// }
@@ -140,14 +140,14 @@ pub unsafe trait BufMut {
     ///
     /// unsafe {
     ///     // MaybeUninit::as_mut_ptr
-    ///     buf.bytes_mut()[0].as_mut_ptr().write(b'h');
-    ///     buf.bytes_mut()[1].as_mut_ptr().write(b'e');
+    ///     buf.bytes_mut()[0..].as_mut_ptr().write(b'h');
+    ///     buf.bytes_mut()[1..].as_mut_ptr().write(b'e');
     ///
     ///     buf.advance_mut(2);
     ///
-    ///     buf.bytes_mut()[0].as_mut_ptr().write(b'l');
-    ///     buf.bytes_mut()[1].as_mut_ptr().write(b'l');
-    ///     buf.bytes_mut()[2].as_mut_ptr().write(b'o');
+    ///     buf.bytes_mut()[0..].as_mut_ptr().write(b'l');
+    ///     buf.bytes_mut()[1..].as_mut_ptr().write(b'l');
+    ///     buf.bytes_mut()[2..].as_mut_ptr().write(b'o');
     ///
     ///     buf.advance_mut(3);
     /// }
