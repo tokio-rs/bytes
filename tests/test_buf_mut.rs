@@ -1,6 +1,7 @@
 #![warn(rust_2018_idioms)]
 
 use bytes::{BufMut, BytesMut};
+use bytes::buf::UninitSlice;
 use core::fmt::Write;
 use core::usize;
 
@@ -80,7 +81,7 @@ fn test_deref_bufmut_forwards() {
             unreachable!("remaining_mut");
         }
 
-        fn bytes_mut(&mut self) -> &mut [std::mem::MaybeUninit<u8>] {
+        fn bytes_mut(&mut self) -> &mut UninitSlice {
             unreachable!("bytes_mut");
         }
 

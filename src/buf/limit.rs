@@ -1,7 +1,7 @@
 use crate::buf::UninitSlice;
 use crate::BufMut;
 
-use core::{cmp, mem::MaybeUninit};
+use core::cmp;
 
 /// A `BufMut` adapter which limits the amount of bytes that can be written
 /// to an underlying buffer.
