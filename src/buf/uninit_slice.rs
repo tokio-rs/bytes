@@ -80,7 +80,7 @@ impl UninitSlice {
     /// assert_eq!(b"bar", &data[..]);
     /// ```
     pub fn write_slice(&mut self, src: &[u8]) {
-        use std::ptr;
+        use core::ptr;
 
         assert_eq!(self.len(), src.len());
 
