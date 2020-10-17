@@ -1,3 +1,4 @@
+use core::fmt;
 use core::mem::MaybeUninit;
 use core::ops::{
     Index, IndexMut, Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive,
@@ -8,7 +9,6 @@ use core::ops::{
 /// Returned by `BufMut::bytes_mut()`, the referenced byte slice may be
 /// uninitialized. The wrapper provides safe access without introducing
 /// undefined behavior.
-#[derive(Debug)]
 #[repr(transparent)]
 pub struct UninitSlice([MaybeUninit<u8>]);
 
@@ -82,6 +82,13 @@ impl UninitSlice {
     /// ```
     pub fn len(&self) -> usize {
         self.0.len()
+    }
+}
+
+impl fmt::Debug for UninitSlice {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt.debug_struct("UninitSlice[...]")
+            .finish()
     }
 }
 
