@@ -69,19 +69,14 @@ pub unsafe trait BufMut {
     ///
     /// let mut buf = Vec::with_capacity(16);
     ///
-    /// unsafe {
-    ///     // MaybeUninit::as_mut_ptr
-    ///     buf.bytes_mut()[0..].as_mut_ptr().write(b'h');
-    ///     buf.bytes_mut()[1..].as_mut_ptr().write(b'e');
+    /// // Write some data
+    /// buf.bytes_mut()[0..2].write_slice(b"he");
+    /// unsafe { buf.advance_mut(2) };
     ///
-    ///     buf.advance_mut(2);
+    /// // write more bytes
+    /// buf.bytes_mut()[0..3].write_slice(b"llo");
     ///
-    ///     buf.bytes_mut()[0..].as_mut_ptr().write(b'l');
-    ///     buf.bytes_mut()[1..].as_mut_ptr().write(b'l');
-    ///     buf.bytes_mut()[2..].as_mut_ptr().write(b'o');
-    ///
-    ///     buf.advance_mut(3);
-    /// }
+    /// unsafe { buf.advance_mut(3); }
     ///
     /// assert_eq!(5, buf.len());
     /// assert_eq!(buf, b"hello");

@@ -37,22 +37,64 @@ impl UninitSlice {
         &mut *(maybe_init as *mut [MaybeUninit<u8>] as *mut UninitSlice)
     }
 
-    /// Return a raw pointer to the slice's buffer.
+    /// Write a single byte at the specified offset.
+    ///
+    /// # Panics
+    ///
+    /// The function panics if `index` is out of bounds.
     ///
     /// # Examples
     ///
     /// ```
-    /// use bytes::BufMut;
+    /// use bytes::buf::UninitSlice;
     ///
-    /// let mut data = [0, 1, 2];
-    /// let mut slice = &mut data[..];
-    /// let ptr = BufMut::bytes_mut(&mut slice).as_ptr();
+    /// let mut data = [b'f', b'o', b'o'];
+    /// let slice = unsafe { UninitSlice::from_raw_parts_mut(data.as_mut_ptr(), 3) };
+    ///
+    /// slice.write_byte(0, b'b');
+    ///
+    /// assert_eq!(b"boo", &data[..]);
     /// ```
-    pub fn as_ptr(&self) -> *const u8 {
-        self.0.as_ptr() as *const _
+    pub fn write_byte(&mut self, index: usize, byte: u8) {
+        assert!(index < self.len());
+
+        unsafe { self.as_mut_ptr().offset(index as isize).write(byte) };
+    }
+
+    /// Writes the contents of `src` into `self.
+    ///
+    /// # Panics
+    ///
+    /// The function panics if `self` has a different length than `src`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::buf::UninitSlice;
+    ///
+    /// let mut data = [b'f', b'o', b'o'];
+    /// let slice = unsafe { UninitSlice::from_raw_parts_mut(data.as_mut_ptr(), 3) };
+    ///
+    /// slice.write_slice(b"bar");
+    ///
+    /// assert_eq!(b"bar", &data[..]);
+    /// ```
+    pub fn write_slice(&mut self, src: &[u8]) {
+        use std::ptr;
+
+        assert_eq!(self.len(), src.len());
+
+        unsafe {
+            ptr::copy_nonoverlapping(src.as_ptr(), self.as_mut_ptr(), self.len());
+        }
     }
 
     /// Return a raw pointer to the slice's buffer.
+    ///
+    /// # Safety
+    ///
+    /// The caller **must not** read from the referenced memory and **must not**
+    /// write uninitialized bytes to the slice either.
     ///
     /// # Examples
     ///

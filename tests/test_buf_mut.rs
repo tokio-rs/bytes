@@ -100,3 +100,21 @@ fn test_deref_bufmut_forwards() {
     (Box::new(Special) as Box<dyn BufMut>).put_u8(b'x');
     Box::new(Special).put_u8(b'x');
 }
+
+#[test]
+#[should_panic]
+fn write_byte_panics_if_out_of_bounds() {
+    let mut data = [b'b', b'a', b'r'];
+
+    let slice = unsafe { UninitSlice::from_raw_parts_mut(data.as_mut_ptr(), 3) };
+    slice.write_byte(4, b'f');
+}
+
+#[test]
+#[should_panic]
+fn write_slice_panics_if_different_length() {
+    let mut data = [b'b', b'a', b'r'];
+
+    let slice = unsafe { UninitSlice::from_raw_parts_mut(data.as_mut_ptr(), 3) };
+    slice.write_slice(b"a");
+}
