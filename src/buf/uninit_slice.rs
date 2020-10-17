@@ -87,8 +87,7 @@ impl UninitSlice {
 
 impl fmt::Debug for UninitSlice {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt.debug_struct("UninitSlice[...]")
-            .finish()
+        fmt.debug_struct("UninitSlice[...]").finish()
     }
 }
 
