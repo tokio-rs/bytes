@@ -1,5 +1,7 @@
 use core::mem::MaybeUninit;
-use core::ops::{Index, IndexMut, Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive};
+use core::ops::{
+    Index, IndexMut, Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive,
+};
 
 /// TODO
 #[derive(Debug)]
@@ -34,13 +36,13 @@ macro_rules! impl_index {
         $(
             impl Index<$t> for UninitSlice {
                 type Output = UninitSlice;
-            
+
                 fn index(&self, index: $t) -> &UninitSlice {
                     let maybe_uninit = &self.0[index];
                     unsafe { &*(maybe_uninit as *const [MaybeUninit<u8>] as *const UninitSlice) }
                 }
             }
-            
+
             impl IndexMut<$t> for UninitSlice {
                 fn index_mut(&mut self, index: $t) -> &mut UninitSlice {
                     let maybe_uninit = &mut self.0[index];
@@ -57,4 +59,5 @@ impl_index!(
     RangeFull,
     RangeInclusive<usize>,
     RangeTo<usize>,
-    RangeToInclusive<usize>);
+    RangeToInclusive<usize>
+);

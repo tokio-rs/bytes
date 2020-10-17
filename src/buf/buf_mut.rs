@@ -2,11 +2,7 @@ use crate::buf::{limit, Chain, Limit, UninitSlice};
 #[cfg(feature = "std")]
 use crate::buf::{writer, Writer};
 
-use core::{
-    cmp,
-    mem,
-    ptr, usize,
-};
+use core::{cmp, mem, ptr, usize};
 
 use alloc::{boxed::Box, vec::Vec};
 
@@ -1051,9 +1047,7 @@ unsafe impl BufMut for Vec<u8> {
         let len = self.len();
 
         let ptr = self.as_mut_ptr();
-        unsafe {
-            &mut UninitSlice::from_raw_parts_mut(ptr, cap)[len..]
-        }
+        unsafe { &mut UninitSlice::from_raw_parts_mut(ptr, cap)[len..] }
     }
 
     // Specialize these methods so they can skip checking `remaining_mut`

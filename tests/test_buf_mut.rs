@@ -1,7 +1,7 @@
 #![warn(rust_2018_idioms)]
 
-use bytes::{BufMut, BytesMut};
 use bytes::buf::UninitSlice;
+use bytes::{BufMut, BytesMut};
 use core::fmt::Write;
 use core::usize;
 
