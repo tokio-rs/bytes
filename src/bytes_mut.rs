@@ -109,7 +109,7 @@ impl BytesMut {
                 }
             } else {
                 let shared = Shared::allocate_for_size(capacity)
-                    .expect("Allocation failures are currently not handled");
+                    .expect("Fallible allocations are not yet supported");
                 BytesMut {
                     data: shared,
                     len: 0,
@@ -569,7 +569,8 @@ impl BytesMut {
             new_cap = cmp::max(cmp::max(double, new_cap), original_capacity);
 
             // Create a new backing storage
-            let shared = Shared::allocate_for_size(new_cap).expect("Allocations can not fail");
+            let shared = Shared::allocate_for_size(new_cap)
+                .expect("Fallible allocations are not yet supported");
 
             if self.len != 0 {
                 ptr::copy_nonoverlapping(
@@ -1019,7 +1020,7 @@ impl<'a> FromIterator<&'a u8> for BytesMut {
 
 impl Shared {
     unsafe fn allocate_for_size(size: usize) -> Result<*mut Shared, ()> {
-        let combined_layout = Shared::layout_for_size(size)?;
+        let combined_layout = Shared::layout_for_size(size);
         let alloc_res = alloc::alloc::alloc(combined_layout) as *mut Shared;
         if alloc_res.is_null() {
             return Err(());
@@ -1046,12 +1047,15 @@ impl Shared {
         self.refcount.load(Ordering::Acquire) == 1
     }
 
-    fn layout_for_size(size: usize) -> Result<Layout, ()> {
+    fn layout_for_size(size: usize) -> Layout {
         let layout = Layout::new::<Shared>();
-        let total_size = layout.size().checked_add(size).ok_or(())?;
+        let total_size = layout
+            .size()
+            .checked_add(size)
+            .expect("Overflow during layout calculation");
         let combined_layout =
             Layout::from_size_align(total_size, layout.align()).expect("Error calculating layout");
-        Ok(combined_layout)
+        combined_layout
     }
 
     unsafe fn increment_refcount(self_ptr: *mut Self) {
@@ -1094,7 +1098,7 @@ impl Shared {
 
         alloc::alloc::dealloc(
             self_ptr as *mut u8,
-            Self::layout_for_size((*self_ptr).capacity).unwrap(),
+            Self::layout_for_size((*self_ptr).capacity),
         )
     }
 
