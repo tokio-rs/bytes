@@ -1077,7 +1077,7 @@ impl Shared {
 
         let result = &mut *alloc_res;
         result.capacity = size;
-        result.refcount.store(1, Ordering::Relaxed);
+        result.refcount = AtomicUsize::new(1);
 
         Ok(alloc_res)
     }
