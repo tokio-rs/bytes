@@ -38,7 +38,7 @@ pub struct Chain<T, U> {
 
 impl<T, U> Chain<T, U> {
     /// Creates a new `Chain` sequencing the provided values.
-    pub fn new(a: T, b: U) -> Chain<T, U> {
+    pub(crate) fn new(a: T, b: U) -> Chain<T, U> {
         Chain { a, b }
     }
 
