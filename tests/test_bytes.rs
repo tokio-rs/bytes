@@ -443,11 +443,10 @@ fn reserve_growth() {
     let _ = bytes.split();
 
     // There are 53 bytes left in `bytes` after this
-    // We expect a doubling of capacity to 106 
+    // We expect a doubling of capacity to 106
     bytes.reserve(65);
     assert_eq!(bytes.capacity(), 106);
 }
-
 
 #[test]
 fn reserve_at_least_8_bytes() {
