@@ -1134,7 +1134,7 @@ impl Shared {
 
     unsafe fn data_ptr_mut(&mut self) -> NonNull<u8> {
         let mut end_addr = self as *const Shared as usize;
-        end_addr += std::mem::size_of::<Shared>();
+        end_addr += mem::size_of::<Shared>();
         NonNull::new_unchecked(end_addr as *mut u8)
     }
 }
