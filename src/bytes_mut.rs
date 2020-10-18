@@ -690,6 +690,17 @@ impl BytesMut {
 
     // private
 
+    // This method is only used in combination with the serde feature at the moment.
+    // BytesMut doesn't expose a public `From<Vec<u8>>` implementation in order
+    // not provide the wrong impression that the conversion is free.
+    // Even if one implementation `BytesMut` would have a free conversion,
+    // a future change of the allocation strategy might remove this guarantee.
+    #[inline]
+    #[cfg(feature = "serde")]
+    pub(crate) fn from_vec(vec: Vec<u8>) -> BytesMut {
+        BytesMut::from(&vec[..])
+    }
+
     #[inline]
     fn as_slice(&self) -> &[u8] {
         unsafe { slice::from_raw_parts(self.ptr.as_ptr(), self.len) }
