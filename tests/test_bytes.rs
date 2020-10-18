@@ -527,6 +527,24 @@ fn reserve_in_arc_nonunique_does_not_overallocate() {
 }
 
 #[test]
+fn access_empty_bytes() {
+    let mut bytes = BytesMut::new();
+    assert_eq!(0, bytes.as_ref().len());
+    assert_eq!(0, bytes.as_mut().len());
+}
+
+#[test]
+fn split_empty_bytes() {
+    let mut bytes = BytesMut::new();
+    let bytes1 = bytes.split();
+    for b in &mut [bytes, bytes1] {
+        assert_eq!(0, b.as_ref().len());
+        assert_eq!(0, b.as_mut().len());
+        assert_eq!(0, b.capacity());
+    }
+}
+
+#[test]
 fn extend_mut() {
     let mut bytes = BytesMut::with_capacity(0);
     bytes.extend(LONG);

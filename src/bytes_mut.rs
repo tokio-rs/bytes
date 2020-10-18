@@ -68,10 +68,6 @@ struct Shared {
     refcount: AtomicUsize,
 }
 
-/// An element in static memory which we use as guard pointer for
-/// empty byte arrays
-const GUARD: u8 = 0;
-
 /*
  *
  * ===== BytesMut =====
@@ -107,7 +103,7 @@ impl BytesMut {
             if capacity == 0 {
                 BytesMut {
                     data: ptr::null_mut(),
-                    ptr: NonNull::new_unchecked(&GUARD as *const u8 as *mut u8),
+                    ptr: NonNull::dangling(),
                     len: 0,
                     cap: 0,
                 }
@@ -337,6 +333,11 @@ impl BytesMut {
             at,
             self.len(),
         );
+
+        if self.data.is_null() {
+            debug_assert_eq!(at, 0, "Empty Bytes is only splittable at the front");
+            return BytesMut::new();
+        }
 
         unsafe {
             let mut other = self.shallow_clone();
@@ -665,16 +666,13 @@ impl BytesMut {
 
     #[inline]
     fn as_slice_mut(&mut self) -> &mut [u8] {
-        // TODO: The guard pointer is a constant pointer, which we misuse
-        // here as a mutable pointer. Since the length of the slice is empty it
-        // it might not be an issue to directly return it. However since Rusts
-        // undefined behavior rules are not super clear, we go safe and return
-        // an empty slice if the guard is detected.
-        if self.len == 0 {
-            &mut []
-        } else {
-            unsafe { slice::from_raw_parts_mut(self.ptr.as_ptr(), self.len) }
-        }
+        // TODO:
+        // The pointer is always valid, but might not backed by real storage
+        // in case of an empty BytesMut.
+        // This shouldn't matter due to the array length being 0 and the pointer
+        // never being accessed. However it is still not fully clear if this is
+        // valid within Rusts's UB rules.
+        unsafe { slice::from_raw_parts_mut(self.ptr.as_ptr(), self.len) }
     }
 
     unsafe fn set_start(&mut self, start: usize) {
