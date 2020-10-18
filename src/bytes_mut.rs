@@ -68,6 +68,12 @@ struct Shared {
     refcount: AtomicUsize,
 }
 
+/// The max original capacity value which is reused when a `BytesMut` which
+/// had been previously split into a smaller size is resized.
+/// The `BytesMut` will try to regain the original capacity that was available
+/// before the `split` - but the capacity will be bounded by this value.
+const MAX_ORIGINAL_CAPACITY: usize = 64 * 1024;
+
 /*
  *
  * ===== BytesMut =====
@@ -535,7 +541,7 @@ impl BytesMut {
         let shared: *mut Shared = self.data as _;
 
         // Reserving involves abandoning the currently shared buffer and
-        // allocating a new vector with the requested capacity.
+        // allocating a new shared state with the requested capacity.
         //
         // Compute the new capacity
         let mut new_cap = len.checked_add(additional).expect("overflow");
@@ -549,7 +555,7 @@ impl BytesMut {
                 // First, try to reclaim the buffer. This is possible if the current
                 // handle is the only outstanding handle pointing to the buffer.
                 // However, before doing the work of copying data, check to make
-                // sure that the vector has enough capacity.
+                // sure that the old shared state has enough capacity.
                 if (*shared).is_unique() && (*shared).capacity >= new_cap {
                     // The capacity is sufficient, reclaim the buffer
                     let ptr = (*shared).data_ptr_mut();
@@ -568,16 +574,34 @@ impl BytesMut {
             // than requested if `new_cap` is not much bigger than the current
             // capacity.
             //
-            // There are some situations, using `reserve_exact` that the
-            // buffer capacity could be below `original_capacity`, so do a
-            // check.
+            // The reservation strategy follows what `std` does:
+            // https://github.com/rust-lang/rust/blob/834821e3b666f77bb7caf1ed88ed662c395fbc11/library/alloc/src/raw_vec.rs#L401-L417
+            //
+            // - The old capacity is at least doubled
             let double = self.cap.checked_shl(1).unwrap_or(new_cap);
-            new_cap = cmp::max(cmp::max(double, new_cap), original_capacity);
+            // - If this is not sufficient for what the user asked for, the higher
+            //   value is taken.
+            new_cap = cmp::max(double, new_cap);
+            // - We want to allocate at least 8 bytes, because tiny allocations
+            //   are not efficient
+            new_cap = cmp::max(8, new_cap);
+            // - If we had an existing backing storage, we want to obtain at
+            //   least the same capacity again that this one had. This is specific
+            //   to BytesMut and not found in Vecs. The use-case is that BytesMut
+            //   which are used over time to split off chunks and then gain new
+            //   input data do not oscillate too much in size.
+            //   This functionality is however bounded by `MAX_ORIGINAL_CAPACITY`.
+            //   A `BytesMut` will not automatically reserve more capacity than this.
+            //   TODO: Do we really want to keep this? This seems like a footgun
+            //   where people splitting `BytesMut` and reusing them for different
+            //   purposes might accidentally keep around big memory allocations.
+            new_cap = cmp::max(cmp::min(original_capacity, MAX_ORIGINAL_CAPACITY), new_cap);
 
             // Create a new backing storage
             let shared = Shared::allocate_for_size(new_cap)
                 .expect("Fallible allocations are not yet supported");
 
+            // Copy data over into the new storage
             if self.len != 0 {
                 ptr::copy_nonoverlapping(
                     self.ptr.as_ptr(),
@@ -1327,7 +1351,7 @@ impl PartialEq<Bytes> for BytesMut {
 
 fn vptr(ptr: *mut u8) -> NonNull<u8> {
     if cfg!(debug_assertions) {
-        NonNull::new(ptr).expect("Vec pointer should be non-null")
+        NonNull::new(ptr).expect("data pointer should be non-null")
     } else {
         unsafe { NonNull::new_unchecked(ptr) }
     }

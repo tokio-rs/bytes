@@ -442,8 +442,18 @@ fn reserve_growth() {
     bytes.put("hello world".as_bytes());
     let _ = bytes.split();
 
+    // There are 53 bytes left in `bytes` after this
+    // We expect a doubling of capacity to 106 
     bytes.reserve(65);
-    assert_eq!(bytes.capacity(), 128);
+    assert_eq!(bytes.capacity(), 106);
+}
+
+
+#[test]
+fn reserve_at_least_8_bytes() {
+    let mut bytes = BytesMut::new();
+    bytes.put("hello".as_bytes());
+    assert_eq!(bytes.capacity(), 8);
 }
 
 #[test]
