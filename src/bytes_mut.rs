@@ -201,6 +201,15 @@ impl BytesMut {
     /// referenced by the handle will no longer be mutated. Once the conversion
     /// is done, the handle can be cloned and shared across threads.
     ///
+    /// Excess capacity which was available in the `BytesMut` object will not
+    /// get freed in this conversion. It will only get freed if all references
+    /// to the returned `Bytes` will get dropped.
+    ///
+    /// If freeing excess capacity is important, users can create an
+    /// exact-sized `Bytes` instance by using `BytesMut::with_capacity()` and
+    /// copying all data over before calling `freeze()`.
+    ///
+    ///
     /// # Examples
     ///
     /// ```
