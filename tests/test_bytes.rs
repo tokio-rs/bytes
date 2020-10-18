@@ -481,12 +481,14 @@ fn reserve_vec_recycling() {
     let mut bytes = BytesMut::with_capacity(16);
     assert_eq!(bytes.capacity(), 16);
     let addr = bytes.as_ptr() as usize;
-    bytes.put("0123456789012345".as_bytes());
+    bytes.put("0123456789abcdef".as_bytes());
     assert_eq!(bytes.as_ptr() as usize, addr);
     bytes.advance(10);
+    assert_eq!("abcdef".as_bytes(), bytes);
     assert_eq!(bytes.capacity(), 6);
     bytes.reserve(8);
     assert_eq!(bytes.capacity(), 16);
+    assert_eq!("abcdef".as_bytes(), bytes);
     assert_eq!(bytes.as_ptr() as usize, addr);
 }
 
