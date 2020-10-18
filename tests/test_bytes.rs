@@ -531,6 +531,11 @@ fn access_empty_bytes() {
     let mut bytes = BytesMut::new();
     assert_eq!(0, bytes.as_ref().len());
     assert_eq!(0, bytes.as_mut().len());
+
+    let bytes = bytes.freeze();
+    assert_eq!(0, bytes[..].len());
+    let bytes2 = bytes.clone();
+    assert_eq!(0, bytes2[..].len());
 }
 
 #[test]
