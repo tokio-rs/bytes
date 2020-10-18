@@ -710,6 +710,9 @@ impl BytesMut {
             return Ok(());
         }
 
+        // Note that the following comparison will also yield true for 2 empty
+        // BytesMut. This will however be fine - it will simply combine them
+        // into a single empty BytesMut.
         let ptr = unsafe { self.ptr.as_ptr().offset(self.len as isize) };
         if ptr == other.ptr.as_ptr() && self.data == other.data {
             // Contiguous blocks, just combine directly

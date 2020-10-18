@@ -545,6 +545,17 @@ fn split_empty_bytes() {
 }
 
 #[test]
+fn unsplit_empty_bytes() {
+    let mut bytes = BytesMut::new();
+    let bytes1 = bytes.split();
+    bytes.unsplit(bytes1);
+
+    assert_eq!(0, bytes.as_ref().len());
+    assert_eq!(0, bytes.as_mut().len());
+    assert_eq!(0, bytes.capacity());
+}
+
+#[test]
 fn extend_mut() {
     let mut bytes = BytesMut::with_capacity(0);
     bytes.extend(LONG);
