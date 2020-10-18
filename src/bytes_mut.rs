@@ -260,6 +260,12 @@ impl BytesMut {
             at,
             self.capacity(),
         );
+
+        if self.data.is_null() {
+            debug_assert_eq!(at, 0, "Empty Bytes is only splittable at the front");
+            return BytesMut::new();
+        }
+
         unsafe {
             let mut other = self.shallow_clone();
             other.set_start(at);
@@ -733,7 +739,6 @@ impl BytesMut {
     /// two views into the same range.
     #[inline]
     unsafe fn shallow_clone(&mut self) -> BytesMut {
-        debug_assert!(!self.data.is_null());
         Shared::increment_refcount(self.data);
         ptr::read(self)
     }
@@ -1059,6 +1064,7 @@ impl Shared {
     }
 
     unsafe fn increment_refcount(self_ptr: *mut Self) {
+        debug_assert!(!self_ptr.is_null());
         let old_size = (*self_ptr).refcount.fetch_add(1, Ordering::Relaxed);
 
         if old_size > isize::MAX as usize {

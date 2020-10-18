@@ -544,7 +544,10 @@ fn access_empty_bytes() {
 fn split_empty_bytes() {
     let mut bytes = BytesMut::new();
     let bytes1 = bytes.split();
-    for b in &mut [bytes, bytes1] {
+    let bytes2 = bytes.split_off(0);
+    let bytes3 = bytes.split_to(0);
+
+    for b in &mut [bytes, bytes1, bytes2, bytes3] {
         assert_eq!(0, b.as_ref().len());
         assert_eq!(0, b.as_mut().len());
         assert_eq!(0, b.capacity());
