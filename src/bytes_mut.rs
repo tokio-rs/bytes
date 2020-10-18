@@ -1075,9 +1075,8 @@ impl Shared {
             return Err(());
         }
 
-        let result = &mut *alloc_res;
-        result.capacity = size;
-        result.refcount = AtomicUsize::new(1);
+        ptr::write(&mut (*alloc_res).capacity, size);
+        ptr::write(&mut (*alloc_res).refcount, AtomicUsize::new(1));
 
         Ok(alloc_res)
     }
