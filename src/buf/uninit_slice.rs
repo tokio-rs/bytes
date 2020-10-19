@@ -70,7 +70,7 @@ impl UninitSlice {
         unsafe { self.as_mut_ptr().offset(index as isize).write(byte) };
     }
 
-    /// Writes the contents of `src` into `self.
+    /// Writes the contents of `src` into `self`.
     ///
     /// # Panics
     ///
