@@ -1,6 +1,6 @@
 use core::alloc::Layout;
 use core::iter::{FromIterator, Iterator};
-use core::mem::{self};
+use core::mem;
 use core::ops::{Deref, DerefMut};
 use core::ptr::{self, NonNull};
 use core::{cmp, fmt, hash, isize, slice, usize};
@@ -702,7 +702,7 @@ impl BytesMut {
     // This method is only used in combination with the serde feature at the moment.
     // BytesMut doesn't expose a public `From<Vec<u8>>` implementation in order
     // not provide the wrong impression that the conversion is free.
-    // Even if one implementation `BytesMut` would have a free conversion,
+    // Even if one implementation of `BytesMut` would have a free conversion,
     // a future change of the allocation strategy might remove this guarantee.
     #[inline]
     #[cfg(feature = "serde")]
