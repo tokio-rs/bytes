@@ -70,11 +70,11 @@ pub unsafe trait BufMut {
     /// let mut buf = Vec::with_capacity(16);
     ///
     /// // Write some data
-    /// buf.bytes_mut()[0..2].write_slice(b"he");
+    /// buf.bytes_mut()[0..2].copy_from_slice(b"he");
     /// unsafe { buf.advance_mut(2) };
     ///
     /// // write more bytes
-    /// buf.bytes_mut()[0..3].write_slice(b"llo");
+    /// buf.bytes_mut()[0..3].copy_from_slice(b"llo");
     ///
     /// unsafe { buf.advance_mut(3); }
     ///

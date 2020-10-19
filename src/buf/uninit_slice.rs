@@ -67,14 +67,16 @@ impl UninitSlice {
     pub fn write_byte(&mut self, index: usize, byte: u8) {
         assert!(index < self.len());
 
-        unsafe { self.as_mut_ptr().offset(index as isize).write(byte) };
+        unsafe { self[index..].as_mut_ptr().write(byte) }
     }
 
-    /// Writes the contents of `src` into `self`.
+    /// Copies bytes  from `src` into `self`.
+    ///
+    /// The length of `src` must be the same as `self`.
     ///
     /// # Panics
     ///
-    /// The function panics if `self` has a different length than `src`.
+    /// The function panics if `src` has a different length than `self`.
     ///
     /// # Examples
     ///
@@ -84,11 +86,11 @@ impl UninitSlice {
     /// let mut data = [b'f', b'o', b'o'];
     /// let slice = unsafe { UninitSlice::from_raw_parts_mut(data.as_mut_ptr(), 3) };
     ///
-    /// slice.write_slice(b"bar");
+    /// slice.copy_from_slice(b"bar");
     ///
     /// assert_eq!(b"bar", &data[..]);
     /// ```
-    pub fn write_slice(&mut self, src: &[u8]) {
+    pub fn copy_from_slice(&mut self, src: &[u8]) {
         use core::ptr;
 
         assert_eq!(self.len(), src.len());
@@ -103,7 +105,7 @@ impl UninitSlice {
     /// # Safety
     ///
     /// The caller **must not** read from the referenced memory and **must not**
-    /// write uninitialized bytes to the slice either.
+    /// write **uninitialized** bytes to the slice either.
     ///
     /// # Examples
     ///
