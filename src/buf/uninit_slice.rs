@@ -4,11 +4,20 @@ use core::ops::{
     Index, IndexMut, Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive,
 };
 
-/// Uninititialized byte slice.
+/// Uninitialized byte slice.
 ///
 /// Returned by `BufMut::bytes_mut()`, the referenced byte slice may be
 /// uninitialized. The wrapper provides safe access without introducing
 /// undefined behavior.
+///
+/// The safety invariants of this wrapper are:
+///
+///  1. Reading from an `UninitSlice` is undefined behavior.
+///  2. Writing uninitialized bytes to an `UninitSlice` is undefined behavior.
+///
+/// The difference between `&mut UninitSlice` and `&mut [MaybeUninit<u8>]` is
+/// that it is possible in safe code to write uninitialized bytes to an
+/// `&mut [MaybeUninit<u8>]`, which this type prohibits.
 #[repr(transparent)]
 pub struct UninitSlice([MaybeUninit<u8>]);
 
