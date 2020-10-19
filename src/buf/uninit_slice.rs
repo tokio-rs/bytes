@@ -149,14 +149,14 @@ macro_rules! impl_index {
                 type Output = UninitSlice;
 
                 fn index(&self, index: $t) -> &UninitSlice {
-                    let maybe_uninit = &self.0[index];
+                    let maybe_uninit: &[MaybeUninit<u8>] = &self.0[index];
                     unsafe { &*(maybe_uninit as *const [MaybeUninit<u8>] as *const UninitSlice) }
                 }
             }
 
             impl IndexMut<$t> for UninitSlice {
                 fn index_mut(&mut self, index: $t) -> &mut UninitSlice {
-                    let maybe_uninit = &mut self.0[index];
+                    let maybe_uninit: &mut [MaybeUninit<u8>] = &mut self.0[index];
                     unsafe { &mut *(maybe_uninit as *mut [MaybeUninit<u8>] as *mut UninitSlice) }
                 }
             }
