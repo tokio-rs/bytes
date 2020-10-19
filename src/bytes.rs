@@ -10,7 +10,7 @@ use crate::loom::sync::atomic::AtomicMut;
 use crate::loom::sync::atomic::{self, AtomicPtr, AtomicUsize, Ordering};
 use crate::Buf;
 
-/// A cheeply cloneable and sliceable chunk of contiguous memory.
+/// A cheaply cloneable and sliceable chunk of contiguous memory.
 ///
 /// `Bytes` is an efficient container for storing and operating on contiguous
 /// slices of memory. It is intended for use primarily in networking code, but
@@ -24,7 +24,7 @@ use crate::Buf;
 /// implementations of `Bytes`.
 ///
 /// All `Bytes` implementations must fulfill the following requirements:
-/// - They are cheeply cloneable and thereby shareable between an unlimited amount
+/// - They are cheaply cloneable and thereby shareable between an unlimited amount
 ///   of components, for example by modifying a reference count.
 /// - Instances can be sliced to refer to a subset of the the original buffer.
 ///
