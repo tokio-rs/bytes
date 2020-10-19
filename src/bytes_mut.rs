@@ -11,7 +11,7 @@ use alloc::{
     vec::Vec,
 };
 
-use crate::buf::IntoIter;
+use crate::buf::{IntoIter, UninitSlice};
 use crate::bytes::Vtable;
 #[allow(unused)]
 use crate::loom::sync::atomic::AtomicMut;
@@ -684,7 +684,7 @@ impl BytesMut {
         self.reserve(cnt);
 
         unsafe {
-            let dst = self.maybe_uninit_bytes();
+            let dst = self.uninit_slice();
             // Reserved above
             debug_assert!(dst.len() >= cnt);
 
@@ -910,12 +910,12 @@ impl BytesMut {
     }
 
     #[inline]
-    fn maybe_uninit_bytes(&mut self) -> &mut [mem::MaybeUninit<u8>] {
+    fn uninit_slice(&mut self) -> &mut UninitSlice {
         unsafe {
             let ptr = self.ptr.as_ptr().offset(self.len as isize);
             let len = self.cap - self.len;
 
-            slice::from_raw_parts_mut(ptr as *mut mem::MaybeUninit<u8>, len)
+            UninitSlice::from_raw_parts_mut(ptr, len)
         }
     }
 }
@@ -985,11 +985,11 @@ unsafe impl BufMut for BytesMut {
     }
 
     #[inline]
-    fn bytes_mut(&mut self) -> &mut [mem::MaybeUninit<u8>] {
+    fn bytes_mut(&mut self) -> &mut UninitSlice {
         if self.capacity() == self.len() {
             self.reserve(64);
         }
-        self.maybe_uninit_bytes()
+        self.uninit_slice()
     }
 
     // Specialize these methods so they can skip checking `remaining_mut`

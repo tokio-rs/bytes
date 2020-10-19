@@ -1,5 +1,6 @@
 #![warn(rust_2018_idioms)]
 
+use bytes::buf::UninitSlice;
 use bytes::{BufMut, BytesMut};
 use core::fmt::Write;
 use core::usize;
@@ -80,7 +81,7 @@ fn test_deref_bufmut_forwards() {
             unreachable!("remaining_mut");
         }
 
-        fn bytes_mut(&mut self) -> &mut [std::mem::MaybeUninit<u8>] {
+        fn bytes_mut(&mut self) -> &mut UninitSlice {
             unreachable!("bytes_mut");
         }
 
@@ -98,4 +99,31 @@ fn test_deref_bufmut_forwards() {
     (&mut Special as &mut dyn BufMut).put_u8(b'x');
     (Box::new(Special) as Box<dyn BufMut>).put_u8(b'x');
     Box::new(Special).put_u8(b'x');
+}
+
+#[test]
+#[should_panic]
+fn write_byte_panics_if_out_of_bounds() {
+    let mut data = [b'b', b'a', b'r'];
+
+    let slice = unsafe { UninitSlice::from_raw_parts_mut(data.as_mut_ptr(), 3) };
+    slice.write_byte(4, b'f');
+}
+
+#[test]
+#[should_panic]
+fn copy_from_slice_panics_if_different_length_1() {
+    let mut data = [b'b', b'a', b'r'];
+
+    let slice = unsafe { UninitSlice::from_raw_parts_mut(data.as_mut_ptr(), 3) };
+    slice.copy_from_slice(b"a");
+}
+
+#[test]
+#[should_panic]
+fn copy_from_slice_panics_if_different_length_2() {
+    let mut data = [b'b', b'a', b'r'];
+
+    let slice = unsafe { UninitSlice::from_raw_parts_mut(data.as_mut_ptr(), 3) };
+    slice.copy_from_slice(b"abcd");
 }

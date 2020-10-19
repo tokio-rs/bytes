@@ -1,6 +1,7 @@
+use crate::buf::UninitSlice;
 use crate::BufMut;
 
-use core::{cmp, mem::MaybeUninit};
+use core::cmp;
 
 /// A `BufMut` adapter which limits the amount of bytes that can be written
 /// to an underlying buffer.
@@ -60,7 +61,7 @@ unsafe impl<T: BufMut> BufMut for Limit<T> {
         cmp::min(self.inner.remaining_mut(), self.limit)
     }
 
-    fn bytes_mut(&mut self) -> &mut [MaybeUninit<u8>] {
+    fn bytes_mut(&mut self) -> &mut UninitSlice {
         let bytes = self.inner.bytes_mut();
         let end = cmp::min(bytes.len(), self.limit);
         &mut bytes[..end]

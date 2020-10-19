@@ -1,12 +1,8 @@
-use crate::buf::{limit, Chain, Limit};
+use crate::buf::{limit, Chain, Limit, UninitSlice};
 #[cfg(feature = "std")]
 use crate::buf::{writer, Writer};
 
-use core::{
-    cmp,
-    mem::{self, MaybeUninit},
-    ptr, usize,
-};
+use core::{cmp, mem, ptr, usize};
 
 use alloc::{boxed::Box, vec::Vec};
 
@@ -73,19 +69,14 @@ pub unsafe trait BufMut {
     ///
     /// let mut buf = Vec::with_capacity(16);
     ///
-    /// unsafe {
-    ///     // MaybeUninit::as_mut_ptr
-    ///     buf.bytes_mut()[0].as_mut_ptr().write(b'h');
-    ///     buf.bytes_mut()[1].as_mut_ptr().write(b'e');
+    /// // Write some data
+    /// buf.bytes_mut()[0..2].copy_from_slice(b"he");
+    /// unsafe { buf.advance_mut(2) };
     ///
-    ///     buf.advance_mut(2);
+    /// // write more bytes
+    /// buf.bytes_mut()[0..3].copy_from_slice(b"llo");
     ///
-    ///     buf.bytes_mut()[0].as_mut_ptr().write(b'l');
-    ///     buf.bytes_mut()[1].as_mut_ptr().write(b'l');
-    ///     buf.bytes_mut()[2].as_mut_ptr().write(b'o');
-    ///
-    ///     buf.advance_mut(3);
-    /// }
+    /// unsafe { buf.advance_mut(3); }
     ///
     /// assert_eq!(5, buf.len());
     /// assert_eq!(buf, b"hello");
@@ -144,14 +135,14 @@ pub unsafe trait BufMut {
     ///
     /// unsafe {
     ///     // MaybeUninit::as_mut_ptr
-    ///     buf.bytes_mut()[0].as_mut_ptr().write(b'h');
-    ///     buf.bytes_mut()[1].as_mut_ptr().write(b'e');
+    ///     buf.bytes_mut()[0..].as_mut_ptr().write(b'h');
+    ///     buf.bytes_mut()[1..].as_mut_ptr().write(b'e');
     ///
     ///     buf.advance_mut(2);
     ///
-    ///     buf.bytes_mut()[0].as_mut_ptr().write(b'l');
-    ///     buf.bytes_mut()[1].as_mut_ptr().write(b'l');
-    ///     buf.bytes_mut()[2].as_mut_ptr().write(b'o');
+    ///     buf.bytes_mut()[0..].as_mut_ptr().write(b'l');
+    ///     buf.bytes_mut()[1..].as_mut_ptr().write(b'l');
+    ///     buf.bytes_mut()[2..].as_mut_ptr().write(b'o');
     ///
     ///     buf.advance_mut(3);
     /// }
@@ -167,7 +158,7 @@ pub unsafe trait BufMut {
     /// `bytes_mut` returning an empty slice implies that `remaining_mut` will
     /// return 0 and `remaining_mut` returning 0 implies that `bytes_mut` will
     /// return an empty slice.
-    fn bytes_mut(&mut self) -> &mut [MaybeUninit<u8>];
+    fn bytes_mut(&mut self) -> &mut UninitSlice;
 
     /// Transfer bytes into `self` from `src` and advance the cursor by the
     /// number of bytes written.
@@ -922,7 +913,7 @@ macro_rules! deref_forward_bufmut {
             (**self).remaining_mut()
         }
 
-        fn bytes_mut(&mut self) -> &mut [MaybeUninit<u8>] {
+        fn bytes_mut(&mut self) -> &mut UninitSlice {
             (**self).bytes_mut()
         }
 
@@ -1007,9 +998,9 @@ unsafe impl BufMut for &mut [u8] {
     }
 
     #[inline]
-    fn bytes_mut(&mut self) -> &mut [MaybeUninit<u8>] {
-        // MaybeUninit is repr(transparent), so safe to transmute
-        unsafe { mem::transmute(&mut **self) }
+    fn bytes_mut(&mut self) -> &mut UninitSlice {
+        // UninitSlice is repr(transparent), so safe to transmute
+        unsafe { &mut *(*self as *mut [u8] as *mut _) }
     }
 
     #[inline]
@@ -1042,9 +1033,7 @@ unsafe impl BufMut for Vec<u8> {
     }
 
     #[inline]
-    fn bytes_mut(&mut self) -> &mut [MaybeUninit<u8>] {
-        use core::slice;
-
+    fn bytes_mut(&mut self) -> &mut UninitSlice {
         if self.capacity() == self.len() {
             self.reserve(64); // Grow the vec
         }
@@ -1052,8 +1041,8 @@ unsafe impl BufMut for Vec<u8> {
         let cap = self.capacity();
         let len = self.len();
 
-        let ptr = self.as_mut_ptr() as *mut MaybeUninit<u8>;
-        unsafe { &mut slice::from_raw_parts_mut(ptr, cap)[len..] }
+        let ptr = self.as_mut_ptr();
+        unsafe { &mut UninitSlice::from_raw_parts_mut(ptr, cap)[len..] }
     }
 
     // Specialize these methods so they can skip checking `remaining_mut`

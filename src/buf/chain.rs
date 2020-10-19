@@ -1,7 +1,5 @@
-use crate::buf::IntoIter;
+use crate::buf::{IntoIter, UninitSlice};
 use crate::{Buf, BufMut};
-
-use core::mem::MaybeUninit;
 
 #[cfg(feature = "std")]
 use std::io::IoSlice;
@@ -183,7 +181,7 @@ where
         self.a.remaining_mut() + self.b.remaining_mut()
     }
 
-    fn bytes_mut(&mut self) -> &mut [MaybeUninit<u8>] {
+    fn bytes_mut(&mut self) -> &mut UninitSlice {
         if self.a.has_remaining_mut() {
             self.a.bytes_mut()
         } else {
