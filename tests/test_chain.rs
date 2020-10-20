@@ -9,7 +9,7 @@ fn collect_two_bufs() {
     let a = Bytes::from(&b"hello"[..]);
     let b = Bytes::from(&b"world"[..]);
 
-    let res = a.chain(b).to_bytes();
+    let res = a.chain(b).copy_to_bytes(10);
     assert_eq!(res, &b"helloworld"[..]);
 }
 

@@ -21,7 +21,7 @@ use std::io::IoSlice;
 /// let mut buf = (&b"hello "[..])
 ///     .chain(&b"world"[..]);
 ///
-/// let full: Bytes = buf.to_bytes();
+/// let full: Bytes = buf.copy_to_bytes(11);
 /// assert_eq!(full[..], b"hello world"[..]);
 /// ```
 ///
@@ -68,7 +68,7 @@ impl<T, U> Chain<T, U> {
     ///
     /// buf.first_mut().advance(1);
     ///
-    /// let full = buf.to_bytes();
+    /// let full = buf.copy_to_bytes(9);
     /// assert_eq!(full, b"elloworld"[..]);
     /// ```
     pub fn first_mut(&mut self) -> &mut T {
@@ -103,7 +103,7 @@ impl<T, U> Chain<T, U> {
     ///
     /// buf.last_mut().advance(1);
     ///
-    /// let full = buf.to_bytes();
+    /// let full = buf.copy_to_bytes(10);
     /// assert_eq!(full, b"hello orld"[..]);
     /// ```
     pub fn last_mut(&mut self) -> &mut U {

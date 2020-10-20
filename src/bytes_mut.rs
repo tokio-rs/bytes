@@ -961,8 +961,8 @@ impl Buf for BytesMut {
         }
     }
 
-    fn to_bytes(&mut self) -> crate::Bytes {
-        self.split().freeze()
+    fn copy_to_bytes(&mut self, len: usize) -> crate::Bytes {
+        self.split_to(len).freeze()
     }
 }
 
