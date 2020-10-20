@@ -795,20 +795,28 @@ pub trait Buf {
         f64::from_bits(Self::get_u64_le(self))
     }
 
-    /// Consumes remaining bytes inside self and returns new instance of `Bytes`
+    /// Consumes `len` bytes inside self and returns new instance of `Bytes`
+    /// with this data.
+    ///
+    /// This function may be optimized by the underlying type to avoid actual
+    /// copies. For example, `Bytes` implementation will do a shallow copy
+    /// (ref-count increment).
     ///
     /// # Examples
     ///
     /// ```
     /// use bytes::Buf;
     ///
-    /// let bytes = (&b"hello world"[..]).to_bytes();
-    /// assert_eq!(&bytes[..], &b"hello world"[..]);
+    /// let bytes = (&b"hello world"[..]).copy_to_bytes(5);
+    /// assert_eq!(&bytes[..], &b"hello"[..]);
     /// ```
-    fn to_bytes(&mut self) -> crate::Bytes {
+    fn copy_to_bytes(&mut self, len: usize) -> crate::Bytes {
         use super::BufMut;
-        let mut ret = crate::BytesMut::with_capacity(self.remaining());
-        ret.put(self);
+
+        assert!(len <= self.remaining(), "`len` greater than remaining");
+
+        let mut ret = crate::BytesMut::with_capacity(len);
+        ret.put(self.take(len));
         ret.freeze()
     }
 
@@ -852,7 +860,7 @@ pub trait Buf {
     ///
     /// let mut chain = b"hello "[..].chain(&b"world"[..]);
     ///
-    /// let full = chain.to_bytes();
+    /// let full = chain.copy_to_bytes(11);
     /// assert_eq!(full.bytes(), b"hello world");
     /// ```
     fn chain<U: Buf>(self, next: U) -> Chain<Self, U>
@@ -993,8 +1001,8 @@ macro_rules! deref_forward_buf {
             (**self).get_int_le(nbytes)
         }
 
-        fn to_bytes(&mut self) -> crate::Bytes {
-            (**self).to_bytes()
+        fn copy_to_bytes(&mut self, len: usize) -> crate::Bytes {
+            (**self).copy_to_bytes(len)
         }
     };
 }

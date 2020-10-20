@@ -101,3 +101,20 @@ fn test_deref_buf_forwards() {
     assert_eq!((Box::new(Special) as Box<dyn Buf>).get_u8(), b'x');
     assert_eq!(Box::new(Special).get_u8(), b'x');
 }
+
+#[test]
+fn copy_to_bytes_less() {
+    let mut buf = &b"hello world"[..];
+
+    let bytes = buf.copy_to_bytes(5);
+    assert_eq!(bytes, &b"hello"[..]);
+    assert_eq!(buf, &b" world"[..])
+}
+
+#[test]
+#[should_panic]
+fn copy_to_bytes_overflow() {
+    let mut buf = &b"hello world"[..];
+
+    let _bytes = buf.copy_to_bytes(12);
+}
