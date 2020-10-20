@@ -68,12 +68,6 @@ struct Shared {
     refcount: AtomicUsize,
 }
 
-/// The max original capacity value which is reused when a `BytesMut` which
-/// had been previously split into a smaller size is resized.
-/// The `BytesMut` will try to regain the original capacity that was available
-/// before the `split` - but the capacity will be bounded by this value.
-const MAX_ORIGINAL_CAPACITY: usize = 64 * 1024;
-
 /*
  *
  * ===== BytesMut =====
@@ -557,11 +551,7 @@ impl BytesMut {
         let mut new_cap = len.checked_add(additional).expect("overflow");
 
         unsafe {
-            let mut original_capacity = 0;
-
             if !shared.is_null() {
-                original_capacity = (*shared).capacity;
-
                 // First, try to reclaim the buffer. This is possible if the current
                 // handle is the only outstanding handle pointing to the buffer.
                 // However, before doing the work of copying data, check to make
@@ -595,17 +585,6 @@ impl BytesMut {
             // - We want to allocate at least 8 bytes, because tiny allocations
             //   are not efficient
             new_cap = cmp::max(8, new_cap);
-            // - If we had an existing backing storage, we want to obtain at
-            //   least the same capacity again that this one had. This is specific
-            //   to BytesMut and not found in Vecs. The use-case is that BytesMut
-            //   which are used over time to split off chunks and then gain new
-            //   input data do not oscillate too much in size.
-            //   This functionality is however bounded by `MAX_ORIGINAL_CAPACITY`.
-            //   A `BytesMut` will not automatically reserve more capacity than this.
-            //   TODO: Do we really want to keep this? This seems like a footgun
-            //   where people splitting `BytesMut` and reusing them for different
-            //   purposes might accidentally keep around big memory allocations.
-            new_cap = cmp::max(cmp::min(original_capacity, MAX_ORIGINAL_CAPACITY), new_cap);
             // The buffer length may not exceed `std::isize::MAX`.
             // This is checked by std containers like `Vec`, but not here.
             // See also https://doc.rust-lang.org/std/primitive.pointer.html#safety-2

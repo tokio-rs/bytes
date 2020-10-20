@@ -456,36 +456,6 @@ fn reserve_at_least_8_bytes() {
 }
 
 #[test]
-fn reserve_allocates_at_least_original_capacity() {
-    let mut bytes = BytesMut::with_capacity(1024);
-
-    for i in 0..1020 {
-        bytes.put_u8(i as u8);
-    }
-
-    let _other = bytes.split();
-
-    bytes.reserve(16);
-    assert_eq!(bytes.capacity(), 1024);
-}
-
-#[test]
-fn reserve_max_original_capacity_value() {
-    const SIZE: usize = 128 * 1024;
-
-    let mut bytes = BytesMut::with_capacity(SIZE);
-
-    for _ in 0..SIZE {
-        bytes.put_u8(0u8);
-    }
-
-    let _other = bytes.split();
-
-    bytes.reserve(16);
-    assert_eq!(bytes.capacity(), 64 * 1024);
-}
-
-#[test]
 fn reserve_vec_recycling() {
     let mut bytes = BytesMut::with_capacity(16);
     assert_eq!(bytes.capacity(), 16);
