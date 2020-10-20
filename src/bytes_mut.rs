@@ -611,7 +611,7 @@ impl BytesMut {
             // See also https://doc.rust-lang.org/std/primitive.pointer.html#safety-2
             // The computed offset, in bytes, cannot overflow an isize.
             assert!(
-                new_cap <= std::isize::MAX as usize,
+                new_cap <= core::isize::MAX as usize,
                 "Maximum allocation size"
             );
 
