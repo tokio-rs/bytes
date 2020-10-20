@@ -105,23 +105,24 @@ impl BytesMut {
     /// ```
     #[inline]
     pub fn with_capacity(capacity: usize) -> BytesMut {
-        unsafe {
-            if capacity == 0 {
-                BytesMut {
-                    data: ptr::null_mut(),
-                    ptr: NonNull::dangling(),
-                    len: 0,
-                    cap: 0,
-                }
-            } else {
-                let shared = Shared::allocate_for_size(capacity)
-                    .expect("Fallible allocations are not yet supported");
-                BytesMut {
-                    data: shared,
-                    len: 0,
-                    ptr: (*shared).data_ptr_mut(),
-                    cap: (*shared).capacity,
-                }
+        if capacity == 0 {
+            BytesMut {
+                data: ptr::null_mut(),
+                ptr: NonNull::dangling(),
+                len: 0,
+                cap: 0,
+            }
+        } else {
+            let shared = Shared::allocate_for_size(capacity)
+                .expect("Fallible allocations are not yet supported");
+            // Safety: The object from the allocation is always a valid `Shared`
+            // object. If the allocation would fail, the method would panic.
+            let (ptr, cap) = unsafe { ((*shared).data_ptr_mut(), (*shared).capacity) };
+            BytesMut {
+                data: shared,
+                len: 0,
+                ptr,
+                cap,
             }
         }
     }
@@ -605,6 +606,14 @@ impl BytesMut {
             //   where people splitting `BytesMut` and reusing them for different
             //   purposes might accidentally keep around big memory allocations.
             new_cap = cmp::max(cmp::min(original_capacity, MAX_ORIGINAL_CAPACITY), new_cap);
+            // The buffer length may not exceed `std::isize::MAX`.
+            // This is checked by std containers like `Vec`, but not here.
+            // See also https://doc.rust-lang.org/std/primitive.pointer.html#safety-2
+            // The computed offset, in bytes, cannot overflow an isize.
+            assert!(
+                new_cap <= std::isize::MAX as usize,
+                "Maximum allocation size"
+            );
 
             // Create a new backing storage
             let shared = Shared::allocate_for_size(new_cap)
@@ -712,17 +721,19 @@ impl BytesMut {
 
     #[inline]
     fn as_slice(&self) -> &[u8] {
+        // Safety: This always stores a valid pointer.
+        // If `BytesMut` is not allocated, this points to NonNull::dangling,
+        // which is ok to use for this purpose:
+        // https://doc.rust-lang.org/std/slice/fn.from_raw_parts.html#safety
         unsafe { slice::from_raw_parts(self.ptr.as_ptr(), self.len) }
     }
 
     #[inline]
     fn as_slice_mut(&mut self) -> &mut [u8] {
-        // TODO:
-        // The pointer is always valid, but might not backed by real storage
-        // in case of an empty BytesMut.
-        // This shouldn't matter due to the array length being 0 and the pointer
-        // never being accessed. However it is still not fully clear if this is
-        // valid within Rusts's UB rules.
+        // Safety: This always stores a valid pointer.
+        // If `BytesMut` is not allocated, this points to NonNull::dangling,
+        // which is ok to use for this purpose:
+        // https://doc.rust-lang.org/std/slice/fn.from_raw_parts.html#safety
         unsafe { slice::from_raw_parts_mut(self.ptr.as_ptr(), self.len) }
     }
 
@@ -1068,19 +1079,31 @@ impl<'a> FromIterator<&'a u8> for BytesMut {
  */
 
 impl Shared {
-    unsafe fn allocate_for_size(size: usize) -> Result<*mut Shared, ()> {
+    /// Allocates a `Shared` state for a buffer of the given capacity
+    ///
+    /// This method will allocate the reference count of `Shared` to 1,
+    /// and set the provided capacity on the `Shared` structure.
+    fn allocate_for_size(size: usize) -> Result<*mut Shared, ()> {
         let combined_layout = Shared::layout_for_size(size);
-        let alloc_res = alloc::alloc::alloc(combined_layout) as *mut Shared;
-        if alloc_res.is_null() {
-            return Err(());
-        }
+        // Safety:
+        // This allocates and initializes the `Shared` structure
+        let alloc_res = unsafe {
+            let alloc_res = alloc::alloc::alloc(combined_layout) as *mut Shared;
+            if alloc_res.is_null() {
+                return Err(());
+            }
 
-        ptr::write(&mut (*alloc_res).capacity, size);
-        ptr::write(&mut (*alloc_res).refcount, AtomicUsize::new(1));
+            ptr::write(&mut (*alloc_res).capacity, size);
+            ptr::write(&mut (*alloc_res).refcount, AtomicUsize::new(1));
+
+            alloc_res
+        };
 
         Ok(alloc_res)
     }
 
+    /// Returns true if this `Shared` structure is only referenced by a single
+    /// `BytesMut` instance.
     fn is_unique(&self) -> bool {
         // The goal is to check if the current handle is the only handle
         // that currently has access to the buffer. This is done by
@@ -1106,8 +1129,29 @@ impl Shared {
         combined_layout
     }
 
+    /// Increments the reference count for `Shared` objects
+    ///
+    /// # Safety
+    ///
+    /// This method is only safe to be called on null pointers and pointers
+    /// returned from `Shared::allocate_for_size` which which have not been
+    /// freed using `release_refcount`.
     unsafe fn increment_refcount(self_ptr: *mut Self) {
         debug_assert!(!self_ptr.is_null());
+        // This uses `Relaxed` ordering, just like the `Arc::clone` implementation.
+        // The following documentation is directly taken from `Arc::clone`:
+        //
+        // Using a relaxed ordering is alright here, as knowledge of the
+        // original reference prevents other threads from erroneously deleting
+        // the object.
+        //
+        // As explained in the [Boost documentation][1], Increasing the
+        // reference counter can always be done with memory_order_relaxed: New
+        // references to an object can only be formed from an existing
+        // reference, and passing an existing reference from one thread to
+        // another must already provide any required synchronization.
+        //
+        // [1]: (www.boost.org/doc/libs/1_55_0/doc/html/atomic/usage_examples.html)
         let old_size = (*self_ptr).refcount.fetch_add(1, Ordering::Relaxed);
 
         if old_size > isize::MAX as usize {
@@ -1115,6 +1159,13 @@ impl Shared {
         }
     }
 
+    /// Decrements the reference count for `Shared` objects
+    ///
+    /// # Safety
+    ///
+    /// This method is only safe to be called on null pointers and pointers
+    /// returned from `Shared::allocate_for_size` which which have not been
+    /// freed using `release_refcount`.
     unsafe fn release_refcount(self_ptr: *mut Self) {
         if self_ptr.is_null() {
             return;
@@ -1151,63 +1202,20 @@ impl Shared {
         )
     }
 
+    /// Returns the start of the data section of this buffer which starts behind
+    /// the `Shared` header.
+    ///
+    /// # Safety
+    ///
+    /// This method is only safe to be called on null pointers and pointers
+    /// returned from `Shared::allocate_for_size` which which have not been
+    /// freed using `release_refcount`.
     unsafe fn data_ptr_mut(&mut self) -> NonNull<u8> {
-        let mut end_addr = self as *const Shared as usize;
-        end_addr += mem::size_of::<Shared>();
-        NonNull::new_unchecked(end_addr as *mut u8)
+        let shared_addr = self as *mut Self;
+        let data_addr = shared_addr.offset(1) as *mut u8;
+        NonNull::new_unchecked(data_addr)
     }
 }
-
-/*
-#[test]
-fn test_original_capacity_to_repr() {
-    assert_eq!(original_capacity_to_repr(0), 0);
-
-    let max_width = 32;
-
-    for width in 1..(max_width + 1) {
-        let cap = 1 << width - 1;
-
-        let expected = if width < MIN_ORIGINAL_CAPACITY_WIDTH {
-            0
-        } else if width < MAX_ORIGINAL_CAPACITY_WIDTH {
-            width - MIN_ORIGINAL_CAPACITY_WIDTH
-        } else {
-            MAX_ORIGINAL_CAPACITY_WIDTH - MIN_ORIGINAL_CAPACITY_WIDTH
-        };
-
-        assert_eq!(original_capacity_to_repr(cap), expected);
-
-        if width > 1 {
-            assert_eq!(original_capacity_to_repr(cap + 1), expected);
-        }
-
-        //  MIN_ORIGINAL_CAPACITY_WIDTH must be bigger than 7 to pass tests below
-        if width == MIN_ORIGINAL_CAPACITY_WIDTH + 1 {
-            assert_eq!(original_capacity_to_repr(cap - 24), expected - 1);
-            assert_eq!(original_capacity_to_repr(cap + 76), expected);
-        } else if width == MIN_ORIGINAL_CAPACITY_WIDTH + 2 {
-            assert_eq!(original_capacity_to_repr(cap - 1), expected - 1);
-            assert_eq!(original_capacity_to_repr(cap - 48), expected - 1);
-        }
-    }
-}
-
-#[test]
-fn test_original_capacity_from_repr() {
-    assert_eq!(0, original_capacity_from_repr(0));
-
-    let min_cap = 1 << MIN_ORIGINAL_CAPACITY_WIDTH;
-
-    assert_eq!(min_cap, original_capacity_from_repr(1));
-    assert_eq!(min_cap * 2, original_capacity_from_repr(2));
-    assert_eq!(min_cap * 4, original_capacity_from_repr(3));
-    assert_eq!(min_cap * 8, original_capacity_from_repr(4));
-    assert_eq!(min_cap * 16, original_capacity_from_repr(5));
-    assert_eq!(min_cap * 32, original_capacity_from_repr(6));
-    assert_eq!(min_cap * 64, original_capacity_from_repr(7));
-}
-*/
 
 unsafe impl Send for BytesMut {}
 unsafe impl Sync for BytesMut {}
