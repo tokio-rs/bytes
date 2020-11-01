@@ -18,7 +18,7 @@ To use `bytes`, first add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-bytes = "0.6.0"
+bytes = "0.6"
 ```
 
 Next, add this to your crate:
