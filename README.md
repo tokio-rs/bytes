@@ -33,7 +33,7 @@ Serde support is optional and disabled by default. To enable use the feature `se
 
 ```toml
 [dependencies]
-bytes = { version = "0.6.0", features = ["serde"] }
+bytes = { version = "0.6", features = ["serde"] }
 ```
 
 ## License
