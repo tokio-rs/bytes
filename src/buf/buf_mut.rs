@@ -1042,7 +1042,7 @@ unsafe impl BufMut for Vec<u8> {
         let cap = self.capacity();
 
         let ptr = self.as_mut_ptr();
-        unsafe { UninitSlice::from_raw_parts_mut(ptr.offset(len as isize), cap - len) }
+        unsafe { UninitSlice::from_raw_parts_mut(ptr.add(len), cap - len) }
     }
 
     // Specialize these methods so they can skip checking `remaining_mut`
