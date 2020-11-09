@@ -69,7 +69,7 @@ impl UninitSlice {
     pub fn write_byte(&mut self, index: usize, byte: u8) {
         assert!(index < self.len());
 
-        unsafe { self.as_mut_ptr().offset(index as isize).write(byte) }
+        unsafe { self.as_mut_ptr().add(index).write(byte) }
     }
 
     /// Copies bytes  from `src` into `self`.
