@@ -1069,6 +1069,7 @@ unsafe impl BufMut for Vec<u8> {
         }
     }
 
+    #[inline]
     fn put_slice(&mut self, src: &[u8]) {
         self.extend_from_slice(src);
     }
