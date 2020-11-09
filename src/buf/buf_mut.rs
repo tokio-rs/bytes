@@ -1034,15 +1034,15 @@ unsafe impl BufMut for Vec<u8> {
 
     #[inline]
     fn bytes_mut(&mut self) -> &mut UninitSlice {
-        if self.capacity() == self.len() {
+        let len = self.len();
+        if self.capacity() == len {
             self.reserve(64); // Grow the vec
         }
 
         let cap = self.capacity();
-        let len = self.len();
 
         let ptr = self.as_mut_ptr();
-        unsafe { &mut UninitSlice::from_raw_parts_mut(ptr, cap)[len..] }
+        unsafe { UninitSlice::from_raw_parts_mut(ptr.offset(len as isize), cap - len) }
     }
 
     // Specialize these methods so they can skip checking `remaining_mut`
