@@ -40,6 +40,7 @@ impl UninitSlice {
     ///
     /// let slice = unsafe { UninitSlice::from_raw_parts_mut(ptr, len) };
     /// ```
+    #[inline]
     pub unsafe fn from_raw_parts_mut<'a>(ptr: *mut u8, len: usize) -> &'a mut UninitSlice {
         let maybe_init: &mut [MaybeUninit<u8>] =
             core::slice::from_raw_parts_mut(ptr as *mut _, len);
@@ -64,10 +65,11 @@ impl UninitSlice {
     ///
     /// assert_eq!(b"boo", &data[..]);
     /// ```
+    #[inline]
     pub fn write_byte(&mut self, index: usize, byte: u8) {
         assert!(index < self.len());
 
-        unsafe { self[index..].as_mut_ptr().write(byte) }
+        unsafe { self.as_mut_ptr().offset(index as isize).write(byte) }
     }
 
     /// Copies bytes  from `src` into `self`.
@@ -90,6 +92,7 @@ impl UninitSlice {
     ///
     /// assert_eq!(b"bar", &data[..]);
     /// ```
+    #[inline]
     pub fn copy_from_slice(&mut self, src: &[u8]) {
         use core::ptr;
 
@@ -116,6 +119,7 @@ impl UninitSlice {
     /// let mut slice = &mut data[..];
     /// let ptr = BufMut::bytes_mut(&mut slice).as_mut_ptr();
     /// ```
+    #[inline]
     pub fn as_mut_ptr(&mut self) -> *mut u8 {
         self.0.as_mut_ptr() as *mut _
     }
@@ -133,6 +137,7 @@ impl UninitSlice {
     ///
     /// assert_eq!(len, 3);
     /// ```
+    #[inline]
     pub fn len(&self) -> usize {
         self.0.len()
     }
@@ -150,6 +155,7 @@ macro_rules! impl_index {
             impl Index<$t> for UninitSlice {
                 type Output = UninitSlice;
 
+                #[inline]
                 fn index(&self, index: $t) -> &UninitSlice {
                     let maybe_uninit: &[MaybeUninit<u8>] = &self.0[index];
                     unsafe { &*(maybe_uninit as *const [MaybeUninit<u8>] as *const UninitSlice) }
@@ -157,6 +163,7 @@ macro_rules! impl_index {
             }
 
             impl IndexMut<$t> for UninitSlice {
+                #[inline]
                 fn index_mut(&mut self, index: $t) -> &mut UninitSlice {
                     let maybe_uninit: &mut [MaybeUninit<u8>] = &mut self.0[index];
                     unsafe { &mut *(maybe_uninit as *mut [MaybeUninit<u8>] as *mut UninitSlice) }
