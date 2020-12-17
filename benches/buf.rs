@@ -159,7 +159,6 @@ macro_rules! bench_group {
 mod get_u8 {
     use super::*;
     bench_group!(get_u8);
-    bench!(option, option);
 }
 mod get_u16 {
     use super::*;

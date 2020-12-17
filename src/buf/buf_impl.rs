@@ -1032,35 +1032,6 @@ impl Buf for &[u8] {
     }
 }
 
-impl Buf for Option<[u8; 1]> {
-    fn remaining(&self) -> usize {
-        if self.is_some() {
-            1
-        } else {
-            0
-        }
-    }
-
-    fn bytes(&self) -> &[u8] {
-        self.as_ref()
-            .map(AsRef::as_ref)
-            .unwrap_or(Default::default())
-    }
-
-    fn advance(&mut self, cnt: usize) {
-        if cnt == 0 {
-            return;
-        }
-
-        if self.is_none() {
-            panic!("overflow");
-        } else {
-            assert_eq!(1, cnt);
-            *self = None;
-        }
-    }
-}
-
 #[cfg(feature = "std")]
 impl<T: AsRef<[u8]>> Buf for std::io::Cursor<T> {
     fn remaining(&self) -> usize {
