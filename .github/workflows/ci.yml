@@ -120,7 +120,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Install Rust
-        run: rustup update nightly && rustup default nightly
+        run: rustup update stable && rustup default stable
       - name: Install rust-src
         run: rustup component add rust-src
       - name: ASAN / TSAN
