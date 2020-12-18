@@ -138,11 +138,11 @@ where
         self.a.remaining() + self.b.remaining()
     }
 
-    fn bytes(&self) -> &[u8] {
+    fn chunk(&self) -> &[u8] {
         if self.a.has_remaining() {
-            self.a.bytes()
+            self.a.chunk()
         } else {
-            self.b.bytes()
+            self.b.chunk()
         }
     }
 
@@ -165,9 +165,9 @@ where
     }
 
     #[cfg(feature = "std")]
-    fn bytes_vectored<'a>(&'a self, dst: &mut [IoSlice<'a>]) -> usize {
-        let mut n = self.a.bytes_vectored(dst);
-        n += self.b.bytes_vectored(&mut dst[n..]);
+    fn chunks_vectored<'a>(&'a self, dst: &mut [IoSlice<'a>]) -> usize {
+        let mut n = self.a.chunks_vectored(dst);
+        n += self.b.chunks_vectored(&mut dst[n..]);
         n
     }
 }
@@ -181,11 +181,11 @@ where
         self.a.remaining_mut() + self.b.remaining_mut()
     }
 
-    fn bytes_mut(&mut self) -> &mut UninitSlice {
+    fn chunk_mut(&mut self) -> &mut UninitSlice {
         if self.a.has_remaining_mut() {
-            self.a.bytes_mut()
+            self.a.chunk_mut()
         } else {
-            self.b.bytes_mut()
+            self.b.chunk_mut()
         }
     }
 

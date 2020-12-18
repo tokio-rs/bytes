@@ -11,6 +11,7 @@ on:
 env:
   RUSTFLAGS: -Dwarnings
   RUST_BACKTRACE: 1
+  nightly: nightly-2020-12-17
 
 defaults:
   run:
@@ -120,7 +121,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Install Rust
-        run: rustup update nightly && rustup default nightly
+        run: rustup update $nightly && rustup default $nightly
       - name: Install rust-src
         run: rustup component add rust-src
       - name: ASAN / TSAN

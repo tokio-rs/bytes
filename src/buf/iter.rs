@@ -117,7 +117,7 @@ impl<T: Buf> Iterator for IntoIter<T> {
             return None;
         }
 
-        let b = self.inner.bytes()[0];
+        let b = self.inner.chunk()[0];
         self.inner.advance(1);
 
         Some(b)

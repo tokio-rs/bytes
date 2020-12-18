@@ -134,8 +134,8 @@ impl<T: Buf> Buf for Take<T> {
         cmp::min(self.inner.remaining(), self.limit)
     }
 
-    fn bytes(&self) -> &[u8] {
-        let bytes = self.inner.bytes();
+    fn chunk(&self) -> &[u8] {
+        let bytes = self.inner.chunk();
         &bytes[..cmp::min(bytes.len(), self.limit)]
     }
 

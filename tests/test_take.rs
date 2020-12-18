@@ -8,5 +8,5 @@ fn long_take() {
     // overrun the buffer. Regression test for #138.
     let buf = b"hello world".take(100);
     assert_eq!(11, buf.remaining());
-    assert_eq!(b"hello world", buf.bytes());
+    assert_eq!(b"hello world", buf.chunk());
 }
