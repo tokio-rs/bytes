@@ -165,9 +165,9 @@ where
     }
 
     #[cfg(feature = "std")]
-    fn chunk_vectored<'a>(&'a self, dst: &mut [IoSlice<'a>]) -> usize {
-        let mut n = self.a.chunk_vectored(dst);
-        n += self.b.chunk_vectored(&mut dst[n..]);
+    fn chunks_vectored<'a>(&'a self, dst: &mut [IoSlice<'a>]) -> usize {
+        let mut n = self.a.chunks_vectored(dst);
+        n += self.b.chunks_vectored(&mut dst[n..]);
         n
     }
 }

@@ -53,7 +53,7 @@ fn test_bufs_vec() {
 
     let mut dst = [IoSlice::new(b1), IoSlice::new(b2)];
 
-    assert_eq!(1, buf.chunk_vectored(&mut dst[..]));
+    assert_eq!(1, buf.chunks_vectored(&mut dst[..]));
 }
 
 #[test]

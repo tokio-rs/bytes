@@ -157,7 +157,7 @@ pub trait Buf {
     ///
     /// [`writev`]: http://man7.org/linux/man-pages/man2/readv.2.html
     #[cfg(feature = "std")]
-    fn chunk_vectored<'a>(&'a self, dst: &mut [IoSlice<'a>]) -> usize {
+    fn chunks_vectored<'a>(&'a self, dst: &mut [IoSlice<'a>]) -> usize {
         if dst.is_empty() {
             return 0;
         }
@@ -913,8 +913,8 @@ macro_rules! deref_forward_buf {
         }
 
         #[cfg(feature = "std")]
-        fn chunk_vectored<'b>(&'b self, dst: &mut [IoSlice<'b>]) -> usize {
-            (**self).chunk_vectored(dst)
+        fn chunks_vectored<'b>(&'b self, dst: &mut [IoSlice<'b>]) -> usize {
+            (**self).chunks_vectored(dst)
         }
 
         fn advance(&mut self, cnt: usize) {
