@@ -11,7 +11,7 @@ fn test_vec_as_mut_buf() {
 
     assert_eq!(buf.remaining_mut(), usize::MAX);
 
-    assert!(buf.bytes_mut().len() >= 64);
+    assert!(buf.chunk_mut().len() >= 64);
 
     buf.put(&b"zomg"[..]);
 
@@ -81,8 +81,8 @@ fn test_deref_bufmut_forwards() {
             unreachable!("remaining_mut");
         }
 
-        fn bytes_mut(&mut self) -> &mut UninitSlice {
-            unreachable!("bytes_mut");
+        fn chunk_mut(&mut self) -> &mut UninitSlice {
+            unreachable!("chunk_mut");
         }
 
         unsafe fn advance_mut(&mut self, _: usize) {

@@ -6,7 +6,7 @@ use core::ops::{
 
 /// Uninitialized byte slice.
 ///
-/// Returned by `BufMut::bytes_mut()`, the referenced byte slice may be
+/// Returned by `BufMut::chunk_mut()`, the referenced byte slice may be
 /// uninitialized. The wrapper provides safe access without introducing
 /// undefined behavior.
 ///
@@ -114,7 +114,7 @@ impl UninitSlice {
     ///
     /// let mut data = [0, 1, 2];
     /// let mut slice = &mut data[..];
-    /// let ptr = BufMut::bytes_mut(&mut slice).as_mut_ptr();
+    /// let ptr = BufMut::chunk_mut(&mut slice).as_mut_ptr();
     /// ```
     pub fn as_mut_ptr(&mut self) -> *mut u8 {
         self.0.as_mut_ptr() as *mut _
@@ -129,7 +129,7 @@ impl UninitSlice {
     ///
     /// let mut data = [0, 1, 2];
     /// let mut slice = &mut data[..];
-    /// let len = BufMut::bytes_mut(&mut slice).len();
+    /// let len = BufMut::chunk_mut(&mut slice).len();
     ///
     /// assert_eq!(len, 3);
     /// ```

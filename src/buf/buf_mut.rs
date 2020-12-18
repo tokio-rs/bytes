@@ -31,7 +31,7 @@ pub unsafe trait BufMut {
     /// position until the end of the buffer is reached.
     ///
     /// This value is greater than or equal to the length of the slice returned
-    /// by `bytes_mut`.
+    /// by `chunk_mut()`.
     ///
     /// # Examples
     ///
@@ -56,7 +56,7 @@ pub unsafe trait BufMut {
 
     /// Advance the internal cursor of the BufMut
     ///
-    /// The next call to `bytes_mut` will return a slice starting `cnt` bytes
+    /// The next call to `chunk_mut` will return a slice starting `cnt` bytes
     /// further into the underlying buffer.
     ///
     /// This function is unsafe because there is no guarantee that the bytes
@@ -70,11 +70,11 @@ pub unsafe trait BufMut {
     /// let mut buf = Vec::with_capacity(16);
     ///
     /// // Write some data
-    /// buf.bytes_mut()[0..2].copy_from_slice(b"he");
+    /// buf.chunk_mut()[0..2].copy_from_slice(b"he");
     /// unsafe { buf.advance_mut(2) };
     ///
     /// // write more bytes
-    /// buf.bytes_mut()[0..3].copy_from_slice(b"llo");
+    /// buf.chunk_mut()[0..3].copy_from_slice(b"llo");
     ///
     /// unsafe { buf.advance_mut(3); }
     ///
@@ -135,14 +135,14 @@ pub unsafe trait BufMut {
     ///
     /// unsafe {
     ///     // MaybeUninit::as_mut_ptr
-    ///     buf.bytes_mut()[0..].as_mut_ptr().write(b'h');
-    ///     buf.bytes_mut()[1..].as_mut_ptr().write(b'e');
+    ///     buf.chunk_mut()[0..].as_mut_ptr().write(b'h');
+    ///     buf.chunk_mut()[1..].as_mut_ptr().write(b'e');
     ///
     ///     buf.advance_mut(2);
     ///
-    ///     buf.bytes_mut()[0..].as_mut_ptr().write(b'l');
-    ///     buf.bytes_mut()[1..].as_mut_ptr().write(b'l');
-    ///     buf.bytes_mut()[2..].as_mut_ptr().write(b'o');
+    ///     buf.chunk_mut()[0..].as_mut_ptr().write(b'l');
+    ///     buf.chunk_mut()[1..].as_mut_ptr().write(b'l');
+    ///     buf.chunk_mut()[2..].as_mut_ptr().write(b'o');
     ///
     ///     buf.advance_mut(3);
     /// }
@@ -153,12 +153,12 @@ pub unsafe trait BufMut {
     ///
     /// # Implementer notes
     ///
-    /// This function should never panic. `bytes_mut` should return an empty
-    /// slice **if and only if** `remaining_mut` returns 0. In other words,
-    /// `bytes_mut` returning an empty slice implies that `remaining_mut` will
-    /// return 0 and `remaining_mut` returning 0 implies that `bytes_mut` will
+    /// This function should never panic. `chunk_mut` should return an empty
+    /// slice **if and only if** `remaining_mut()` returns 0. In other words,
+    /// `chunk_mut()` returning an empty slice implies that `remaining_mut()` will
+    /// return 0 and `remaining_mut()` returning 0 implies that `chunk_mut()` will
     /// return an empty slice.
-    fn bytes_mut(&mut self) -> &mut UninitSlice;
+    fn chunk_mut(&mut self) -> &mut UninitSlice;
 
     /// Transfer bytes into `self` from `src` and advance the cursor by the
     /// number of bytes written.
@@ -190,8 +190,8 @@ pub unsafe trait BufMut {
             let l;
 
             unsafe {
-                let s = src.bytes();
-                let d = self.bytes_mut();
+                let s = src.chunk();
+                let d = self.chunk_mut();
                 l = cmp::min(s.len(), d.len());
 
                 ptr::copy_nonoverlapping(s.as_ptr(), d.as_mut_ptr() as *mut u8, l);
@@ -237,7 +237,7 @@ pub unsafe trait BufMut {
             let cnt;
 
             unsafe {
-                let dst = self.bytes_mut();
+                let dst = self.chunk_mut();
                 cnt = cmp::min(dst.len(), src.len() - off);
 
                 ptr::copy_nonoverlapping(src[off..].as_ptr(), dst.as_mut_ptr() as *mut u8, cnt);
@@ -913,8 +913,8 @@ macro_rules! deref_forward_bufmut {
             (**self).remaining_mut()
         }
 
-        fn bytes_mut(&mut self) -> &mut UninitSlice {
-            (**self).bytes_mut()
+        fn chunk_mut(&mut self) -> &mut UninitSlice {
+            (**self).chunk_mut()
         }
 
         unsafe fn advance_mut(&mut self, cnt: usize) {
@@ -998,7 +998,7 @@ unsafe impl BufMut for &mut [u8] {
     }
 
     #[inline]
-    fn bytes_mut(&mut self) -> &mut UninitSlice {
+    fn chunk_mut(&mut self) -> &mut UninitSlice {
         // UninitSlice is repr(transparent), so safe to transmute
         unsafe { &mut *(*self as *mut [u8] as *mut _) }
     }
@@ -1033,7 +1033,7 @@ unsafe impl BufMut for Vec<u8> {
     }
 
     #[inline]
-    fn bytes_mut(&mut self) -> &mut UninitSlice {
+    fn chunk_mut(&mut self) -> &mut UninitSlice {
         if self.capacity() == self.len() {
             self.reserve(64); // Grow the vec
         }
@@ -1060,7 +1060,7 @@ unsafe impl BufMut for Vec<u8> {
 
             // a block to contain the src.bytes() borrow
             {
-                let s = src.bytes();
+                let s = src.chunk();
                 l = s.len();
                 self.extend_from_slice(s);
             }

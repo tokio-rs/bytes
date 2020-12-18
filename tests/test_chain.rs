@@ -62,7 +62,7 @@ fn vectored_read() {
             IoSlice::new(b4),
         ];
 
-        assert_eq!(2, buf.bytes_vectored(&mut iovecs));
+        assert_eq!(2, buf.chunk_vectored(&mut iovecs));
         assert_eq!(iovecs[0][..], b"hello"[..]);
         assert_eq!(iovecs[1][..], b"world"[..]);
         assert_eq!(iovecs[2][..], b""[..]);
@@ -83,7 +83,7 @@ fn vectored_read() {
             IoSlice::new(b4),
         ];
 
-        assert_eq!(2, buf.bytes_vectored(&mut iovecs));
+        assert_eq!(2, buf.chunk_vectored(&mut iovecs));
         assert_eq!(iovecs[0][..], b"llo"[..]);
         assert_eq!(iovecs[1][..], b"world"[..]);
         assert_eq!(iovecs[2][..], b""[..]);
@@ -104,7 +104,7 @@ fn vectored_read() {
             IoSlice::new(b4),
         ];
 
-        assert_eq!(1, buf.bytes_vectored(&mut iovecs));
+        assert_eq!(1, buf.chunk_vectored(&mut iovecs));
         assert_eq!(iovecs[0][..], b"world"[..]);
         assert_eq!(iovecs[1][..], b""[..]);
         assert_eq!(iovecs[2][..], b""[..]);
@@ -125,7 +125,7 @@ fn vectored_read() {
             IoSlice::new(b4),
         ];
 
-        assert_eq!(1, buf.bytes_vectored(&mut iovecs));
+        assert_eq!(1, buf.chunk_vectored(&mut iovecs));
         assert_eq!(iovecs[0][..], b"ld"[..]);
         assert_eq!(iovecs[1][..], b""[..]);
         assert_eq!(iovecs[2][..], b""[..]);

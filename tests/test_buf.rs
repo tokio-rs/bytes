@@ -9,17 +9,17 @@ fn test_fresh_cursor_vec() {
     let mut buf = &b"hello"[..];
 
     assert_eq!(buf.remaining(), 5);
-    assert_eq!(buf.bytes(), b"hello");
+    assert_eq!(buf.chunk(), b"hello");
 
     buf.advance(2);
 
     assert_eq!(buf.remaining(), 3);
-    assert_eq!(buf.bytes(), b"llo");
+    assert_eq!(buf.chunk(), b"llo");
 
     buf.advance(3);
 
     assert_eq!(buf.remaining(), 0);
-    assert_eq!(buf.bytes(), b"");
+    assert_eq!(buf.chunk(), b"");
 }
 
 #[test]
@@ -53,7 +53,7 @@ fn test_bufs_vec() {
 
     let mut dst = [IoSlice::new(b1), IoSlice::new(b2)];
 
-    assert_eq!(1, buf.bytes_vectored(&mut dst[..]));
+    assert_eq!(1, buf.chunk_vectored(&mut dst[..]));
 }
 
 #[test]
@@ -63,9 +63,9 @@ fn test_vec_deque() {
     let mut buffer: VecDeque<u8> = VecDeque::new();
     buffer.extend(b"hello world");
     assert_eq!(11, buffer.remaining());
-    assert_eq!(b"hello world", buffer.bytes());
+    assert_eq!(b"hello world", buffer.chunk());
     buffer.advance(6);
-    assert_eq!(b"world", buffer.bytes());
+    assert_eq!(b"world", buffer.chunk());
     buffer.extend(b" piece");
     let mut out = [0; 11];
     buffer.copy_to_slice(&mut out);
@@ -81,8 +81,8 @@ fn test_deref_buf_forwards() {
             unreachable!("remaining");
         }
 
-        fn bytes(&self) -> &[u8] {
-            unreachable!("bytes");
+        fn chunk(&self) -> &[u8] {
+            unreachable!("chunk");
         }
 
         fn advance(&mut self, _: usize) {

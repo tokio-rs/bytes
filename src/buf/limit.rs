@@ -61,8 +61,8 @@ unsafe impl<T: BufMut> BufMut for Limit<T> {
         cmp::min(self.inner.remaining_mut(), self.limit)
     }
 
-    fn bytes_mut(&mut self) -> &mut UninitSlice {
-        let bytes = self.inner.bytes_mut();
+    fn chunk_mut(&mut self) -> &mut UninitSlice {
+        let bytes = self.inner.chunk_mut();
         let end = cmp::min(bytes.len(), self.limit);
         &mut bytes[..end]
     }
