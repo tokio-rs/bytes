@@ -1,3 +1,5 @@
+# 1.0.0 (December 19, 2020)
+
 # 0.6.0 (October 21, 2020)
 
 API polish in preparation for a 1.0 release.
