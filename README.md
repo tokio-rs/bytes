@@ -18,7 +18,7 @@ To use `bytes`, first add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-bytes = "0.6"
+bytes = "1.0"
 ```
 
 Next, add this to your crate:
@@ -33,7 +33,7 @@ Serde support is optional and disabled by default. To enable use the feature `se
 
 ```toml
 [dependencies]
-bytes = { version = "0.6", features = ["serde"] }
+bytes = { version = "1.0", features = ["serde"] }
 ```
 
 ## License
