@@ -19,7 +19,6 @@ readme = "README.md"
 keywords = ["buffers", "zero-copy", "io"]
 categories = ["network-programming", "data-structures"]
 edition = "2018"
-publish = false
 
 [features]
 default = ["std"]

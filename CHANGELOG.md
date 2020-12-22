@@ -1,6 +1,9 @@
-# 1.0.0 (unreleased)
+# 1.0.0 (December 22, 2020)
 
+### Changed
 - Rename Buf/BufMut, methods to chunk/chunk_mut (#450)
+
+### Removed
 - remove unused Buf implementation. (#449)
 
 # 0.6.0 (October 21, 2020)
