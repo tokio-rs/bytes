@@ -442,38 +442,17 @@ fn reserve_growth() {
     bytes.put("hello world".as_bytes());
     let _ = bytes.split();
 
+    // There are 53 bytes left in `bytes` after this
+    // We expect a doubling of capacity to 106
     bytes.reserve(65);
-    assert_eq!(bytes.capacity(), 128);
+    assert_eq!(bytes.capacity(), 106);
 }
 
 #[test]
-fn reserve_allocates_at_least_original_capacity() {
-    let mut bytes = BytesMut::with_capacity(1024);
-
-    for i in 0..1020 {
-        bytes.put_u8(i as u8);
-    }
-
-    let _other = bytes.split();
-
-    bytes.reserve(16);
-    assert_eq!(bytes.capacity(), 1024);
-}
-
-#[test]
-fn reserve_max_original_capacity_value() {
-    const SIZE: usize = 128 * 1024;
-
-    let mut bytes = BytesMut::with_capacity(SIZE);
-
-    for _ in 0..SIZE {
-        bytes.put_u8(0u8);
-    }
-
-    let _other = bytes.split();
-
-    bytes.reserve(16);
-    assert_eq!(bytes.capacity(), 64 * 1024);
+fn reserve_at_least_8_bytes() {
+    let mut bytes = BytesMut::new();
+    bytes.put("hello".as_bytes());
+    assert_eq!(bytes.capacity(), 8);
 }
 
 #[test]
@@ -481,12 +460,14 @@ fn reserve_vec_recycling() {
     let mut bytes = BytesMut::with_capacity(16);
     assert_eq!(bytes.capacity(), 16);
     let addr = bytes.as_ptr() as usize;
-    bytes.put("0123456789012345".as_bytes());
+    bytes.put("0123456789abcdef".as_bytes());
     assert_eq!(bytes.as_ptr() as usize, addr);
     bytes.advance(10);
+    assert_eq!("abcdef".as_bytes(), bytes);
     assert_eq!(bytes.capacity(), 6);
     bytes.reserve(8);
     assert_eq!(bytes.capacity(), 16);
+    assert_eq!("abcdef".as_bytes(), bytes);
     assert_eq!(bytes.as_ptr() as usize, addr);
 }
 
@@ -524,6 +505,43 @@ fn reserve_in_arc_nonunique_does_not_overallocate() {
     assert_eq!(1000, bytes.capacity());
     bytes.reserve(2001);
     assert_eq!(2001, bytes.capacity());
+}
+
+#[test]
+fn access_empty_bytes() {
+    let mut bytes = BytesMut::new();
+    assert_eq!(0, bytes.as_ref().len());
+    assert_eq!(0, bytes.as_mut().len());
+
+    let bytes = bytes.freeze();
+    assert_eq!(0, bytes[..].len());
+    let bytes2 = bytes.clone();
+    assert_eq!(0, bytes2[..].len());
+}
+
+#[test]
+fn split_empty_bytes() {
+    let mut bytes = BytesMut::new();
+    let bytes1 = bytes.split();
+    let bytes2 = bytes.split_off(0);
+    let bytes3 = bytes.split_to(0);
+
+    for b in &mut [bytes, bytes1, bytes2, bytes3] {
+        assert_eq!(0, b.as_ref().len());
+        assert_eq!(0, b.as_mut().len());
+        assert_eq!(0, b.capacity());
+    }
+}
+
+#[test]
+fn unsplit_empty_bytes() {
+    let mut bytes = BytesMut::new();
+    let bytes1 = bytes.split();
+    bytes.unsplit(bytes1);
+
+    assert_eq!(0, bytes.as_ref().len());
+    assert_eq!(0, bytes.as_mut().len());
+    assert_eq!(0, bytes.capacity());
 }
 
 #[test]
