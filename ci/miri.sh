@@ -8,3 +8,4 @@ rustup default "$MIRI_NIGHTLY"
 rustup component add miri
 
 cargo miri test
+cargo miri test --target mips64-unknown-linux-gnuabi64

@@ -610,7 +610,7 @@ fn advance_past_len() {
 #[test]
 // Only run these tests on little endian systems. CI uses qemu for testing
 // big endian... and qemu doesn't really support threading all that well.
-#[cfg(target_endian = "little")]
+#[cfg(any(miri, target_endian = "little"))]
 fn stress() {
     // Tests promoting a buffer from a vec -> shared in a concurrent situation
     use std::sync::{Arc, Barrier};
