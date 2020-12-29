@@ -1023,33 +1023,35 @@ unsafe fn shallow_clone_vec(
     // `Release` is used synchronize with other threads that
     // will load the `arc` field.
     //
-    // If the `compare_and_swap` fails, then the thread lost the
+    // If the `compare_exchange` fails, then the thread lost the
     // race to promote the buffer to shared. The `Acquire`
-    // ordering will synchronize with the `compare_and_swap`
+    // ordering will synchronize with the `compare_exchange`
     // that happened in the other thread and the `Shared`
     // pointed to by `actual` will be visible.
-    let actual = atom.compare_and_swap(ptr as _, shared as _, Ordering::AcqRel);
+    match atom.compare_exchange(ptr as _, shared as _, Ordering::AcqRel, Ordering::Acquire) {
+        Ok(actual) => {
+            debug_assert!(actual as usize == ptr as usize);
+            // The upgrade was successful, the new handle can be
+            // returned.
+            Bytes {
+                ptr: offset,
+                len,
+                data: AtomicPtr::new(shared as _),
+                vtable: &SHARED_VTABLE,
+            }
+        }
+        Err(actual) => {
+            // The upgrade failed, a concurrent clone happened. Release
+            // the allocation that was made in this thread, it will not
+            // be needed.
+            let shared = Box::from_raw(shared);
+            mem::forget(*shared);
 
-    if actual as usize == ptr as usize {
-        // The upgrade was successful, the new handle can be
-        // returned.
-        return Bytes {
-            ptr: offset,
-            len,
-            data: AtomicPtr::new(shared as _),
-            vtable: &SHARED_VTABLE,
-        };
+            // Buffer already promoted to shared storage, so increment ref
+            // count.
+            shallow_clone_arc(actual as _, offset, len)
+        }
     }
-
-    // The upgrade failed, a concurrent clone happened. Release
-    // the allocation that was made in this thread, it will not
-    // be needed.
-    let shared = Box::from_raw(shared);
-    mem::forget(*shared);
-
-    // Buffer already promoted to shared storage, so increment ref
-    // count.
-    shallow_clone_arc(actual as _, offset, len)
 }
 
 unsafe fn release_shared(ptr: *mut Shared) {
