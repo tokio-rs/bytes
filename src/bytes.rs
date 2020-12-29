@@ -1039,7 +1039,7 @@ unsafe fn shallow_clone_vec(
                 data: AtomicPtr::new(shared as _),
                 vtable: &SHARED_VTABLE,
             }
-        },
+        }
         Err(actual) => {
             // The upgrade failed, a concurrent clone happened. Release
             // the allocation that was made in this thread, it will not
