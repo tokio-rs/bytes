@@ -1028,7 +1028,9 @@ unsafe fn shallow_clone_vec(
     // ordering will synchronize with the `compare_and_swap`
     // that happened in the other thread and the `Shared`
     // pointed to by `actual` will be visible.
-    let actual = atom.compare_and_swap(ptr as _, shared as _, Ordering::AcqRel);
+    let actual = atom
+        .compare_exchange(ptr as _, shared as _, Ordering::AcqRel, Ordering::Acquire)
+        .unwrap_or_else(|x| x);
 
     if actual as usize == ptr as usize {
         // The upgrade was successful, the new handle can be
