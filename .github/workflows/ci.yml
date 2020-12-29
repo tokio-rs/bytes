@@ -123,6 +123,13 @@ jobs:
         run: rustup component add rust-src
       - name: ASAN / TSAN
         run: . ci/tsan.sh
+  miri:
+    name: miri
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Miri
+        run: ci/miri.sh
 
   # Loom
   loom:
