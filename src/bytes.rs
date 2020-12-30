@@ -806,8 +806,7 @@ impl From<Vec<u8>> for Bytes {
 
         let slice = vec.into_boxed_slice();
         let len = slice.len();
-        let ptr = slice.as_ptr();
-        drop(Box::into_raw(slice));
+        let ptr = Box::into_raw(slice) as *mut u8;
 
         if ptr as usize & 0x1 == 0 {
             let data = ptr as usize | KIND_VEC;
