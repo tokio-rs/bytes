@@ -1047,7 +1047,6 @@ unsafe impl BufMut for Vec<u8> {
 
     // Specialize these methods so they can skip checking `remaining_mut`
     // and `advance_mut`.
-
     fn put<T: super::Buf>(&mut self, mut src: T)
     where
         Self: Sized,
@@ -1069,6 +1068,7 @@ unsafe impl BufMut for Vec<u8> {
         }
     }
 
+    #[inline]
     fn put_slice(&mut self, src: &[u8]) {
         self.extend_from_slice(src);
     }
