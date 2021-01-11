@@ -6,14 +6,14 @@ name = "bytes"
 # - Update CHANGELOG.md.
 # - Update doc URL.
 # - Create "v1.0.x" git tag.
-version = "1.0.0"
+version = "1.0.1"
 license = "MIT"
 authors = [
     "Carl Lerche <me@carllerche.com>",
     "Sean McArthur <sean@seanmonstar.com>",
 ]
 description = "Types and traits for working with bytes"
-documentation = "https://docs.rs/bytes/1.0.0/bytes/"
+documentation = "https://docs.rs/bytes/1.0.1/bytes/"
 repository = "https://github.com/tokio-rs/bytes"
 readme = "README.md"
 keywords = ["buffers", "zero-copy", "io"]

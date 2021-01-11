@@ -1,3 +1,12 @@
+# 1.0.1 (January 11, 2021)
+
+### Changed
+- mark `Vec::put_slice` with `#[inline]` (#459)
+
+### Fixed
+- Fix deprecation warning (#457)
+- use `Box::into_raw` instead of `mem::forget`-in-disguise (#458)
+
 # 1.0.0 (December 22, 2020)
 
 ### Changed
