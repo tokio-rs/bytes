@@ -136,6 +136,39 @@ impl UninitSlice {
     pub fn len(&self) -> usize {
         self.0.len()
     }
+
+    /// Divides one mutable slice into two at an index.
+    ///
+    /// The first will contain all indices from `[0, mid)` (excluding the index
+    /// `mid` itself) and the second will contain all indices from [mid, len)
+    /// (excluding the index `len` itself).
+    ///
+    /// # Panics
+    ///
+    /// Panics if `mid > len`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::BufMut;
+    ///
+    /// let mut data = [0, 1, 2];
+    /// let mut slice = &mut data[..];
+    /// let chunk = BufMut::chunk_mut(&mut slice);
+    ///
+    /// let (left, right) = chunk.split_at_mut(2);
+    /// left.copy_from_slice(&[3, 4]);
+    ///
+    /// assert_eq!(data, [3, 4, 2]);
+    /// ```
+    pub fn split_at_mut(&mut self, mid: usize) -> (&mut UninitSlice, &mut UninitSlice) {
+        let (left, right) = self.0.split_at_mut(mid);
+        unsafe {
+            let left = UninitSlice::from_raw_parts_mut(left.as_mut_ptr() as *mut u8, left.len());
+            let right = UninitSlice::from_raw_parts_mut(right.as_mut_ptr() as *mut u8, right.len());
+            (left, right)
+        }
+    }
 }
 
 impl fmt::Debug for UninitSlice {
