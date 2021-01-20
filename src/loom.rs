@@ -1,3 +1,5 @@
+#![cfg_attr(not(feature = "std"), allow(unused_imports))]
+
 #[cfg(not(all(test, loom)))]
 pub(crate) mod sync {
     pub(crate) mod atomic {

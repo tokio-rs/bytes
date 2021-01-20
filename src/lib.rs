@@ -5,6 +5,7 @@
 ))]
 #![doc(html_root_url = "https://docs.rs/bytes/1.0.1")]
 #![no_std]
+#![cfg_attr(bytes_unstable, feature(cfg_target_has_atomic))]
 
 //! Provides abstractions for working with bytes.
 //!
@@ -84,17 +85,23 @@ extern crate std;
 pub mod buf;
 pub use crate::buf::{Buf, BufMut};
 
+#[cfg_attr(bytes_unstable, cfg(target_has_atomic = "ptr"))]
 mod bytes;
+#[cfg_attr(bytes_unstable, cfg(target_has_atomic = "ptr"))]
 mod bytes_mut;
+#[cfg_attr(bytes_unstable, cfg(target_has_atomic = "ptr"))]
 mod fmt;
 mod loom;
+#[cfg_attr(bytes_unstable, cfg(target_has_atomic = "ptr"))]
 pub use crate::bytes::Bytes;
+#[cfg_attr(bytes_unstable, cfg(target_has_atomic = "ptr"))]
 pub use crate::bytes_mut::BytesMut;
 
 // Optional Serde support
 #[cfg(feature = "serde")]
 mod serde;
 
+#[cfg_attr(bytes_unstable, cfg(target_has_atomic = "ptr"))]
 #[inline(never)]
 #[cold]
 fn abort() -> ! {
