@@ -160,6 +160,8 @@ jobs:
         run: rustup update stable && rustup default stable
       - name: Build documentation
         run: cargo doc --no-deps --all-features
+        env:
+          RUSTDOCFLAGS: --cfg docsrs
       - name: Publish documentation
         run: |
           cd target/doc
