@@ -366,6 +366,8 @@ impl BytesMut {
             self.len(),
         );
 
+        let at = cmp::min(at, self.len());
+
         unsafe {
             let mut other = self.shallow_clone();
             other.set_end(at);

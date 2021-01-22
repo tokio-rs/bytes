@@ -170,13 +170,6 @@ fn split_off() {
 }
 
 #[test]
-#[should_panic]
-fn split_off_oob() {
-    let mut hello = Bytes::from(&b"helloworld"[..]);
-    let _ = hello.split_off(44);
-}
-
-#[test]
 fn split_off_uninitialized() {
     let mut bytes = BytesMut::with_capacity(1024);
     let other = bytes.split_off(128);
@@ -268,13 +261,6 @@ fn split_to_2() {
 
 #[test]
 #[should_panic]
-fn split_to_oob() {
-    let mut hello = Bytes::from(&b"helloworld"[..]);
-    let _ = hello.split_to(33);
-}
-
-#[test]
-#[should_panic]
 fn split_to_oob_mut() {
     let mut hello = BytesMut::from(&b"helloworld"[..]);
     let _ = hello.split_to(33);
@@ -295,20 +281,17 @@ fn split_off_to_at_gt_len() {
         bytes.freeze()
     }
 
-    use std::panic;
+    let result = make_bytes().split_to(4);
+    assert_eq!(result.len(), 4);
 
-    let _ = make_bytes().split_to(4);
-    let _ = make_bytes().split_off(4);
+    let result = make_bytes().split_off(4);
+    assert_eq!(result.len(), 0);
 
-    assert!(panic::catch_unwind(move || {
-        let _ = make_bytes().split_to(5);
-    })
-    .is_err());
+    let result = make_bytes().split_to(5);
+    assert_eq!(result.len(), 4);
 
-    assert!(panic::catch_unwind(move || {
-        let _ = make_bytes().split_off(5);
-    })
-    .is_err());
+    let result = make_bytes().split_off(5);
+    assert_eq!(result.len(), 0);
 }
 
 #[test]

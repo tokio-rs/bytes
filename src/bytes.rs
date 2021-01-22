@@ -344,20 +344,9 @@ impl Bytes {
     /// assert_eq!(&a[..], b"hello");
     /// assert_eq!(&b[..], b" world");
     /// ```
-    ///
-    /// # Panics
-    ///
-    /// Panics if `at > len`.
     #[must_use = "consider Bytes::truncate if you don't need the other half"]
     pub fn split_off(&mut self, at: usize) -> Bytes {
-        assert!(
-            at <= self.len(),
-            "split_off out of bounds: {:?} <= {:?}",
-            at,
-            self.len(),
-        );
-
-        if at == self.len() {
+        if at >= self.len() {
             return Bytes::new();
         }
 
@@ -393,20 +382,9 @@ impl Bytes {
     /// assert_eq!(&a[..], b" world");
     /// assert_eq!(&b[..], b"hello");
     /// ```
-    ///
-    /// # Panics
-    ///
-    /// Panics if `at > len`.
     #[must_use = "consider Bytes::advance if you don't need the other half"]
     pub fn split_to(&mut self, at: usize) -> Bytes {
-        assert!(
-            at <= self.len(),
-            "split_to out of bounds: {:?} <= {:?}",
-            at,
-            self.len(),
-        );
-
-        if at == self.len() {
+        if at >= self.len() {
             return mem::replace(self, Bytes::new());
         }
 
