@@ -162,8 +162,14 @@ impl BytesMut {
     /// assert_eq!(&b"xy"[..], &bytes[..]);
     /// ```
     #[inline]
+    #[cfg(not(all(loom, test)))]
+    pub const fn new() -> BytesMut {
+        Self::from_vec_inner(NonNull::dangling(), 0, 0)
+    }
+
+    #[cfg(all(loom, test))]
     pub fn new() -> BytesMut {
-        BytesMut::with_capacity(0)
+        Self::from_vec_inner(NonNull::dangling(), 0, 0)
     }
 
     /// Returns the number of bytes contained in this `BytesMut`.
@@ -739,12 +745,16 @@ impl BytesMut {
     // internal change could make a simple pattern (`BytesMut::from(vec)`)
     // suddenly a lot more expensive.
     #[inline]
-    pub(crate) fn from_vec(mut vec: Vec<u8>) -> BytesMut {
+    pub(crate) fn from_vec(vec: Vec<u8>) -> BytesMut {
+        let mut vec = ManuallyDrop::new(vec);
         let ptr = vptr(vec.as_mut_ptr());
         let len = vec.len();
         let cap = vec.capacity();
-        mem::forget(vec);
+        Self::from_vec_inner(ptr, len, cap)
+    }
 
+    #[inline(always)]
+    const fn from_vec_inner(ptr: NonNull<u8>, len: usize, cap: usize) -> BytesMut {
         let original_capacity_repr = original_capacity_to_repr(cap);
         let data = (original_capacity_repr << ORIGINAL_CAPACITY_OFFSET) | KIND_VEC;
 
@@ -1250,15 +1260,19 @@ impl Shared {
     }
 }
 
-fn original_capacity_to_repr(cap: usize) -> usize {
+#[inline]
+const fn original_capacity_to_repr(cap: usize) -> usize {
     let width = PTR_WIDTH - ((cap >> MIN_ORIGINAL_CAPACITY_WIDTH).leading_zeros() as usize);
-    cmp::min(
-        width,
-        MAX_ORIGINAL_CAPACITY_WIDTH - MIN_ORIGINAL_CAPACITY_WIDTH,
-    )
+    let max_capacity = MAX_ORIGINAL_CAPACITY_WIDTH - MIN_ORIGINAL_CAPACITY_WIDTH;
+    if width < max_capacity {
+        width
+    } else {
+        max_capacity
+    }
 }
 
-fn original_capacity_from_repr(repr: usize) -> usize {
+#[inline]
+const fn original_capacity_from_repr(repr: usize) -> usize {
     if repr == 0 {
         return 0;
     }
@@ -1476,6 +1490,7 @@ impl PartialEq<Bytes> for BytesMut {
     }
 }
 
+#[inline]
 fn vptr(ptr: *mut u8) -> NonNull<u8> {
     if cfg!(debug_assertions) {
         NonNull::new(ptr).expect("Vec pointer should be non-null")
