@@ -164,12 +164,13 @@ impl BytesMut {
     #[inline]
     #[cfg(not(all(loom, test)))]
     pub const fn new() -> BytesMut {
-        Self::from_vec_inner(NonNull::dangling(), 0, 0)
+        // original_capacity_to_repr(0) == 0; it can't be const in Rust 1.39 due to the min operation
+        Self::from_vec_inner(NonNull::dangling(), 0, 0, 0)
     }
 
     #[cfg(all(loom, test))]
     pub fn new() -> BytesMut {
-        Self::from_vec_inner(NonNull::dangling(), 0, 0)
+        Self::from_vec_inner(NonNull::dangling(), 0, 0, 0)
     }
 
     /// Returns the number of bytes contained in this `BytesMut`.
@@ -750,12 +751,19 @@ impl BytesMut {
         let ptr = vptr(vec.as_mut_ptr());
         let len = vec.len();
         let cap = vec.capacity();
-        Self::from_vec_inner(ptr, len, cap)
+
+        let original_capacity_repr = original_capacity_to_repr(cap);
+
+        Self::from_vec_inner(ptr, len, cap, original_capacity_repr)
     }
 
     #[inline(always)]
-    const fn from_vec_inner(ptr: NonNull<u8>, len: usize, cap: usize) -> BytesMut {
-        let original_capacity_repr = original_capacity_to_repr(cap);
+    const fn from_vec_inner(
+        ptr: NonNull<u8>,
+        len: usize,
+        cap: usize,
+        original_capacity_repr: usize,
+    ) -> BytesMut {
         let data = (original_capacity_repr << ORIGINAL_CAPACITY_OFFSET) | KIND_VEC;
 
         BytesMut {
@@ -1261,18 +1269,16 @@ impl Shared {
 }
 
 #[inline]
-const fn original_capacity_to_repr(cap: usize) -> usize {
+fn original_capacity_to_repr(cap: usize) -> usize {
     let width = PTR_WIDTH - ((cap >> MIN_ORIGINAL_CAPACITY_WIDTH).leading_zeros() as usize);
-    let max_capacity = MAX_ORIGINAL_CAPACITY_WIDTH - MIN_ORIGINAL_CAPACITY_WIDTH;
-    if width < max_capacity {
-        width
-    } else {
-        max_capacity
-    }
+    cmp::min(
+        width,
+        MAX_ORIGINAL_CAPACITY_WIDTH - MIN_ORIGINAL_CAPACITY_WIDTH,
+    )
 }
 
 #[inline]
-const fn original_capacity_from_repr(repr: usize) -> usize {
+fn original_capacity_from_repr(repr: usize) -> usize {
     if repr == 0 {
         return 0;
     }
