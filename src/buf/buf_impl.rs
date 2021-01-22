@@ -127,6 +127,8 @@ pub trait Buf {
     /// This function should never panic. Once the end of the buffer is reached,
     /// i.e., `Buf::remaining` returns 0, calls to `chunk()` should return an
     /// empty slice.
+    // The `chunk` method was previously called `bytes`. This alias makes the rename
+    // more easily discoverable.
     #[cfg_attr(docsrs, doc(alias = "bytes"))]
     fn chunk(&self) -> &[u8];
 
