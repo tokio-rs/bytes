@@ -158,6 +158,9 @@ pub unsafe trait BufMut {
     /// `chunk_mut()` returning an empty slice implies that `remaining_mut()` will
     /// return 0 and `remaining_mut()` returning 0 implies that `chunk_mut()` will
     /// return an empty slice.
+    // The `chunk_mut` method was previously called `bytes_mut`. This alias makes the
+    // rename more easily discoverable.
+    #[cfg_attr(docsrs, doc(alias = "bytes_mut"))]
     fn chunk_mut(&mut self) -> &mut UninitSlice;
 
     /// Transfer bytes into `self` from `src` and advance the cursor by the

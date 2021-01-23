@@ -10,7 +10,7 @@
 # 1.0.0 (December 22, 2020)
 
 ### Changed
-- Rename Buf/BufMut, methods to chunk/chunk_mut (#450)
+- Rename `Buf`/`BufMut` methods `bytes()` and `bytes_mut()` to `chunk()` and `chunk_mut()` (#450)
 
 ### Removed
 - remove unused Buf implementation. (#449)

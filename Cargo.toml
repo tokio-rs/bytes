@@ -32,3 +32,6 @@ serde_test = "1.0"
 
 [target.'cfg(loom)'.dev-dependencies]
 loom = "0.4"
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--cfg", "docsrs"]
