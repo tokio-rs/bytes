@@ -1,3 +1,6 @@
+### Fixed
+- `Take::chunks_vectored` returns as much as possible.
+
 # 1.0.1 (January 11, 2021)
 
 ### Changed

@@ -1,6 +1,8 @@
 use crate::Buf;
 
 use core::cmp;
+#[cfg(feature = "std")]
+use std::io::IoSlice;
 
 /// A `Buf` adapter which limits the bytes read from an underlying buffer.
 ///
@@ -143,5 +145,32 @@ impl<T: Buf> Buf for Take<T> {
         assert!(cnt <= self.limit);
         self.inner.advance(cnt);
         self.limit -= cnt;
+    }
+
+    #[cfg(feature = "std")]
+    fn chunks_vectored<'a>(&'a self, dst: &mut [IoSlice<'a>]) -> usize {
+        let filled = self.inner.chunks_vectored(dst);
+
+        // There's a change the inner provided more than our limit, truncate.
+        if self.limit < self.inner.remaining() {
+            let mut limit = self.limit;
+            for (idx, s) in dst.iter_mut().enumerate() {
+                if limit <= s.len() {
+                    // Safety:
+                    // The actual slice inside the IoSlice comes from self.inner, so it really has
+                    // the 'a lifetime. But s comes from dst and the only way how to get to that
+                    // slice again is through its deref, so that shortens the lifetime to that of
+                    // dst artificially. So we have to extend it back again, but it won't be
+                    // extended beyond that of 'a.
+                    let slice = unsafe { std::slice::from_raw_parts(s.as_ptr(), limit) };
+                    *s = IoSlice::new(slice);
+                    return idx + 1;
+                } else {
+                    limit -= s.len();
+                }
+            }
+        }
+
+        filled
     }
 }
