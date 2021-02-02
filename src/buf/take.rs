@@ -1,4 +1,4 @@
-use crate::Buf;
+use crate::{Buf, Bytes};
 
 use core::cmp;
 
@@ -143,5 +143,16 @@ impl<T: Buf> Buf for Take<T> {
         assert!(cnt <= self.limit);
         self.inner.advance(cnt);
         self.limit -= cnt;
+    }
+
+    fn copy_to_bytes(&mut self, len: usize) -> Bytes {
+        // The inner shall check its own limits too
+        assert!(len <= self.limit, "`len` greater than remaining");
+
+        let result = self.inner.copy_to_bytes(len);
+        // Update it by the size actually consumed (in case it is shorter and opts to consume the
+        // rest instead of panicking)
+        self.limit -= result.len();
+        result
     }
 }

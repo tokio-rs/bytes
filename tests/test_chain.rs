@@ -132,3 +132,14 @@ fn vectored_read() {
         assert_eq!(iovecs[3][..], b""[..]);
     }
 }
+
+#[test]
+fn copy_to_bytes() {
+    let a = Bytes::from(&b"hello"[..]);
+    let b = Bytes::from(&b"world"[..]);
+
+    let mut buf = a.chain(b);
+    assert_eq!(&b"hell"[..], buf.copy_to_bytes(4));
+    assert_eq!(&b"ow"[..], buf.copy_to_bytes(2));
+    assert_eq!(&b"orld"[..], buf.copy_to_bytes(4));
+}

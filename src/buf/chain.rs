@@ -1,5 +1,5 @@
 use crate::buf::{IntoIter, UninitSlice};
-use crate::{Buf, BufMut};
+use crate::{Buf, BufMut, Bytes, BytesMut};
 
 #[cfg(feature = "std")]
 use std::io::IoSlice;
@@ -169,6 +169,22 @@ where
         let mut n = self.a.chunks_vectored(dst);
         n += self.b.chunks_vectored(&mut dst[n..]);
         n
+    }
+
+    fn copy_to_bytes(&mut self, len: usize) -> Bytes {
+        match self.a.remaining() {
+            0 => self.b.copy_to_bytes(len),
+            a_rem if a_rem >= len => self.a.copy_to_bytes(len),
+            a_rem => {
+                assert!(
+                    len <= a_rem + self.b.remaining(),
+                    "`len` greater than remaining"
+                );
+                let mut ret = BytesMut::with_capacity(len);
+                ret.put(self.take(len));
+                ret.freeze()
+            }
+        }
     }
 }
 
