@@ -1221,7 +1221,6 @@ impl std::io::Write for BytesMut {
     }
 }
 
-
 /*
  *
  * ===== Inner =====
