@@ -1191,6 +1191,37 @@ impl<'a> FromIterator<&'a u8> for BytesMut {
     }
 }
 
+/// Write is implemented for `BytesMut` by extending the buffer.
+/// The buffer will grow as needed.
+impl std::io::Write for BytesMut {
+    #[inline]
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.extend_from_slice(buf);
+        Ok(buf.len())
+    }
+
+    #[inline]
+    fn write_vectored(&mut self, bufs: &[std::io::IoSlice<'_>]) -> std::io::Result<usize> {
+        let len = bufs.iter().map(|b| b.len()).sum();
+        self.reserve(len);
+        for buf in bufs {
+            self.extend_from_slice(buf);
+        }
+        Ok(len)
+    }
+    #[inline]
+    fn write_all(&mut self, buf: &[u8]) -> std::io::Result<()> {
+        self.extend_from_slice(buf);
+        Ok(())
+    }
+
+    #[inline]
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+
 /*
  *
  * ===== Inner =====
