@@ -1193,6 +1193,7 @@ impl<'a> FromIterator<&'a u8> for BytesMut {
 
 /// Write is implemented for `BytesMut` by extending the buffer.
 /// The buffer will grow as needed.
+#[cfg(feature = "std")]
 impl std::io::Write for BytesMut {
     #[inline]
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
