@@ -121,8 +121,8 @@ fn copy_to_bytes_overflow() {
 
 #[test]
 fn fmt_write_bytesmut_test() {
-    use std::fmt::Write;
     use bytes::BytesMut;
+    use std::fmt::Write;
     let mut buf = BytesMut::with_capacity(64);
     write!(&mut buf, "hello").ok();
     assert_eq!(&buf[..], b"hello");
@@ -130,9 +130,9 @@ fn fmt_write_bytesmut_test() {
 
 #[test]
 fn io_write_bytesmut_test() {
-    use std::io::Write;
-    use bytes::BytesMut;
     use bytes::ext::BytesMutExt;
+    use bytes::BytesMut;
+    use std::io::Write;
     let mut buf = BytesMut::with_capacity(64);
     write!(&mut buf as &mut dyn BytesMutExt, "hello").ok();
     assert_eq!(&buf[..], b"hello");
@@ -140,11 +140,11 @@ fn io_write_bytesmut_test() {
 
 #[test]
 fn fmt_write_bytesmut_with_both_write_in_scope_test() {
+    use bytes::ext::BytesMutExt;
+    use bytes::BytesMut;
     #[allow(unused_imports)]
     use std::fmt::Write as FmtWrite;
     use std::io::Write as IoWrite;
-    use bytes::BytesMut;
-    use bytes::ext::BytesMutExt;
     let mut buf = BytesMut::with_capacity(64);
     write!(&mut buf as &mut dyn BytesMutExt, "hello").ok();
     assert_eq!(&buf[..], b"hello");
