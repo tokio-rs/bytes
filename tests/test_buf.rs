@@ -119,6 +119,7 @@ fn copy_to_bytes_overflow() {
     let _bytes = buf.copy_to_bytes(12);
 }
 
+#[cfg(feature = "std")]
 #[test]
 fn fmt_write_bytesmut_test() {
     use bytes::BytesMut;
@@ -128,6 +129,7 @@ fn fmt_write_bytesmut_test() {
     assert_eq!(&buf[..], b"hello");
 }
 
+#[cfg(feature = "std")]
 #[test]
 fn io_write_bytesmut_test() {
     use bytes::ext::BytesMutExt;
@@ -138,6 +140,7 @@ fn io_write_bytesmut_test() {
     assert_eq!(&buf[..], b"hello");
 }
 
+#[cfg(feature = "std")]
 #[test]
 fn fmt_write_bytesmut_with_both_write_in_scope_test() {
     use bytes::ext::BytesMutExt;
