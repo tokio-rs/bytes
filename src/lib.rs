@@ -115,3 +115,66 @@ fn abort() -> ! {
         panic!("abort");
     }
 }
+
+/// extension traits
+pub mod ext {
+    /// extension trait for BytesMut
+    pub trait BytesMutExt {
+        /// extension trait for BytesMut
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize>;
+        /// extension trait for BytesMut
+        fn write_vectored(&mut self, bufs: &[std::io::IoSlice<'_>]) -> std::io::Result<usize>;
+        /// extension trait for BytesMut
+        fn write_all(&mut self, buf: &[u8]) -> std::io::Result<()>;
+        /// extension trait for BytesMut
+        fn flush(&mut self) -> std::io::Result<()>;
+    }
+    impl BytesMutExt for super::BytesMut {
+        #[inline]
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            self.extend_from_slice(buf);
+            Ok(buf.len())
+        }
+
+        #[inline]
+        fn write_vectored(&mut self, bufs: &[std::io::IoSlice<'_>]) -> std::io::Result<usize> {
+            let len = bufs.iter().map(|b| b.len()).sum();
+            self.reserve(len);
+            for buf in bufs {
+                self.extend_from_slice(buf);
+            }
+            Ok(len)
+        }
+        #[inline]
+        fn write_all(&mut self, buf: &[u8]) -> std::io::Result<()> {
+            self.extend_from_slice(buf);
+            Ok(())
+        }
+
+        #[inline]
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    impl std::io::Write for dyn BytesMutExt {
+        #[inline]
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            self.write(buf)
+        }
+
+        #[inline]
+        fn write_vectored(&mut self, bufs: &[std::io::IoSlice<'_>]) -> std::io::Result<usize> {
+            self.write_vectored(bufs)
+        }
+        #[inline]
+        fn write_all(&mut self, buf: &[u8]) -> std::io::Result<()> {
+            self.write_all(buf)
+        }
+
+        #[inline]
+        fn flush(&mut self) -> std::io::Result<()> {
+            self.flush()
+        }
+    }
+}
