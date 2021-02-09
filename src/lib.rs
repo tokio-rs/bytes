@@ -116,7 +116,6 @@ fn abort() -> ! {
     }
 }
 
-
 /// extension traits
 #[cfg(feature = "std")]
 pub mod ext {
