@@ -1,4 +1,5 @@
 #![warn(rust_2018_idioms)]
+#![cfg(feature = "alloc")]
 
 use bytes::buf::UninitSlice;
 use bytes::{BufMut, BytesMut};

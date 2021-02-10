@@ -1,9 +1,14 @@
 #![warn(rust_2018_idioms)]
 
-use bytes::{Buf, BufMut, Bytes};
+use bytes::{Buf, BufMut};
+
+#[cfg(feature = "alloc")]
+use bytes::BytesMut;
+
 #[cfg(feature = "std")]
 use std::io::IoSlice;
 
+#[cfg(feature = "alloc")]
 #[test]
 fn collect_two_bufs() {
     let a = Bytes::from(&b"hello"[..]);
@@ -33,6 +38,7 @@ fn writing_chained() {
     }
 }
 
+#[cfg(feature = "alloc")]
 #[test]
 fn iterating_two_bufs() {
     let a = Bytes::from(&b"hello"[..]);

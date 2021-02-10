@@ -84,11 +84,16 @@ extern crate std;
 pub mod buf;
 pub use crate::buf::{Buf, BufMut};
 
+#[cfg(feature = "alloc")]
 mod bytes;
+#[cfg(feature = "alloc")]
 mod bytes_mut;
+#[cfg(feature = "alloc")]
 mod fmt;
 mod loom;
+#[cfg(feature = "alloc")]
 pub use crate::bytes::Bytes;
+#[cfg(feature = "alloc")]
 pub use crate::bytes_mut::BytesMut;
 
 // Optional Serde support

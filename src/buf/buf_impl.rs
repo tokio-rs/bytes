@@ -7,6 +7,7 @@ use core::{cmp, mem, ptr};
 #[cfg(feature = "std")]
 use std::io::IoSlice;
 
+#[cfg(feature = "alloc")]
 use alloc::boxed::Box;
 
 macro_rules! buf_get_impl {
@@ -813,6 +814,7 @@ pub trait Buf {
     /// let bytes = (&b"hello world"[..]).copy_to_bytes(5);
     /// assert_eq!(&bytes[..], &b"hello"[..]);
     /// ```
+    #[cfg(feature = "alloc")]
     fn copy_to_bytes(&mut self, len: usize) -> crate::Bytes {
         use super::BufMut;
 
@@ -1004,6 +1006,7 @@ macro_rules! deref_forward_buf {
             (**self).get_int_le(nbytes)
         }
 
+        #[cfg(feature = "alloc")]
         fn copy_to_bytes(&mut self, len: usize) -> crate::Bytes {
             (**self).copy_to_bytes(len)
         }
@@ -1014,6 +1017,7 @@ impl<T: Buf + ?Sized> Buf for &mut T {
     deref_forward_buf!();
 }
 
+#[cfg(feature = "alloc")]
 impl<T: Buf + ?Sized> Buf for Box<T> {
     deref_forward_buf!();
 }

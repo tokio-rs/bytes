@@ -4,6 +4,7 @@ use crate::buf::{writer, Writer};
 
 use core::{cmp, mem, ptr, usize};
 
+#[cfg(feature = "alloc")]
 use alloc::{boxed::Box, vec::Vec};
 
 /// A trait for values that provide sequential write access to bytes.
@@ -990,6 +991,7 @@ unsafe impl<T: BufMut + ?Sized> BufMut for &mut T {
     deref_forward_bufmut!();
 }
 
+#[cfg(feature = "alloc")]
 unsafe impl<T: BufMut + ?Sized> BufMut for Box<T> {
     deref_forward_bufmut!();
 }
@@ -1014,6 +1016,7 @@ unsafe impl BufMut for &mut [u8] {
     }
 }
 
+#[cfg(feature = "alloc")]
 unsafe impl BufMut for Vec<u8> {
     #[inline]
     fn remaining_mut(&self) -> usize {
