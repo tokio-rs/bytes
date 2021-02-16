@@ -135,7 +135,7 @@ where
     U: Buf,
 {
     fn remaining(&self) -> usize {
-        self.a.remaining() + self.b.remaining()
+        self.a.remaining().checked_add(self.b.remaining()).unwrap()
     }
 
     fn chunk(&self) -> &[u8] {
@@ -178,7 +178,10 @@ where
     U: BufMut,
 {
     fn remaining_mut(&self) -> usize {
-        self.a.remaining_mut() + self.b.remaining_mut()
+        self.a
+            .remaining_mut()
+            .checked_add(self.b.remaining_mut())
+            .unwrap()
     }
 
     fn chunk_mut(&mut self) -> &mut UninitSlice {
