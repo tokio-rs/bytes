@@ -70,6 +70,9 @@ fn test_mut_slice() {
     let mut v = vec![0, 0, 0, 0];
     let mut s = &mut v[..];
     s.put_u32(42);
+
+    assert_eq!(s.len(), 0);
+    assert_eq!(&v, &[0, 0, 0, 42]);
 }
 
 #[test]

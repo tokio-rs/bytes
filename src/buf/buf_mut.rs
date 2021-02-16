@@ -1012,6 +1012,14 @@ unsafe impl BufMut for &mut [u8] {
         let (_, b) = core::mem::replace(self, &mut []).split_at_mut(cnt);
         *self = b;
     }
+
+    #[inline]
+    fn put_slice(&mut self, src: &[u8]) {
+        self[..src.len()].copy_from_slice(src);
+        unsafe {
+            self.advance_mut(src.len());
+        }
+    }
 }
 
 unsafe impl BufMut for Vec<u8> {
