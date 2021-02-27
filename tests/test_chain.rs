@@ -132,3 +132,16 @@ fn vectored_read() {
         assert_eq!(iovecs[3][..], b""[..]);
     }
 }
+
+#[test]
+fn chain_growing_buffer() {
+    let mut buff = [' ' as u8; 10];
+    let mut vec = b"wassup".to_vec();
+
+    let mut chained = (&mut buff[..]).chain_mut(&mut vec);
+
+    chained.put_slice(b"hey there123123");
+
+    assert_eq!(&buff, b"hey there1");
+    assert_eq!(&vec, b"wassup23123");
+}
