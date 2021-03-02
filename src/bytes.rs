@@ -862,17 +862,35 @@ unsafe fn static_drop(_: &mut AtomicPtr<()>, _: *const u8, _: usize) {
 
 // ===== impl PromotableVtable =====
 
+trait PromotableEvenness {
+    const SLICE_PTR_IS_ODD: bool;
+}
+
+struct PromotableEven;
+struct PromotableOdd;
+
+impl PromotableEvenness for PromotableEven {
+    const SLICE_PTR_IS_ODD: bool = false;
+}
+impl PromotableEvenness for PromotableOdd {
+    const SLICE_PTR_IS_ODD: bool = true;
+}
+
 static PROMOTABLE_EVEN_VTABLE: Vtable = Vtable {
-    clone: promotable_even_clone,
-    drop: promotable_even_drop,
+    clone: promotable_clone::<PromotableEven>,
+    drop: promotable_drop::<PromotableEven>,
 };
 
 static PROMOTABLE_ODD_VTABLE: Vtable = Vtable {
-    clone: promotable_odd_clone,
-    drop: promotable_odd_drop,
+    clone: promotable_clone::<PromotableOdd>,
+    drop: promotable_drop::<PromotableOdd>,
 };
 
-unsafe fn promotable_even_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Bytes {
+unsafe fn promotable_clone<E: PromotableEvenness>(
+    data: &AtomicPtr<()>,
+    ptr: *const u8,
+    len: usize,
+) -> Bytes {
     let shared = data.load(Ordering::Acquire);
     let kind = shared as usize & KIND_MASK;
 
@@ -880,12 +898,19 @@ unsafe fn promotable_even_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize
         shallow_clone_arc(shared as _, ptr, len)
     } else {
         debug_assert_eq!(kind, KIND_VEC);
-        let buf = (shared as usize & !KIND_MASK) as *mut u8;
+        let buf = match E::SLICE_PTR_IS_ODD {
+            false => (shared as usize & !KIND_MASK) as *mut u8,
+            true => shared as *mut u8,
+        };
         shallow_clone_vec(data, shared, buf, ptr, len)
     }
 }
 
-unsafe fn promotable_even_drop(data: &mut AtomicPtr<()>, ptr: *const u8, len: usize) {
+unsafe fn promotable_drop<E: PromotableEvenness>(
+    data: &mut AtomicPtr<()>,
+    ptr: *const u8,
+    len: usize,
+) {
     data.with_mut(|shared| {
         let shared = *shared;
         let kind = shared as usize & KIND_MASK;
@@ -894,35 +919,11 @@ unsafe fn promotable_even_drop(data: &mut AtomicPtr<()>, ptr: *const u8, len: us
             release_shared(shared as *mut Shared);
         } else {
             debug_assert_eq!(kind, KIND_VEC);
-            let buf = (shared as usize & !KIND_MASK) as *mut u8;
+            let buf = match E::SLICE_PTR_IS_ODD {
+                false => (shared as usize & !KIND_MASK) as *mut u8,
+                true => shared as *mut u8,
+            };
             drop(rebuild_boxed_slice(buf, ptr, len));
-        }
-    });
-}
-
-unsafe fn promotable_odd_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Bytes {
-    let shared = data.load(Ordering::Acquire);
-    let kind = shared as usize & KIND_MASK;
-
-    if kind == KIND_ARC {
-        shallow_clone_arc(shared as _, ptr, len)
-    } else {
-        debug_assert_eq!(kind, KIND_VEC);
-        shallow_clone_vec(data, shared, shared as *mut u8, ptr, len)
-    }
-}
-
-unsafe fn promotable_odd_drop(data: &mut AtomicPtr<()>, ptr: *const u8, len: usize) {
-    data.with_mut(|shared| {
-        let shared = *shared;
-        let kind = shared as usize & KIND_MASK;
-
-        if kind == KIND_ARC {
-            release_shared(shared as *mut Shared);
-        } else {
-            debug_assert_eq!(kind, KIND_VEC);
-
-            drop(rebuild_boxed_slice(shared as *mut u8, ptr, len));
         }
     });
 }
