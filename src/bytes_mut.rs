@@ -1054,6 +1054,19 @@ impl<'a> From<&'a str> for BytesMut {
     }
 }
 
+impl From<Vec<u8>> for BytesMut {
+    fn from(src: Vec<u8>) -> BytesMut {
+        BytesMut::from_vec(src)
+    }
+}
+
+impl From<Bytes> for BytesMut {
+    fn from(src: Bytes) -> BytesMut {
+        // TODO: can be optimized for certain `Bytes` representations
+        BytesMut::from(src.as_ref())
+    }
+}
+
 impl From<BytesMut> for Bytes {
     fn from(src: BytesMut) -> Bytes {
         src.freeze()
