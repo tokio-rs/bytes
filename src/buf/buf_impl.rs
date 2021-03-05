@@ -285,7 +285,7 @@ pub trait Buf {
     ///
     /// This function panics if there is no more remaining data in `self`.
     fn get_u8(&mut self) -> u8 {
-        assert!(self.remaining() >= 1);
+        assert!(self.chunk().len() >= 1);
         let ret = self.chunk()[0];
         self.advance(1);
         ret
@@ -308,7 +308,7 @@ pub trait Buf {
     ///
     /// This function panics if there is no more remaining data in `self`.
     fn get_i8(&mut self) -> i8 {
-        assert!(self.remaining() >= 1);
+        assert!(self.chunk().len() >= 1);
         let ret = self.chunk()[0] as i8;
         self.advance(1);
         ret
