@@ -125,8 +125,9 @@ pub trait Buf {
     /// # Implementer notes
     ///
     /// This function should never panic. Once the end of the buffer is reached,
-    /// i.e., `Buf::remaining` returns 0, calls to `chunk()` should return an
-    /// empty slice.
+    /// i.e., `Buf::remaining` returns 0, calls to `chunk()` must return an
+    /// empty slice. If there is remaining data, calls must return a slice with at
+    /// least 1 byte.
     // The `chunk` method was previously called `bytes`. This alias makes the rename
     // more easily discoverable.
     #[cfg_attr(docsrs, doc(alias = "bytes"))]
