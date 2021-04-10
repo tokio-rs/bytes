@@ -1250,6 +1250,7 @@ impl Shared {
     }
 }
 
+#[inline]
 fn original_capacity_to_repr(cap: usize) -> usize {
     let width = PTR_WIDTH - ((cap >> MIN_ORIGINAL_CAPACITY_WIDTH).leading_zeros() as usize);
     cmp::min(
@@ -1476,6 +1477,7 @@ impl PartialEq<Bytes> for BytesMut {
     }
 }
 
+#[inline]
 fn vptr(ptr: *mut u8) -> NonNull<u8> {
     if cfg!(debug_assertions) {
         NonNull::new(ptr).expect("Vec pointer should be non-null")
