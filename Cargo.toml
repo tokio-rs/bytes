@@ -31,7 +31,7 @@ serde = { version = "1.0.60", optional = true, default-features = false, feature
 serde_test = "1.0"
 
 [target.'cfg(loom)'.dev-dependencies]
-loom = "0.4"
+loom = "0.5"
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--cfg", "docsrs"]
