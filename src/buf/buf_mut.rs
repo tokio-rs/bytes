@@ -6,6 +6,10 @@ use core::{cmp, mem, ptr, usize};
 
 use alloc::{boxed::Box, vec::Vec};
 
+const MAX_VARINT_LEN_16: usize = 3;
+const MAX_VARINT_LEN_32: usize = 5;
+const MAX_VARINT_LEN_64: usize = 10;
+
 /// A trait for values that provide sequential write access to bytes.
 ///
 /// Write bytes to a buffer
@@ -650,6 +654,114 @@ pub unsafe trait BufMut {
     /// `self`.
     fn put_i128_le(&mut self, n: i128) {
         self.put_slice(&n.to_le_bytes())
+    }
+
+    /// Writes a unsigned 16-bit integer to `self`, encoded as varint, and return
+    /// the number of advancing of current position.
+    /// 
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::BufMut;
+    ///
+    /// let mut buf = vec![];
+    /// assert_eq!(2, buf.put_uvarint16(299));
+    /// assert_eq!(buf, b"\xAB\x02");
+    /// ```
+    fn put_uvarint16(&mut self, mut x: u16) -> usize {
+        let mut buf = [0u8; MAX_VARINT_LEN_16];
+        let mut n = 0;
+        while x > 0x7F {
+            // first bit is 1, last 7 bits from x 
+            buf[n] = 0x80 | ((x & 0x7F) as u8);
+            // remove last 7 bits
+            x >>= 7;
+            n += 1;
+        }
+        // put the remaining bits
+        buf[n] = x as u8;
+        n += 1;
+        self.put_slice(&buf[0..n]);
+        n
+    }
+
+    /// Writes a unsigned 32-bit integer to `self`, encoded as varint, and return
+    /// the number of advancing of current position.
+    fn put_uvarint32(&mut self, mut x: u32) -> usize {
+        let mut buf = [0u8; MAX_VARINT_LEN_32];
+        let mut n = 0;
+        while x > 0x7F {
+            // first bit is 1, last 7 bits from x 
+            buf[n] = 0x80 | ((x & 0x7F) as u8);
+            // remove last 7 bits
+            x >>= 7;
+            n += 1;
+        }
+        // put the remaining bits
+        buf[n] = x as u8;
+        n += 1;
+        self.put_slice(&buf[0..n]);
+        n
+    }
+
+    /// Writes a unsigned 64-bit integer to `self`, encoded as varint, and return
+    /// the number of advancing of current position.
+    fn put_uvarint64(&mut self, mut x: u64) -> usize {
+        let mut buf = [0u8; MAX_VARINT_LEN_64];
+        let mut n = 0;
+        while x > 0x7F {
+            // first bit is 1, last 7 bits from x 
+            buf[n] = 0x80 | ((x & 0x7F) as u8);
+            // remove last 7 bits
+            x >>= 7;
+            n += 1;
+        }
+        // put the remaining bits
+        buf[n] = x as u8;
+        n += 1;
+        self.put_slice(&buf[0..n]);
+        n
+    }
+
+    /// Writes a signed 16-bit integer to `self`, encoded as varint, and return
+    /// the number of advancing of current position.
+    /// 
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::BufMut;
+    ///
+    /// let mut buf = vec![];
+    /// assert_eq!(2, buf.put_varint16(-150));
+    /// assert_eq!(2, buf.put_varint16(149));
+    /// assert_eq!(buf, b"\xAB\x02\xAA\x02");
+    /// ```
+    fn put_varint16(&mut self, x: i16) -> usize {
+        let mut ux = (x as u16) << 1;
+        if x < 0 {
+            ux = !ux;
+        }
+        self.put_uvarint16(ux)
+    }
+
+    /// Writes a signed 32-bit integer to `self`, encoded as varint, and return
+    /// the number of advancing of current position.
+    fn put_varint32(&mut self, x: i32) -> usize {
+        let mut ux = (x as u32) << 1;
+        if x < 0 {
+            ux = !ux;
+        }
+        self.put_uvarint32(ux)
+    }
+
+    /// Writes a signed 64-bit integer to `self`, encoded as varint, and return
+    /// the number of advancing of current position.
+    fn put_varint64(&mut self, x: i64) -> usize {
+        let mut ux = (x as u64) << 1;
+        if x < 0 {
+            ux = !ux;
+        }
+        self.put_uvarint64(ux)
     }
 
     /// Writes an unsigned n-byte integer to `self` in big-endian byte order.

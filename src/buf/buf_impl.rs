@@ -9,6 +9,10 @@ use std::io::IoSlice;
 
 use alloc::boxed::Box;
 
+const MAX_VARINT_LEN_16: i8 = 3;
+const MAX_VARINT_LEN_32: i8 = 5;
+const MAX_VARINT_LEN_64: i8 = 10;
+
 macro_rules! buf_get_impl {
     ($this:ident, $typ:tt::$conv:tt) => {{
         const SIZE: usize = mem::size_of::<$typ>();
@@ -634,6 +638,152 @@ pub trait Buf {
         buf_get_impl!(self, i128::from_le_bytes);
     }
 
+    /// Gets a varint-encoded unsigned integer from `self` and return it
+    /// as 16 bit unsigned integer along with the number of advancing.
+    /// If the value is larger than 16 bit (overflow), the number of advancing n is
+    /// negative and -n is the actual number of advancing.
+    /// 
+    /// # Examples
+    /// 
+    /// ```
+    /// use bytes::Buf;
+    ///
+    /// let mut buf = &b"\xAB\x02\xFF\xFF\x03\x80\x80\x04 hello"[..];
+    /// assert_eq!((299, 2), buf.get_uvarint16());
+    /// assert_eq!((65535, 3), buf.get_uvarint16());
+    /// assert_eq!((0, -3), buf.get_uvarint16());
+    /// ```
+    /// # Panics
+    /// 
+    /// This function panics if there is not enough remaining data in `self`.
+    fn get_uvarint16(&mut self) -> (u16, i8) {
+        let mut x = 0u16;
+        let mut s = 0i8;
+        for i in 1..=MAX_VARINT_LEN_16 {
+            let b = self.get_u8();
+            if b < 0x80 {
+                // last two bit of the last byte is valid for u16 
+                if i == MAX_VARINT_LEN_16 && b > 0b11 {
+                    return (x, -i);
+                }
+                return (x | ((b as u16) << s), i);
+            }
+            x |= ((b & 0x7f) as u16) << s;
+            s += 7;
+        }
+        (x, -MAX_VARINT_LEN_16)
+    }
+
+    /// Gets a varint-encoded unsigned integer from `self` and return it
+    /// as 32 bit unsigned integer along with the number of advancing.
+    /// If the value is larger than 32 bit (overflow), the number of advancing n is
+    /// negative and -n is the actual number of advancing.
+    /// 
+    /// # Panics
+    /// 
+    /// This function panics if there is not enough remaining data in `self`.
+    fn get_uvarint32(&mut self) -> (u32, i8) {
+        let mut x = 0u32;
+        let mut s = 0i8;
+        for i in 1..=MAX_VARINT_LEN_32 {
+            let b = self.get_u8();
+            if b < 0x80 {
+                if i == MAX_VARINT_LEN_32 && b > 1 {
+                    return (x, -i);
+                }
+                return (x | ((b as u32) << s), i);
+            }
+            x |= ((b & 0x7f) as u32) << s;
+            s += 7;
+        }
+        (x, -MAX_VARINT_LEN_32)
+    }
+
+    /// Gets a varint-encoded unsigned integer from `self` and return it
+    /// as 64 bit unsigned integer along with the number of advancing.
+    /// If the value is larger than 64 bit (overflow), the number of advancing n is
+    /// negative and -n is the actual number of advancing.
+    /// 
+    /// # Panics
+    /// 
+    /// This function panics if there is not enough remaining data in `self`.
+    fn get_uvarint64(&mut self) -> (u64, i8) {
+        let mut x = 0u64;
+        let mut s = 0i8;
+        for i in 1..=MAX_VARINT_LEN_64 {
+            let b = self.get_u8();
+            if b < 0x80 {
+                if i == MAX_VARINT_LEN_64 && b > 1 {
+                    return (x, -i);
+                }
+                return (x | ((b as u64) << s), i);
+            }
+            x |= ((b & 0x7f) as u64) << s;
+            s += 7;
+        }
+        (x, -MAX_VARINT_LEN_64)
+    }
+
+    /// Gets a varint-encoded signed integer from `self` and return it
+    /// as 16 bit signed integer along with the number of advancing.
+    /// If the value is larger than 16 bit (overflow), the number of advancing n is
+    /// negative and -n is the actual number of advancing.
+    /// 
+    /// # Examples
+    /// 
+    /// ```
+    /// use bytes::Buf;
+    ///
+    /// let mut buf = &b"\xAB\x02\xAA\x02 hello"[..];
+    /// assert_eq!((-150, 2), buf.get_varint16());
+    /// assert_eq!((149, 2), buf.get_varint16());
+    /// ```
+    /// # Panics
+    /// 
+    /// This function panics if there is not enough remaining data in `self`.
+    fn get_varint16(&mut self) -> (i16, i8) {
+        let (ux, advanced) = self.get_uvarint16();
+        let mut x = (ux >> 1) as i16;
+        if ux & 1 != 0 {
+            x = !x;
+        }
+        (x, advanced)
+    }
+
+    /// Gets a varint-encoded signed integer from `self` and return it
+    /// as 32 bit signed integer along with the number of advancing.
+    /// If the value is larger than 32 bit (overflow), the number of advancing n is
+    /// negative and -n is the actual number of advancing.
+    /// 
+    /// # Panics
+    /// 
+    /// This function panics if there is not enough remaining data in `self`.
+    fn get_varint32(&mut self) -> (i32, i8) {
+        let (ux, advanced) = self.get_uvarint32();
+        let mut x = (ux >> 1) as i32;
+        if ux & 1 != 0 {
+            x = !x;
+        }
+        (x, advanced)
+    }
+
+    /// Gets a varint-encoded signed integer from `self` and return it
+    /// as 64 bit signed integer along with the number of advancing.
+    /// If the value is larger than 64 bit (overflow), the number of advancing n is
+    /// negative and -n is the actual number of advancing.
+    /// 
+    /// # Panics
+    /// 
+    /// This function panics if there is not enough remaining data in `self`.
+    fn get_varint64(&mut self) -> (i64, i8) {
+        let (ux, advanced) = self.get_uvarint64();
+        let mut x = (ux >> 1) as i64;
+        if ux & 1 != 0 {
+            x = !x;
+        }
+        (x, advanced)
+    }
+
     /// Gets an unsigned n-byte integer from `self` in big-endian byte order.
     ///
     /// The current position is advanced by `nbytes`.
@@ -986,6 +1136,30 @@ macro_rules! deref_forward_buf {
 
         fn get_i64_le(&mut self) -> i64 {
             (**self).get_i64_le()
+        }
+
+        fn get_uvarint16(&mut self) -> (u16, i8) {
+            (**self).get_uvarint16()
+        }
+
+        fn get_uvarint32(&mut self) -> (u32, i8) {
+            (**self).get_uvarint32()
+        }
+
+        fn get_uvarint64(&mut self) -> (u64, i8) {
+            (**self).get_uvarint64()
+        }
+
+        fn get_varint16(&mut self) -> (i16, i8) {
+            (**self).get_varint16()
+        }
+
+        fn get_varint32(&mut self) -> (i32, i8) {
+            (**self).get_varint32()
+        }
+
+        fn get_varint64(&mut self) -> (i64, i8) {
+            (**self).get_varint64()
         }
 
         fn get_uint(&mut self, nbytes: usize) -> u64 {
