@@ -166,4 +166,3 @@ fn chain_get_bytes() {
     // assert `get_bytes` did not allocate
     assert_eq!(cd_ptr.wrapping_offset(1), d.as_ptr());
 }
-}
