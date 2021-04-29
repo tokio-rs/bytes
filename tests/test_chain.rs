@@ -145,3 +145,25 @@ fn chain_growing_buffer() {
     assert_eq!(&buff, b"hey there1");
     assert_eq!(&vec, b"wassup23123");
 }
+
+#[test]
+fn chain_get_bytes() {
+    let mut ab = Bytes::copy_from_slice(b"ab");
+    let mut cd = Bytes::copy_from_slice(b"cd");
+    let ab_ptr = ab.as_ptr();
+    let cd_ptr = cd.as_ptr();
+    let mut chain = (&mut ab).chain(&mut cd);
+    let a = chain.copy_to_bytes(1);
+    let bc = chain.copy_to_bytes(2);
+    let d = chain.copy_to_bytes(1);
+
+    assert_eq!(Bytes::copy_from_slice(b"a"), a);
+    assert_eq!(Bytes::copy_from_slice(b"bc"), bc);
+    assert_eq!(Bytes::copy_from_slice(b"d"), d);
+
+    // assert `get_bytes` did not allocate
+    assert_eq!(ab_ptr, a.as_ptr());
+    // assert `get_bytes` did not allocate
+    assert_eq!(cd_ptr.wrapping_offset(1), d.as_ptr());
+}
+}
