@@ -19,6 +19,7 @@
 mod buf_impl;
 mod buf_mut;
 mod chain;
+mod exact_size_buf;
 mod iter;
 mod limit;
 #[cfg(feature = "std")]
@@ -32,6 +33,7 @@ mod writer;
 pub use self::buf_impl::Buf;
 pub use self::buf_mut::BufMut;
 pub use self::chain::Chain;
+pub use self::exact_size_buf::ExactSizeBuf;
 pub use self::iter::IntoIter;
 pub use self::limit::Limit;
 pub use self::take::Take;
