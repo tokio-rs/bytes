@@ -17,17 +17,14 @@ cargo "${cmd}" --all-features
 cargo doc --no-deps --all-features
 
 if [[ "${RUST_VERSION}" == "nightly"* ]]; then
-    # Check for no_std environment.
-    rustup target add thumbv7m-none-eabi
-    rustup target add thumbv6m-none-eabi
-    cargo build --no-default-features --target thumbv7m-none-eabi
-    RUSTFLAGS="--cfg bytes_unstable -Dwarnings" cargo build --no-default-features --target thumbv6m-none-eabi
-
     # Check benchmarks
     cargo check --benches
 
     # Check minimal versions
-    cargo clean
-    cargo update -Zminimal-versions
+    # Remove dev-dependencies from Cargo.toml to prevent the next `cargo update`
+    # from determining minimal versions based on dev-dependencies.
+    cargo hack --remove-dev-deps --workspace
+    # Update Cargo.lock to minimal version dependencies.
+    cargo update -Z minimal-versions
     cargo check --all-features
 fi

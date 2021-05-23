@@ -2,6 +2,7 @@
 
 #[cfg(not(all(test, loom)))]
 pub(crate) mod sync {
+    #[cfg(not(bytes_no_atomic_cas))]
     pub(crate) mod atomic {
         pub(crate) use core::sync::atomic::{fence, AtomicPtr, AtomicUsize, Ordering};
 
