@@ -131,6 +131,8 @@ jobs:
       - name: Install cargo-hack
         run: cargo install cargo-hack
       - run: rustup target add ${{ matrix.target }}
+        # * --optional-deps is needed for serde feature
+        # * --no-dev-deps is needed to avoid https://github.com/rust-lang/cargo/issues/4866
       - run: cargo hack build --target ${{ matrix.target }} --feature-powerset --skip std,default --optional-deps --no-dev-deps
 
   # When this job failed, run ci/no_atomic_cas.sh and commit result changes.
