@@ -158,6 +158,9 @@ pub unsafe trait BufMut {
     /// `chunk_mut()` returning an empty slice implies that `remaining_mut()` will
     /// return 0 and `remaining_mut()` returning 0 implies that `chunk_mut()` will
     /// return an empty slice.
+    // The `chunk_mut` method was previously called `bytes_mut`. This alias makes the
+    // rename more easily discoverable.
+    #[cfg_attr(docsrs, doc(alias = "bytes_mut"))]
     fn chunk_mut(&mut self) -> &mut UninitSlice;
 
     /// Transfer bytes into `self` from `src` and advance the cursor by the
@@ -1008,6 +1011,14 @@ unsafe impl BufMut for &mut [u8] {
         // Lifetime dance taken from `impl Write for &mut [u8]`.
         let (_, b) = core::mem::replace(self, &mut []).split_at_mut(cnt);
         *self = b;
+    }
+
+    #[inline]
+    fn put_slice(&mut self, src: &[u8]) {
+        self[..src.len()].copy_from_slice(src);
+        unsafe {
+            self.advance_mut(src.len());
+        }
     }
 }
 

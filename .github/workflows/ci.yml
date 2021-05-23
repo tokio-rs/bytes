@@ -11,7 +11,7 @@ on:
 env:
   RUSTFLAGS: -Dwarnings
   RUST_BACKTRACE: 1
-  nightly: nightly-2020-12-17
+  nightly: nightly-2021-04-13
 
 defaults:
   run:
@@ -182,6 +182,8 @@ jobs:
         run: rustup update stable
       - name: Build documentation
         run: cargo doc --no-deps --all-features
+        env:
+          RUSTDOCFLAGS: --cfg docsrs
       - name: Publish documentation
         run: |
           cd target/doc
