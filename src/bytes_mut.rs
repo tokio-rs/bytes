@@ -716,16 +716,16 @@ impl BytesMut {
     /// assert_eq!(b"aaabbb", &buf[..]);
     /// assert_eq!(b"cccddd", &split[..]);
     ///
-    /// buf.unsplit(split);
+    /// buf.join(split);
     /// assert_eq!(b"aaabbbcccddd", &buf[..]);
     /// ```
-    pub fn unsplit(&mut self, other: BytesMut) {
+    pub fn join(&mut self, other: BytesMut) {
         if self.is_empty() {
             *self = other;
             return;
         }
 
-        if let Err(other) = self.try_unsplit(other) {
+        if let Err(other) = self.try_join(other) {
             self.extend_from_slice(other.as_ref());
         }
     }
@@ -818,7 +818,7 @@ impl BytesMut {
         self.len = cmp::min(self.len, end);
     }
 
-    fn try_unsplit(&mut self, other: BytesMut) -> Result<(), BytesMut> {
+    fn try_join(&mut self, other: BytesMut) -> Result<(), BytesMut> {
         if other.is_empty() {
             return Ok(());
         }
