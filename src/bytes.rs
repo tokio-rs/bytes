@@ -1044,7 +1044,10 @@ unsafe fn shallow_clone_vec(
             // the allocation that was made in this thread, it will not
             // be needed.
             let shared = Box::from_raw(shared);
-            mem::forget(*shared);
+            // But don't drop `_vec` as it used by the concurrent clone.
+            // Note: the partial move works here because `Shared` doesn't
+            // implement `Drop`.
+            mem::forget(shared._vec);
 
             // Buffer already promoted to shared storage, so increment ref
             // count.
