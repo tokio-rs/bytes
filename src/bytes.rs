@@ -968,7 +968,7 @@ unsafe fn shared_drop(data: &mut AtomicPtr<()>, _ptr: *const u8, _len: usize) {
 
 unsafe fn shallow_clone_arc(shared: *mut Shared, ptr: *const u8, len: usize) -> Bytes {
     let old_size = (*shared).ref_cnt.fetch_add(1, Ordering::Relaxed);
-
+    tracing::trace!(shared.addr = %format_args!("{:p}", shared), shared.refs = old_size, "shallow_clone_arc");
     if old_size > usize::MAX >> 1 {
         crate::abort();
     }
@@ -1055,7 +1055,9 @@ unsafe fn shallow_clone_vec(
 
 unsafe fn release_shared(ptr: *mut Shared) {
     // `Shared` storage... follow the drop steps from Arc.
-    if (*ptr).ref_cnt.fetch_sub(1, Ordering::Release) != 1 {
+    let ref_cnt = (*ptr).ref_cnt.fetch_sub(1, Ordering::Release);
+    tracing::trace!(shared.addr = %format_args!("{:p}", ptr), shared.refs = ref_cnt, "release_shared");
+    if ref_cnt != 1 {
         return;
     }
 
@@ -1080,6 +1082,8 @@ unsafe fn release_shared(ptr: *mut Shared) {
 
     // Drop the data
     Box::from_raw(ptr);
+
+    tracing::trace!(shared.addr = %format_args!("{:p}", ptr), "release_shared: dropped");
 }
 
 // compile-fails
