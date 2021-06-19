@@ -33,6 +33,10 @@ pub unsafe trait BufMut {
     /// This value is greater than or equal to the length of the slice returned
     /// by `chunk_mut()`.
     ///
+    /// Writing to a `BufMut` may involve allocating more memory on the fly.
+    /// Implementations may fail before reaching the number of bytes indicated
+    /// by this method if they encounter an allocation failure.
+    ///
     /// # Examples
     ///
     /// ```
@@ -158,6 +162,9 @@ pub unsafe trait BufMut {
     /// `chunk_mut()` returning an empty slice implies that `remaining_mut()` will
     /// return 0 and `remaining_mut()` returning 0 implies that `chunk_mut()` will
     /// return an empty slice.
+    ///
+    /// This function may trigger an out-of-memory abort if it tries to allocate
+    /// memory and fails to do so.
     // The `chunk_mut` method was previously called `bytes_mut`. This alias makes the
     // rename more easily discoverable.
     #[cfg_attr(docsrs, doc(alias = "bytes_mut"))]
@@ -1025,7 +1032,8 @@ unsafe impl BufMut for &mut [u8] {
 unsafe impl BufMut for Vec<u8> {
     #[inline]
     fn remaining_mut(&self) -> usize {
-        usize::MAX - self.len()
+        // A vector can never have more than isize::MAX elements
+        isize::MAX as usize - self.len()
     }
 
     #[inline]
