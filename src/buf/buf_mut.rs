@@ -1032,7 +1032,7 @@ unsafe impl BufMut for &mut [u8] {
 unsafe impl BufMut for Vec<u8> {
     #[inline]
     fn remaining_mut(&self) -> usize {
-        // A vector can never have more than isize::MAX elements
+        // A vector can never have more than isize::MAX bytes
         isize::MAX as usize - self.len()
     }
 
