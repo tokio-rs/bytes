@@ -819,7 +819,7 @@ impl BytesMut {
     }
 
     fn try_unsplit(&mut self, other: BytesMut) -> Result<(), BytesMut> {
-        if other.is_empty() {
+        if other.capacity() == 0 {
             return Ok(());
         }
 
