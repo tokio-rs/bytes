@@ -986,3 +986,11 @@ fn bytes_with_capacity_but_empty() {
     let vec = Vec::with_capacity(1);
     let _ = Bytes::from(vec);
 }
+
+#[test]
+fn box_slice_empty() {
+    // See https://github.com/tokio-rs/bytes/issues/340
+    let empty: Box<[u8]> = Default::default();
+    let b = Bytes::from(empty);
+    assert!(b.is_empty());
+}

@@ -797,14 +797,20 @@ impl From<&'static str> for Bytes {
 
 impl From<Vec<u8>> for Bytes {
     fn from(vec: Vec<u8>) -> Bytes {
-        // into_boxed_slice doesn't return a heap allocation for empty vectors,
+        let slice = vec.into_boxed_slice();
+        slice.into()
+    }
+}
+
+impl From<Box<[u8]>> for Bytes {
+    fn from(slice: Box<[u8]>) -> Bytes {
+        // Box<[u8]> doesn't contain a heap allocation for empty slices,
         // so the pointer isn't aligned enough for the KIND_VEC stashing to
         // work.
-        if vec.is_empty() {
+        if slice.is_empty() {
             return Bytes::new();
         }
 
-        let slice = vec.into_boxed_slice();
         let len = slice.len();
         let ptr = Box::into_raw(slice) as *mut u8;
 
