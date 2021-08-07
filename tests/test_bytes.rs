@@ -785,6 +785,31 @@ fn bytes_mut_unsplit_empty_self() {
 }
 
 #[test]
+fn bytes_mut_unsplit_other_keeps_capacity() {
+    let mut buf = BytesMut::with_capacity(64);
+    buf.extend_from_slice(b"aabb");
+
+    // non empty other created "from" buf
+    let mut other = buf.split_off(buf.len());
+    other.extend_from_slice(b"ccddee");
+    buf.unsplit(other);
+
+    assert_eq!(buf.capacity(), 64);
+}
+
+#[test]
+fn bytes_mut_unsplit_empty_other_keeps_capacity() {
+    let mut buf = BytesMut::with_capacity(64);
+    buf.extend_from_slice(b"aabbccddee");
+
+    // empty other created "from" buf
+    let other = buf.split_off(buf.len());
+    buf.unsplit(other);
+
+    assert_eq!(buf.capacity(), 64);
+}
+
+#[test]
 fn bytes_mut_unsplit_arc_different() {
     let mut buf = BytesMut::with_capacity(64);
     buf.extend_from_slice(b"aaaabbbbeeee");
