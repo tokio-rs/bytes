@@ -9,7 +9,7 @@ use core::usize;
 fn test_vec_as_mut_buf() {
     let mut buf = Vec::with_capacity(64);
 
-    assert_eq!(buf.remaining_mut(), usize::MAX);
+    assert_eq!(buf.remaining_mut(), isize::MAX as usize);
 
     assert!(buf.chunk_mut().len() >= 64);
 
@@ -17,7 +17,7 @@ fn test_vec_as_mut_buf() {
 
     assert_eq!(&buf, b"zomg");
 
-    assert_eq!(buf.remaining_mut(), usize::MAX - 4);
+    assert_eq!(buf.remaining_mut(), isize::MAX as usize - 4);
     assert_eq!(buf.capacity(), 64);
 
     for _ in 0..16 {
