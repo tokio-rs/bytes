@@ -138,9 +138,7 @@ fn chain_growing_buffer() {
     let mut buff = [' ' as u8; 10];
     let mut vec = b"wassup".to_vec();
 
-    let mut chained = (&mut buff[..])
-        .chain_mut(&mut vec)
-        .chain_mut(Vec::new()); // Required for potential overflow because remaining_mut for Vec is isize::MAX - vec.len(), but for chain_mut is usize::MAX
+    let mut chained = (&mut buff[..]).chain_mut(&mut vec).chain_mut(Vec::new()); // Required for potential overflow because remaining_mut for Vec is isize::MAX - vec.len(), but for chain_mut is usize::MAX
 
     chained.put_slice(b"hey there123123");
 
@@ -150,9 +148,7 @@ fn chain_growing_buffer() {
 
 #[test]
 fn chain_overflow_remaining_mut() {
-    let mut chained = Vec::<u8>::new()
-        .chain_mut(Vec::new())
-        .chain_mut(Vec::new());
+    let mut chained = Vec::<u8>::new().chain_mut(Vec::new()).chain_mut(Vec::new());
 
     assert_eq!(chained.remaining_mut(), usize::MAX);
     chained.put_slice(&[0; 256]);
