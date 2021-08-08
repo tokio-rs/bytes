@@ -46,6 +46,34 @@ fn test_put_u16() {
 }
 
 #[test]
+fn test_put_int() {
+    let mut buf = Vec::with_capacity(8);
+    buf.put_int(0x1020304050607080, 3);
+    assert_eq!(b"\x60\x70\x80", &buf[..]);
+}
+
+#[test]
+#[should_panic]
+fn test_put_int_nbytes_overflow() {
+    let mut buf = Vec::with_capacity(8);
+    buf.put_int(0x1020304050607080, 9);
+}
+
+#[test]
+fn test_put_int_le() {
+    let mut buf = Vec::with_capacity(8);
+    buf.put_int_le(0x1020304050607080, 3);
+    assert_eq!(b"\x80\x70\x60", &buf[..]);
+}
+
+#[test]
+#[should_panic]
+fn test_put_int_le_nbytes_overflow() {
+    let mut buf = Vec::with_capacity(8);
+    buf.put_int_le(0x1020304050607080, 9);
+}
+
+#[test]
 #[should_panic(expected = "cannot advance")]
 fn test_vec_advance_mut() {
     // Verify fix for #354
