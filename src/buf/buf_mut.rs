@@ -261,6 +261,37 @@ pub unsafe trait BufMut {
         }
     }
 
+    /// Put `cnt` bytes `val` into `self`.
+    ///
+    /// Logically equivalent to calling `self.put_u8(val)` `cnt` times, but may work faster.
+    ///
+    /// `self` must have at least `cnt` remaining capacity.
+    ///
+    /// ```
+    /// use bytes::BufMut;
+    ///
+    /// let mut dst = [0; 6];
+    ///
+    /// {
+    ///     let mut buf = &mut dst[..];
+    ///     buf.put_bytes(b'a', 4);
+    ///
+    ///     assert_eq!(2, buf.remaining_mut());
+    /// }
+    ///
+    /// assert_eq!(b"aaaa\0\0", &dst);
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// This function panics if there is not enough remaining capacity in
+    /// `self`.
+    fn put_bytes(&mut self, val: u8, cnt: usize) {
+        for _ in 0..cnt {
+            self.put_u8(val);
+        }
+    }
+
     /// Writes an unsigned 8 bit integer to `self`.
     ///
     /// The current position is advanced by 1.
@@ -1027,6 +1058,14 @@ unsafe impl BufMut for &mut [u8] {
             self.advance_mut(src.len());
         }
     }
+
+    fn put_bytes(&mut self, val: u8, cnt: usize) {
+        assert!(self.remaining_mut() >= cnt);
+        unsafe {
+            ptr::write_bytes(self.as_mut_ptr(), val, cnt);
+            self.advance_mut(cnt);
+        }
+    }
 }
 
 unsafe impl BufMut for Vec<u8> {
@@ -1090,6 +1129,11 @@ unsafe impl BufMut for Vec<u8> {
     #[inline]
     fn put_slice(&mut self, src: &[u8]) {
         self.extend_from_slice(src);
+    }
+
+    fn put_bytes(&mut self, val: u8, cnt: usize) {
+        let new_len = self.len().checked_add(cnt).unwrap();
+        self.resize(new_len, val);
     }
 }
 

@@ -986,3 +986,11 @@ fn bytes_with_capacity_but_empty() {
     let vec = Vec::with_capacity(1);
     let _ = Bytes::from(vec);
 }
+
+#[test]
+fn bytes_put_bytes() {
+    let mut bytes = BytesMut::new();
+    bytes.put_u8(17);
+    bytes.put_bytes(19, 2);
+    assert_eq!([17, 19, 19], bytes.as_ref());
+}

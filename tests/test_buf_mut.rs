@@ -28,6 +28,14 @@ fn test_vec_as_mut_buf() {
 }
 
 #[test]
+fn test_vec_put_bytes() {
+    let mut buf = Vec::new();
+    buf.push(17);
+    buf.put_bytes(19, 2);
+    assert_eq!([17, 19, 19], &buf[..]);
+}
+
+#[test]
 fn test_put_u8() {
     let mut buf = Vec::with_capacity(8);
     buf.put_u8(33);
@@ -101,6 +109,16 @@ fn test_mut_slice() {
 
     assert_eq!(s.len(), 0);
     assert_eq!(&v, &[0, 0, 0, 42]);
+}
+
+#[test]
+fn test_slice_put_bytes() {
+    let mut v = [0, 0, 0, 0];
+    let mut s = &mut v[..];
+    s.put_u8(17);
+    s.put_bytes(19, 2);
+    assert_eq!(1, s.remaining_mut());
+    assert_eq!(&[17, 19, 19, 0], &v[..]);
 }
 
 #[test]
