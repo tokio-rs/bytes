@@ -5,7 +5,8 @@ set -ex
 cmd="${1:-test}"
 
 # Install cargo-hack for feature flag test
-curl -LsSf https://github.com/taiki-e/cargo-hack/releases/latest/download/cargo-hack-x86_64-unknown-linux-gnu.tar.gz | tar xzf - -C ~/.cargo/bin
+host=$(rustc -Vv | grep host | sed 's/host: //')
+curl -LsSf https://github.com/taiki-e/cargo-hack/releases/latest/download/cargo-hack-$host.tar.gz | tar xzf - -C ~/.cargo/bin
 
 # Run with each feature
 # * --each-feature includes both default/no-default features
