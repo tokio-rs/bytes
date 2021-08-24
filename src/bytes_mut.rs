@@ -380,6 +380,8 @@ impl BytesMut {
     /// If `len` is greater than the buffer's current length, this has no
     /// effect.
     ///
+    /// Existing underlying capacity is preserved.
+    ///
     /// The [`split_off`] method can emulate `truncate`, but this causes the
     /// excess bytes to be returned instead of dropped.
     ///
@@ -402,7 +404,7 @@ impl BytesMut {
         }
     }
 
-    /// Clears the buffer, removing all data.
+    /// Clears the buffer, removing all data. Existing capacity is preserved.
     ///
     /// # Examples
     ///
