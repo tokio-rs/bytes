@@ -33,6 +33,10 @@ pub unsafe trait BufMut {
     /// This value is greater than or equal to the length of the slice returned
     /// by `chunk_mut()`.
     ///
+    /// Writing to a `BufMut` may involve allocating more memory on the fly.
+    /// Implementations may fail before reaching the number of bytes indicated
+    /// by this method if they encounter an allocation failure.
+    ///
     /// # Examples
     ///
     /// ```
@@ -158,6 +162,9 @@ pub unsafe trait BufMut {
     /// `chunk_mut()` returning an empty slice implies that `remaining_mut()` will
     /// return 0 and `remaining_mut()` returning 0 implies that `chunk_mut()` will
     /// return an empty slice.
+    ///
+    /// This function may trigger an out-of-memory abort if it tries to allocate
+    /// memory and fails to do so.
     // The `chunk_mut` method was previously called `bytes_mut`. This alias makes the
     // rename more easily discoverable.
     #[cfg_attr(docsrs, doc(alias = "bytes_mut"))]
@@ -251,6 +258,37 @@ pub unsafe trait BufMut {
             unsafe {
                 self.advance_mut(cnt);
             }
+        }
+    }
+
+    /// Put `cnt` bytes `val` into `self`.
+    ///
+    /// Logically equivalent to calling `self.put_u8(val)` `cnt` times, but may work faster.
+    ///
+    /// `self` must have at least `cnt` remaining capacity.
+    ///
+    /// ```
+    /// use bytes::BufMut;
+    ///
+    /// let mut dst = [0; 6];
+    ///
+    /// {
+    ///     let mut buf = &mut dst[..];
+    ///     buf.put_bytes(b'a', 4);
+    ///
+    ///     assert_eq!(2, buf.remaining_mut());
+    /// }
+    ///
+    /// assert_eq!(b"aaaa\0\0", &dst);
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// This function panics if there is not enough remaining capacity in
+    /// `self`.
+    fn put_bytes(&mut self, val: u8, cnt: usize) {
+        for _ in 0..cnt {
+            self.put_u8(val);
         }
     }
 
@@ -696,7 +734,7 @@ pub unsafe trait BufMut {
         self.put_slice(&n.to_le_bytes()[0..nbytes]);
     }
 
-    /// Writes a signed n-byte integer to `self` in big-endian byte order.
+    /// Writes low `nbytes` of a signed integer to `self` in big-endian byte order.
     ///
     /// The current position is advanced by `nbytes`.
     ///
@@ -706,19 +744,19 @@ pub unsafe trait BufMut {
     /// use bytes::BufMut;
     ///
     /// let mut buf = vec![];
-    /// buf.put_int(0x010203, 3);
+    /// buf.put_int(0x0504010203, 3);
     /// assert_eq!(buf, b"\x01\x02\x03");
     /// ```
     ///
     /// # Panics
     ///
     /// This function panics if there is not enough remaining capacity in
-    /// `self`.
+    /// `self` or if `nbytes` is greater than 8.
     fn put_int(&mut self, n: i64, nbytes: usize) {
         self.put_slice(&n.to_be_bytes()[mem::size_of_val(&n) - nbytes..]);
     }
 
-    /// Writes a signed n-byte integer to `self` in little-endian byte order.
+    /// Writes low `nbytes` of a signed integer to `self` in little-endian byte order.
     ///
     /// The current position is advanced by `nbytes`.
     ///
@@ -728,14 +766,14 @@ pub unsafe trait BufMut {
     /// use bytes::BufMut;
     ///
     /// let mut buf = vec![];
-    /// buf.put_int_le(0x010203, 3);
+    /// buf.put_int_le(0x0504010203, 3);
     /// assert_eq!(buf, b"\x03\x02\x01");
     /// ```
     ///
     /// # Panics
     ///
     /// This function panics if there is not enough remaining capacity in
-    /// `self`.
+    /// `self` or if `nbytes` is greater than 8.
     fn put_int_le(&mut self, n: i64, nbytes: usize) {
         self.put_slice(&n.to_le_bytes()[0..nbytes]);
     }
@@ -1020,12 +1058,21 @@ unsafe impl BufMut for &mut [u8] {
             self.advance_mut(src.len());
         }
     }
+
+    fn put_bytes(&mut self, val: u8, cnt: usize) {
+        assert!(self.remaining_mut() >= cnt);
+        unsafe {
+            ptr::write_bytes(self.as_mut_ptr(), val, cnt);
+            self.advance_mut(cnt);
+        }
+    }
 }
 
 unsafe impl BufMut for Vec<u8> {
     #[inline]
     fn remaining_mut(&self) -> usize {
-        usize::MAX - self.len()
+        // A vector can never have more than isize::MAX bytes
+        core::isize::MAX as usize - self.len()
     }
 
     #[inline]
@@ -1082,6 +1129,11 @@ unsafe impl BufMut for Vec<u8> {
     #[inline]
     fn put_slice(&mut self, src: &[u8]) {
         self.extend_from_slice(src);
+    }
+
+    fn put_bytes(&mut self, val: u8, cnt: usize) {
+        let new_len = self.len().checked_add(cnt).unwrap();
+        self.resize(new_len, val);
     }
 }
 
