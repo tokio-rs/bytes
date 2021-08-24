@@ -994,3 +994,11 @@ fn bytes_put_bytes() {
     bytes.put_bytes(19, 2);
     assert_eq!([17, 19, 19], bytes.as_ref());
 }
+
+#[test]
+fn box_slice_empty() {
+    // See https://github.com/tokio-rs/bytes/issues/340
+    let empty: Box<[u8]> = Default::default();
+    let b = Bytes::from(empty);
+    assert!(b.is_empty());
+}
