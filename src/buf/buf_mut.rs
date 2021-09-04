@@ -708,7 +708,7 @@ pub unsafe trait BufMut {
     ///
     /// This function panics if there is not enough remaining capacity in
     /// `self`.
-    fn put_uint(&mut self, n: u64, nbytes: usize) {
+    fn put_uint(&mut self, n: usize, nbytes: usize) {
         self.put_slice(&n.to_be_bytes()[mem::size_of_val(&n) - nbytes..]);
     }
 
@@ -730,7 +730,7 @@ pub unsafe trait BufMut {
     ///
     /// This function panics if there is not enough remaining capacity in
     /// `self`.
-    fn put_uint_le(&mut self, n: u64, nbytes: usize) {
+    fn put_uint_le(&mut self, n: usize, nbytes: usize) {
         self.put_slice(&n.to_le_bytes()[0..nbytes]);
     }
 
@@ -752,7 +752,7 @@ pub unsafe trait BufMut {
     ///
     /// This function panics if there is not enough remaining capacity in
     /// `self` or if `nbytes` is greater than 8.
-    fn put_int(&mut self, n: i64, nbytes: usize) {
+    fn put_int(&mut self, n: isize, nbytes: usize) {
         self.put_slice(&n.to_be_bytes()[mem::size_of_val(&n) - nbytes..]);
     }
 
@@ -774,7 +774,7 @@ pub unsafe trait BufMut {
     ///
     /// This function panics if there is not enough remaining capacity in
     /// `self` or if `nbytes` is greater than 8.
-    fn put_int_le(&mut self, n: i64, nbytes: usize) {
+    fn put_int_le(&mut self, n: isize, nbytes: usize) {
         self.put_slice(&n.to_le_bytes()[0..nbytes]);
     }
 

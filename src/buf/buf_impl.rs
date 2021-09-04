@@ -650,8 +650,8 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
-    fn get_uint(&mut self, nbytes: usize) -> u64 {
-        buf_get_impl!(be => self, u64, nbytes);
+    fn get_uint(&mut self, nbytes: usize) -> usize {
+        buf_get_impl!(be => self, usize, nbytes);
     }
 
     /// Gets an unsigned n-byte integer from `self` in little-endian byte order.
@@ -670,8 +670,8 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
-    fn get_uint_le(&mut self, nbytes: usize) -> u64 {
-        buf_get_impl!(le => self, u64, nbytes);
+    fn get_uint_le(&mut self, nbytes: usize) -> usize {
+        buf_get_impl!(le => self, usize, nbytes);
     }
 
     /// Gets a signed n-byte integer from `self` in big-endian byte order.
@@ -690,8 +690,8 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
-    fn get_int(&mut self, nbytes: usize) -> i64 {
-        buf_get_impl!(be => self, i64, nbytes);
+    fn get_int(&mut self, nbytes: usize) -> isize {
+        buf_get_impl!(be => self, isize, nbytes);
     }
 
     /// Gets a signed n-byte integer from `self` in little-endian byte order.
@@ -710,8 +710,8 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
-    fn get_int_le(&mut self, nbytes: usize) -> i64 {
-        buf_get_impl!(le => self, i64, nbytes);
+    fn get_int_le(&mut self, nbytes: usize) -> isize {
+        buf_get_impl!(le => self, isize, nbytes);
     }
 
     /// Gets an IEEE754 single-precision (4 bytes) floating point number from
@@ -988,19 +988,19 @@ macro_rules! deref_forward_buf {
             (**self).get_i64_le()
         }
 
-        fn get_uint(&mut self, nbytes: usize) -> u64 {
+        fn get_uint(&mut self, nbytes: usize) -> usize {
             (**self).get_uint(nbytes)
         }
 
-        fn get_uint_le(&mut self, nbytes: usize) -> u64 {
+        fn get_uint_le(&mut self, nbytes: usize) -> usize {
             (**self).get_uint_le(nbytes)
         }
 
-        fn get_int(&mut self, nbytes: usize) -> i64 {
+        fn get_int(&mut self, nbytes: usize) -> isize {
             (**self).get_int(nbytes)
         }
 
-        fn get_int_le(&mut self, nbytes: usize) -> i64 {
+        fn get_int_le(&mut self, nbytes: usize) -> isize {
             (**self).get_int_le(nbytes)
         }
 
