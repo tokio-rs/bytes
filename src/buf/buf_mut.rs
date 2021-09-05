@@ -734,6 +734,32 @@ pub unsafe trait BufMut {
         self.put_slice(&n.to_le_bytes()[0..nbytes]);
     }
 
+    /// Writes an unsigned usize integer to `self` in big-endian byte order.
+    ///
+    /// The current position is advanced by `size_of::<usize>()`.
+    ///
+    /// # Panics
+    ///
+    /// This function panics if there is not enough remaining capacity in
+    /// `self`.
+    fn put_usize(&mut self, n: usize) {
+        self.put_slice(&n.to_be_bytes());
+    }
+
+    /// Writes an unsigned usize integer to `self` in the little-endian byte order.
+    ///
+    /// The current position is advanced by `size_of::<usize>()`.
+    ///
+    /// # Examples
+    ///
+    /// # Panics
+    ///
+    /// This function panics if there is not enough remaining capacity in
+    /// `self`.
+    fn put_usize_le(&mut self, n: usize) {
+        self.put_slice(&n.to_le_bytes());
+    }
+
     /// Writes low `nbytes` of a signed integer to `self` in big-endian byte order.
     ///
     /// The current position is advanced by `nbytes`.
@@ -776,6 +802,32 @@ pub unsafe trait BufMut {
     /// `self` or if `nbytes` is greater than 8.
     fn put_int_le(&mut self, n: i64, nbytes: usize) {
         self.put_slice(&n.to_le_bytes()[0..nbytes]);
+    }
+
+    /// Writes a signed isize integer to `self` in big-endian byte order.
+    ///
+    /// The current position is advanced by `size_of::<isize>()`.
+    ///
+    /// # Panics
+    ///
+    /// This function panics if there is not enough remaining capacity in
+    /// `self`.
+    fn put_isize(&mut self, n: isize) {
+        self.put_slice(&n.to_be_bytes());
+    }
+
+    /// Writes a signed isize integer to `self` in the little-endian byte order.
+    ///
+    /// The current position is advanced by `size_of::<isize>()`.
+    ///
+    /// # Examples
+    ///
+    /// # Panics
+    ///
+    /// This function panics if there is not enough remaining capacity in
+    /// `self`.
+    fn put_isize_le(&mut self, n: isize) {
+        self.put_slice(&n.to_le_bytes());
     }
 
     /// Writes  an IEEE754 single-precision (4 bytes) floating point number to

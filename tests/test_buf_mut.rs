@@ -4,6 +4,7 @@ use bytes::buf::UninitSlice;
 use bytes::{BufMut, BytesMut};
 use core::fmt::Write;
 use core::usize;
+use std::mem::size_of;
 
 #[test]
 fn test_vec_as_mut_buf() {
@@ -79,6 +80,34 @@ fn test_put_int_le() {
 fn test_put_int_le_nbytes_overflow() {
     let mut buf = Vec::with_capacity(8);
     buf.put_int_le(0x1020304050607080, 9);
+}
+
+#[test]
+fn test_put_isize() {
+    let mut buf = Vec::with_capacity(size_of::<isize>());
+    buf.put_isize(isize::MAX);
+    assert_eq!(isize::MAX.to_be_bytes(), &buf[..]);
+}
+
+#[test]
+fn test_put_isize_le() {
+    let mut buf = Vec::with_capacity(size_of::<isize>());
+    buf.put_isize_le(isize::MIN);
+    assert_eq!(isize::MIN.to_le_bytes(), &buf[..]);
+}
+
+#[test]
+fn test_put_usize() {
+    let mut buf = Vec::with_capacity(size_of::<usize>());
+    buf.put_usize(usize::MAX);
+    assert_eq!(usize::MAX.to_be_bytes(), &buf[..]);
+}
+
+#[test]
+fn test_put_usize_le() {
+    let mut buf = Vec::with_capacity(size_of::<usize>());
+    buf.put_usize_le(usize::MIN);
+    assert_eq!(usize::MIN.to_le_bytes(), &buf[..]);
 }
 
 #[test]
