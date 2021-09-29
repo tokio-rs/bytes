@@ -698,7 +698,8 @@ impl BytesMut {
         }
     }
 
-    /// Absorbs a `BytesMut` that was previously split off.
+    /// Absorbs a `BytesMut` that was previously split off if they are
+    /// contiguous, otherwise appends its bytes to this `BytesMut`.
     ///
     /// If the two `BytesMut` objects were previously contiguous, i.e., if
     /// `other` was created by calling `split_off` on this `BytesMut`, then
@@ -820,7 +821,35 @@ impl BytesMut {
         self.len = cmp::min(self.len, end);
     }
 
-    fn try_unsplit(&mut self, other: BytesMut) -> Result<(), BytesMut> {
+    /// Absorbs a `BytesMut` that was previously split off.
+    ///
+    /// If the two `BytesMut` objects were previously contiguous, i.e., if
+    /// `other` was created by calling `split_off` on this `BytesMut`, then
+    /// this is an `O(1)` operation that just decreases a reference
+    /// count and sets a few indices. Otherwise this method returns an error
+    /// containing the original `other`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::BytesMut;
+    ///
+    /// let mut buf = BytesMut::with_capacity(64);
+    /// buf.extend_from_slice(b"aaabbbcccddd");
+    ///
+    /// let mut split_1 = buf.split_off(3);
+    /// let split_2 = split_1.split_off(3);
+    /// assert_eq!(b"aaa", &buf[..]);
+    /// assert_eq!(b"bbb", &split_1[..]);
+    /// assert_eq!(b"cccddd", &split_2[..]);
+    ///
+    /// let split_2 = buf.try_unsplit(split_2).unwrap_err();
+    ///
+    /// buf.try_unsplit(split_1).unwrap();
+    /// buf.try_unsplit(split_2).unwrap();
+    /// assert_eq!(b"aaabbbcccddd", &buf[..]);
+    /// ```
+    pub fn try_unsplit(&mut self, other: BytesMut) -> Result<(), BytesMut> {
         if other.capacity() == 0 {
             return Ok(());
         }
