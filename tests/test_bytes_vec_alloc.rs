@@ -47,7 +47,10 @@ impl Ledger {
 
     fn remove(&self, ptr: *mut u8) -> usize {
         for (entry_ptr, entry_size) in self.alloc_table.iter() {
-            if entry_ptr.compare_exchange(ptr, null_mut(), Ordering::SeqCst, Ordering::SeqCst).is_ok() {
+            if entry_ptr
+                .compare_exchange(ptr, null_mut(), Ordering::SeqCst, Ordering::SeqCst)
+                .is_ok()
+            {
                 return entry_size.swap(0, Ordering::Relaxed);
             }
         }
