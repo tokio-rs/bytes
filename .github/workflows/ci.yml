@@ -11,7 +11,7 @@ on:
 env:
   RUSTFLAGS: -Dwarnings
   RUST_BACKTRACE: 1
-  nightly: nightly-2021-04-13
+  nightly: nightly-2021-11-1
 
 defaults:
   run:
