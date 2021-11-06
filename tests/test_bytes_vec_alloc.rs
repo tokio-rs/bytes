@@ -1,5 +1,4 @@
 use std::alloc::{GlobalAlloc, Layout, System};
-use std::mem;
 use std::ptr::null_mut;
 use std::sync::atomic::{AtomicPtr, AtomicUsize, Ordering};
 
@@ -15,18 +14,9 @@ struct Ledger {
 
 impl Ledger {
     const fn new() -> Self {
-        // equivalent to size of (AtomicPtr<u8>, AtomicUsize), hopefully
-        #[cfg(target_pointer_width = "64")]
-        let tricky_bits = 0u128;
-
-        #[cfg(target_pointer_width = "32")]
-        let tricky_bits = 0u64;
-
-        let magic_table = [tricky_bits; 512];
-
-        // i know this looks bad but all the good ways to do this are unstable or not yet
-        // supported in const contexts (even though they should be!)
-        let alloc_table = unsafe { mem::transmute(magic_table) };
+        const ELEM: (AtomicPtr<u8>, AtomicUsize) =
+            (AtomicPtr::new(null_mut()), AtomicUsize::new(0));
+        let alloc_table = [ELEM; 512];
 
         Self { alloc_table }
     }
@@ -39,7 +29,7 @@ impl Ledger {
                 .compare_exchange(null_mut(), ptr, Ordering::SeqCst, Ordering::SeqCst)
                 .is_ok()
             {
-                entry_size.store(size, Ordering::Relaxed);
+                entry_size.store(size, Ordering::SeqCst);
                 break;
             }
         }
@@ -51,7 +41,7 @@ impl Ledger {
                 .compare_exchange(ptr, null_mut(), Ordering::SeqCst, Ordering::SeqCst)
                 .is_ok()
             {
-                return entry_size.swap(0, Ordering::Relaxed);
+                return entry_size.swap(0, Ordering::SeqCst);
             }
         }
 
