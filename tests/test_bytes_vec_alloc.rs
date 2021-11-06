@@ -43,7 +43,12 @@ impl Ledger {
             //
             // dont worry, LEDGER_LENGTH is really long to compensate for us not reclaiming space
             if entry_ptr
-                .compare_exchange(ptr, usize::MAX as *mut u8, Ordering::SeqCst, Ordering::SeqCst)
+                .compare_exchange(
+                    ptr,
+                    usize::MAX as *mut u8,
+                    Ordering::SeqCst,
+                    Ordering::SeqCst,
+                )
                 .is_ok()
             {
                 return entry_size.load(Ordering::Relaxed);
