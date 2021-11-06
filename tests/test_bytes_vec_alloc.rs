@@ -1,5 +1,5 @@
 use std::alloc::{GlobalAlloc, Layout, System};
-use std::{mem};
+use std::mem;
 use std::ptr::null_mut;
 use std::sync::atomic::{AtomicPtr, AtomicUsize, Ordering};
 
@@ -17,10 +17,10 @@ impl Ledger {
     const fn new() -> Self {
         // equivalent to size of (AtomicPtr<u8>, AtomicUsize), hopefully
         #[cfg(target_pointer_width = "64")]
-            let tricky_bits = 0u128;
+        let tricky_bits = 0u128;
 
         #[cfg(target_pointer_width = "32")]
-            let tricky_bits = 0u64;
+        let tricky_bits = 0u64;
 
         let magic_table = [tricky_bits; 512];
 
@@ -35,12 +35,9 @@ impl Ledger {
     fn insert(&self, ptr: *mut u8, size: usize) {
         for (entry_ptr, entry_size) in self.alloc_table.iter() {
             // SeqCst is good enough here, we don't care about perf, i just want to be correct!
-            if entry_ptr.compare_exchange(
-                null_mut(),
-                ptr,
-                Ordering::SeqCst,
-                Ordering::SeqCst,
-            ).is_ok()
+            if entry_ptr
+                .compare_exchange(null_mut(), ptr, Ordering::SeqCst, Ordering::SeqCst)
+                .is_ok()
             {
                 entry_size.store(size, Ordering::Relaxed);
                 break;
