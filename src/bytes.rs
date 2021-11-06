@@ -179,7 +179,7 @@ impl Bytes {
     /// assert_eq!(b.len(), 5);
     /// ```
     #[inline]
-    pub fn len(&self) -> usize {
+    pub const fn len(&self) -> usize {
         self.len
     }
 
@@ -194,7 +194,7 @@ impl Bytes {
     /// assert!(b.is_empty());
     /// ```
     #[inline]
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.len == 0
     }
 
