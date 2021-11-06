@@ -7,16 +7,17 @@ use bytes::{Buf, Bytes};
 #[global_allocator]
 static LEDGER: Ledger = Ledger::new();
 
-#[repr(C)]
+const LEDGER_LENGTH: usize = 2048;
+
 struct Ledger {
-    alloc_table: [(AtomicPtr<u8>, AtomicUsize); 512],
+    alloc_table: [(AtomicPtr<u8>, AtomicUsize); LEDGER_LENGTH],
 }
 
 impl Ledger {
     const fn new() -> Self {
         const ELEM: (AtomicPtr<u8>, AtomicUsize) =
             (AtomicPtr::new(null_mut()), AtomicUsize::new(0));
-        let alloc_table = [ELEM; 512];
+        let alloc_table = [ELEM; LEDGER_LENGTH];
 
         Self { alloc_table }
     }
@@ -37,11 +38,15 @@ impl Ledger {
 
     fn remove(&self, ptr: *mut u8) -> usize {
         for (entry_ptr, entry_size) in self.alloc_table.iter() {
+            // set the value to be something that will never try and be deallocated, so that we
+            // don't have any chance of a race condition
+            //
+            // dont worry, LEDGER_LENGTH is really long to compensate for us not reclaiming space
             if entry_ptr
-                .compare_exchange(ptr, null_mut(), Ordering::SeqCst, Ordering::SeqCst)
+                .compare_exchange(ptr, usize::MAX as *mut u8, Ordering::SeqCst, Ordering::SeqCst)
                 .is_ok()
             {
-                return entry_size.swap(0, Ordering::SeqCst);
+                return entry_size.load(Ordering::Relaxed);
             }
         }
 
