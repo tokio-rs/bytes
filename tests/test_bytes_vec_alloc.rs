@@ -1,61 +1,87 @@
 use std::alloc::{GlobalAlloc, Layout, System};
-use std::{mem, ptr};
+use std::{mem};
+use std::ptr::null_mut;
+use std::sync::atomic::{AtomicPtr, AtomicUsize, Ordering};
 
 use bytes::{Buf, Bytes};
 
 #[global_allocator]
-static LEDGER: Ledger = Ledger;
+static LEDGER: Ledger = Ledger::new();
 
-struct Ledger;
+#[repr(C)]
+struct Ledger {
+    alloc_table: [(AtomicPtr<u8>, AtomicUsize); 512],
+}
 
-const USIZE_SIZE: usize = mem::size_of::<usize>();
+impl Ledger {
+    const fn new() -> Self {
+        // equivalent to size of (AtomicPtr<u8>, AtomicUsize), hopefully
+        #[cfg(target_pointer_width = "64")]
+            let tricky_bits = 0u128;
 
-unsafe impl GlobalAlloc for Ledger {
-    unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-        if layout.align() == 1 && layout.size() > 0 {
-            // Allocate extra space to stash a record of
-            // how much space there was.
-            let orig_size = layout.size();
-            let size = orig_size + USIZE_SIZE;
-            let new_layout = match Layout::from_size_align(size, 1) {
-                Ok(layout) => layout,
-                Err(_err) => return ptr::null_mut(),
-            };
-            let ptr = System.alloc(new_layout);
-            if !ptr.is_null() {
-                (ptr as *mut usize).write(orig_size);
-                let ptr = ptr.offset(USIZE_SIZE as isize);
-                ptr
-            } else {
-                ptr
+        #[cfg(target_pointer_width = "32")]
+            let tricky_bits = 0u64;
+
+        let magic_table = [tricky_bits; 512];
+
+        // i know this looks bad but all the good ways to do this are unstable or not yet
+        // supported in const contexts (even though they should be!)
+        let alloc_table = unsafe { mem::transmute(magic_table) };
+
+        Self { alloc_table }
+    }
+
+    /// Iterate over our table until we find an open entry, then insert into said entry
+    fn insert(&self, ptr: *mut u8, size: usize) {
+        for (entry_ptr, entry_size) in self.alloc_table.iter() {
+            // SeqCst is good enough here, we don't care about perf, i just want to be correct!
+            if entry_ptr.compare_exchange(
+                null_mut(),
+                ptr,
+                Ordering::SeqCst,
+                Ordering::SeqCst,
+            ).is_ok()
+            {
+                entry_size.store(size, Ordering::Relaxed);
+                break;
             }
-        } else {
-            System.alloc(layout)
         }
     }
 
-    unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
-        if layout.align() == 1 && layout.size() > 0 {
-            let off_ptr = (ptr as *mut usize).offset(-1);
-            let orig_size = off_ptr.read();
-            if orig_size != layout.size() {
-                panic!(
-                    "bad dealloc: alloc size was {}, dealloc size is {}",
-                    orig_size,
-                    layout.size()
-                );
+    fn lookup_size(&self, ptr: *mut u8) -> usize {
+        for (entry_ptr, entry_size) in self.alloc_table.iter() {
+            if entry_ptr.load(Ordering::Relaxed) == ptr {
+                return entry_size.load(Ordering::Relaxed);
             }
+        }
 
-            let new_layout = match Layout::from_size_align(layout.size() + USIZE_SIZE, 1) {
-                Ok(layout) => layout,
-                Err(_err) => std::process::abort(),
-            };
-            System.dealloc(off_ptr as *mut u8, new_layout);
+        panic!("Couldn't find a matching entry for {:x?}", ptr);
+    }
+}
+
+unsafe impl GlobalAlloc for Ledger {
+    unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+        let size = layout.size();
+        let ptr = System.alloc(layout);
+        self.insert(ptr, size);
+        ptr
+    }
+
+    unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
+        let orig_size = self.lookup_size(ptr);
+
+        if orig_size != layout.size() {
+            panic!(
+                "bad dealloc: alloc size was {}, dealloc size is {}",
+                orig_size,
+                layout.size()
+            );
         } else {
             System.dealloc(ptr, layout);
         }
     }
 }
+
 #[test]
 fn test_bytes_advance() {
     let mut bytes = Bytes::from(vec![10, 20, 30]);
