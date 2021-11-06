@@ -45,10 +45,10 @@ impl Ledger {
         }
     }
 
-    fn lookup_size(&self, ptr: *mut u8) -> usize {
+    fn remove(&self, ptr: *mut u8) -> usize {
         for (entry_ptr, entry_size) in self.alloc_table.iter() {
-            if entry_ptr.load(Ordering::Relaxed) == ptr {
-                return entry_size.load(Ordering::Relaxed);
+            if entry_ptr.compare_exchange(ptr, null_mut(), Ordering::SeqCst, Ordering::SeqCst).is_ok() {
+                return entry_size.swap(0, Ordering::Relaxed);
             }
         }
 
@@ -65,7 +65,7 @@ unsafe impl GlobalAlloc for Ledger {
     }
 
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
-        let orig_size = self.lookup_size(ptr);
+        let orig_size = self.remove(ptr);
 
         if orig_size != layout.size() {
             panic!(
