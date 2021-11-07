@@ -51,7 +51,7 @@ impl Ledger {
                 )
                 .is_ok()
             {
-                return entry_size.load(Ordering::Relaxed);
+                return entry_size.load(Ordering::SeqCst);
             }
         }
 
