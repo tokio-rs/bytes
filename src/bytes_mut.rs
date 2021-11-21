@@ -8,6 +8,7 @@ use alloc::{
     borrow::{Borrow, BorrowMut},
     boxed::Box,
     string::String,
+    vec,
     vec::Vec,
 };
 
@@ -256,6 +257,22 @@ impl BytesMut {
             mem::forget(self);
             unsafe { Bytes::with_vtable(ptr, len, data, &SHARED_VTABLE) }
         }
+    }
+
+    /// Creates a new `BytesMut`, which is initialized with zero.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::BytesMut;
+    ///
+    /// let zeros = BytesMut::zeroed(42);
+    ///
+    /// assert_eq!(zeros.len(), 42);
+    /// zeros.into_iter().for_each(|x| assert_eq!(x, 0));
+    /// ```
+    pub fn zeroed(len: usize) -> BytesMut {
+        BytesMut::from_vec(vec![0; len])
     }
 
     /// Splits the bytes into two at the given index.
