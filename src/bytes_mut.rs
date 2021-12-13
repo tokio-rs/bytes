@@ -7,6 +7,7 @@ use core::{cmp, fmt, hash, isize, slice, usize};
 use alloc::{
     borrow::{Borrow, BorrowMut},
     boxed::Box,
+    collections::TryReserveError,
     string::String,
     vec,
     vec::Vec,
@@ -511,12 +512,8 @@ impl BytesMut {
     /// reallocations. A call to `reserve` may result in an allocation.
     ///
     /// Before allocating new buffer space, the function will attempt to reclaim
-    /// space in the existing buffer. If the current handle references a small
-    /// view in the original buffer and all other handles have been dropped,
-    /// and the requested capacity is less than or equal to the existing
-    /// buffer's capacity, then the current view will be copied to the front of
-    /// the buffer and the handle will take ownership of the full buffer.
-    ///
+    /// space in the existing buffer. See `try_reserve`.
+    ///  
     /// # Examples
     ///
     /// In the following example, a new buffer is allocated.
@@ -555,21 +552,80 @@ impl BytesMut {
     /// Panics if the new capacity overflows `usize`.
     #[inline]
     pub fn reserve(&mut self, additional: usize) {
+        match self.try_reserve(additional) {
+            Err(err) => panic!("fail to reserve: {}", err),
+            Ok(_) => {}
+        }
+    }
+
+    /// Tries to reserves capacity for at least `additional` more bytes to be inserted
+    /// into the given `BytesMut`.
+    ///
+    /// More than `additional` bytes may be reserved in order to avoid frequent
+    /// reallocations. A call to `try_reserve` may result in an allocation.
+    ///
+    /// Before allocating new buffer space, the function will attempt to reclaim
+    /// space in the existing buffer. If the current handle references a small
+    /// view in the original buffer and all other handles have been dropped,
+    /// and the requested capacity is less than or equal to the existing
+    /// buffer's capacity, then the current view will be copied to the front of
+    /// the buffer and the handle will take ownership of the full buffer.
+    ///
+    /// # Errors
+    ///
+    /// If the capacity overflows, or the allocator reports a failure, then an error is returned.
+    ///
+    /// # Examples
+    ///
+    /// In the following example, a new buffer is allocated.
+    ///
+    /// ```
+    /// use bytes::BytesMut;
+    ///
+    /// let mut buf = BytesMut::from(&b"hello"[..]);
+    /// let res = buf.try_reserve(64);
+    /// assert!(res.is_ok());
+    /// assert!(buf.capacity() >= 69);
+    /// ```
+    ///
+    /// In the following example, the existing buffer is reclaimed.
+    ///
+    /// ```
+    /// use bytes::{BytesMut, BufMut};
+    ///
+    /// let mut buf = BytesMut::with_capacity(128);
+    /// buf.put(&[0; 64][..]);
+    ///
+    /// let ptr = buf.as_ptr();
+    /// let other = buf.split();
+    ///
+    /// assert!(buf.is_empty());
+    /// assert_eq!(buf.capacity(), 64);
+    ///
+    /// drop(other);
+    /// let res = buf.try_reserve(128);
+    ///
+    /// assert!(res.is_ok());
+    /// assert_eq!(buf.capacity(), 128);
+    /// assert_eq!(buf.as_ptr(), ptr);
+    /// ```
+    #[inline]
+    pub fn try_reserve(&mut self, additional: usize) -> Result<(), TryReserveError> {
         let len = self.len();
         let rem = self.capacity() - len;
 
         if additional <= rem {
             // The handle can already store at least `additional` more bytes, so
             // there is no further work needed to be done.
-            return;
+            return Ok(());
         }
 
-        self.reserve_inner(additional);
+        self.reserve_inner(additional)
     }
 
     // In separate function to allow the short-circuits in `reserve` to
     // be inline-able. Significant helps performance.
-    fn reserve_inner(&mut self, additional: usize) {
+    fn reserve_inner(&mut self, additional: usize) -> Result<(), TryReserveError> {
         let len = self.len();
         let kind = self.kind();
 
@@ -600,7 +656,7 @@ impl BytesMut {
                     // No space - allocate more
                     let mut v =
                         ManuallyDrop::new(rebuild_vec(self.ptr.as_ptr(), self.len, self.cap, off));
-                    v.reserve(additional);
+                    v.try_reserve(additional)?;
 
                     // Update the info
                     self.ptr = vptr(v.as_mut_ptr().offset(off as isize));
@@ -608,7 +664,7 @@ impl BytesMut {
                     self.cap = v.capacity() - off;
                 }
 
-                return;
+                return Ok(());
             }
         }
 
@@ -645,7 +701,7 @@ impl BytesMut {
                     self.ptr = vptr(ptr);
                     self.cap = v.capacity();
 
-                    return;
+                    return Ok(());
                 }
 
                 // The vector capacity is not sufficient. The reserve request is
@@ -665,7 +721,9 @@ impl BytesMut {
         }
 
         // Create a new vector to store the data
-        let mut v = ManuallyDrop::new(Vec::with_capacity(new_cap));
+        let mut v = Vec::new();
+        v.try_reserve(new_cap)?;
+        let mut v = ManuallyDrop::new(v);
 
         // Copy the bytes
         v.extend_from_slice(self.as_ref());
@@ -680,6 +738,8 @@ impl BytesMut {
         self.ptr = vptr(v.as_mut_ptr());
         self.len = v.len();
         self.cap = v.capacity();
+
+        Ok(())
     }
 
     /// Appends given bytes to this `BytesMut`.
