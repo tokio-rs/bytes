@@ -2,7 +2,13 @@ use core::iter::FromIterator;
 use core::ops::{Deref, RangeBounds};
 use core::{cmp, fmt, hash, mem, ptr, slice, usize};
 
-use alloc::{borrow::Borrow, boxed::Box, string::String, vec::Vec};
+use alloc::{
+    alloc::{dealloc, Layout},
+    borrow::Borrow,
+    boxed::Box,
+    string::String,
+    vec::Vec,
+};
 
 use crate::buf::IntoIter;
 #[allow(unused)]
@@ -941,9 +947,16 @@ unsafe fn rebuild_boxed_slice(buf: *mut u8, offset: *const u8, len: usize) -> Bo
 // ===== impl SharedVtable =====
 
 struct Shared {
-    // holds vec for drop, but otherwise doesnt access it
-    _vec: Vec<u8>,
+    // Holds arguments to dealloc upon Drop, but otherwise doesn't use them
+    buf: *mut u8,
+    cap: usize,
     ref_cnt: AtomicUsize,
+}
+
+impl Drop for Shared {
+    fn drop(&mut self) {
+        unsafe { dealloc(self.buf, Layout::from_size_align(self.cap, 1).unwrap()) }
+    }
 }
 
 // Assert that the alignment of `Shared` is divisible by 2.
@@ -1006,9 +1019,9 @@ unsafe fn shallow_clone_vec(
     // updated and since the buffer hasn't been promoted to an
     // `Arc`, those three fields still are the components of the
     // vector.
-    let vec = rebuild_boxed_slice(buf, offset, len).into_vec();
     let shared = Box::new(Shared {
-        _vec: vec,
+        buf,
+        cap: (offset as usize - buf as usize) + len,
         // Initialize refcount to 2. One for this reference, and one
         // for the new clone that will be returned from
         // `shallow_clone`.
