@@ -579,17 +579,22 @@ impl BytesMut {
             // space.
             //
             // Otherwise, since backed by a vector, use `Vec::reserve`
+            //
+            // We need to make sure that this optimization does not kill the amortized
+            // runtimes of BytesMut's operations.
             unsafe {
                 let (off, prev) = self.get_vec_pos();
 
-                // Only reuse space if we can satisfy the requested additional space.
-                if self.capacity() - self.len() + off >= additional {
-                    // There's space - reuse it
+                // Only reuse space if we can satisfy the requested additional space,
+                // and if reusing the space (at least) doubles the capacity.
+                if self.capacity() - self.len() + off >= additional && off >= self.capacity() {
+                    // There's space, and significant capacity increase - reuse the space
                     //
                     // Just move the pointer back to the start after copying
                     // data back.
                     let base_ptr = self.ptr.as_ptr().offset(-(off as isize));
-                    ptr::copy(self.ptr.as_ptr(), base_ptr, self.len);
+                    // since off >= self.capacity() >= self.len, the two regions don't overlap
+                    ptr::copy_nonoverlapping(self.ptr.as_ptr(), base_ptr, self.len);
                     self.ptr = vptr(base_ptr);
                     self.set_vec_pos(0, prev);
 
@@ -597,7 +602,7 @@ impl BytesMut {
                     // can gain capacity back.
                     self.cap += off;
                 } else {
-                    // No space - allocate more
+                    // No space, or not enough capacity gained - allocate more space
                     let mut v =
                         ManuallyDrop::new(rebuild_vec(self.ptr.as_ptr(), self.len, self.cap, off));
                     v.reserve(additional);
