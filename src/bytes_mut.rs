@@ -585,15 +585,24 @@ impl BytesMut {
             unsafe {
                 let (off, prev) = self.get_vec_pos();
 
-                // Only reuse space if we can satisfy the requested additional space,
-                // and if reusing the space (at least) doubles the capacity.
-                if self.capacity() - self.len() + off >= additional && off >= self.capacity() {
-                    // There's space, and significant capacity increase - reuse the space
+                // Only reuse space if we can satisfy the requested additional space.
+                //
+                // Also check if the value of `off` suggests that enough bytes have been read
+                // to account for the overhead of shifting all the data (in an amortized analysis).
+                // Hence the condition `off >= self.len()`.
+                //
+                // This condition also already implies that the buffer is going to be
+                // (at least) half-empty in the end; so we do not break the (amortized) runtime
+                // with future resizes of the underlying `Vec`.
+                //
+                // [For more details check issue #524, and PR #525.]
+                if self.capacity() - self.len() + off >= additional && off >= self.len() {
+                    // There's enough space, and it's not too much overhead - reuse the space
                     //
                     // Just move the pointer back to the start after copying
                     // data back.
                     let base_ptr = self.ptr.as_ptr().offset(-(off as isize));
-                    // since off >= self.capacity() >= self.len, the two regions don't overlap
+                    // Since `off >= self.len()`, the two regions don't overlap.
                     ptr::copy_nonoverlapping(self.ptr.as_ptr(), base_ptr, self.len);
                     self.ptr = vptr(base_ptr);
                     self.set_vec_pos(0, prev);
@@ -602,7 +611,7 @@ impl BytesMut {
                     // can gain capacity back.
                     self.cap += off;
                 } else {
-                    // No space, or not enough capacity gained - allocate more space
+                    // Not enough space, or reusing might be too much overhead - allocate more space
                     let mut v =
                         ManuallyDrop::new(rebuild_vec(self.ptr.as_ptr(), self.len, self.cap, off));
                     v.reserve(additional);
