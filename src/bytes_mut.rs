@@ -646,9 +646,7 @@ impl BytesMut {
                     self.cap = v.capacity();
                 } else {
                     // calculate offset
-                    let off = self.ptr.as_ptr().offset_from(v.as_mut_ptr());
-                    debug_assert!(off >= 0);
-                    let off = off as usize;
+                    let off = v.capacity() - self.cap;
 
                     // new_cap is calculated in terms of `BytesMut`, not the underlying
                     // `Vec`, so it does not take the offset into account.
