@@ -1211,6 +1211,17 @@ impl<'a> Extend<&'a u8> for BytesMut {
     }
 }
 
+impl Extend<Bytes> for BytesMut {
+    fn extend<T>(&mut self, iter: T)
+    where
+        T: IntoIterator<Item = Bytes>,
+    {
+        for bytes in iter {
+            self.extend_from_slice(&bytes)
+        }
+    }
+}
+
 impl FromIterator<u8> for BytesMut {
     fn from_iter<T: IntoIterator<Item = u8>>(into_iter: T) -> Self {
         BytesMut::from_vec(Vec::from_iter(into_iter))
