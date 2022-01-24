@@ -4,8 +4,8 @@ use bytes::{Buf, BufMut, Bytes, BytesMut};
 
 use std::usize;
 
-const LONG: &'static [u8] = b"mary had a little lamb, little lamb, little lamb";
-const SHORT: &'static [u8] = b"hello world";
+const LONG: &[u8] = b"mary had a little lamb, little lamb, little lamb";
+const SHORT: &[u8] = b"hello world";
 
 fn is_sync<T: Sync>() {}
 fn is_send<T: Send>() {}
@@ -874,7 +874,7 @@ fn from_iter_no_size_hint() {
 
 fn test_slice_ref(bytes: &Bytes, start: usize, end: usize, expected: &[u8]) {
     let slice = &(bytes.as_ref()[start..end]);
-    let sub = bytes.slice_ref(&slice);
+    let sub = bytes.slice_ref(slice);
     assert_eq!(&sub[..], expected);
 }
 
@@ -894,7 +894,7 @@ fn slice_ref_empty() {
     let bytes = Bytes::from(&b""[..]);
     let slice = &(bytes.as_ref()[0..0]);
 
-    let sub = bytes.slice_ref(&slice);
+    let sub = bytes.slice_ref(slice);
     assert_eq!(&sub[..], b"");
 }
 

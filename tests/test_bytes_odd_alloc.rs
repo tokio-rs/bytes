@@ -24,8 +24,7 @@ unsafe impl GlobalAlloc for Odd {
             };
             let ptr = System.alloc(new_layout);
             if !ptr.is_null() {
-                let ptr = ptr.offset(1);
-                ptr
+                ptr.offset(1)
             } else {
                 ptr
             }
