@@ -545,6 +545,13 @@ fn extend_from_slice_mut() {
 }
 
 #[test]
+fn extend_mut_from_bytes() {
+    let mut bytes = BytesMut::with_capacity(0);
+    bytes.extend([Bytes::from(LONG)]);
+    assert_eq!(*bytes, LONG[..]);
+}
+
+#[test]
 fn extend_mut_without_size_hint() {
     let mut bytes = BytesMut::with_capacity(0);
     let mut long_iter = LONG.iter();
