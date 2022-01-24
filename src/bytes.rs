@@ -262,7 +262,7 @@ impl Bytes {
         let mut ret = self.clone();
 
         ret.len = end - begin;
-        ret.ptr = unsafe { ret.ptr.offset(begin as isize) };
+        ret.ptr = unsafe { ret.ptr.add(begin) };
 
         ret
     }
@@ -501,7 +501,7 @@ impl Bytes {
         // should already be asserted, but debug assert for tests
         debug_assert!(self.len >= by, "internal: inc_start out of bounds");
         self.len -= by;
-        self.ptr = self.ptr.offset(by as isize);
+        self.ptr = self.ptr.add(by);
     }
 }
 
@@ -604,7 +604,7 @@ impl<'a> IntoIterator for &'a Bytes {
     type IntoIter = core::slice::Iter<'a, u8>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.as_slice().into_iter()
+        self.as_slice().iter()
     }
 }
 
@@ -686,7 +686,7 @@ impl PartialOrd<Bytes> for str {
 
 impl PartialEq<Vec<u8>> for Bytes {
     fn eq(&self, other: &Vec<u8>) -> bool {
-        *self == &other[..]
+        *self == other[..]
     }
 }
 
@@ -710,7 +710,7 @@ impl PartialOrd<Bytes> for Vec<u8> {
 
 impl PartialEq<String> for Bytes {
     fn eq(&self, other: &String) -> bool {
-        *self == &other[..]
+        *self == other[..]
     }
 }
 

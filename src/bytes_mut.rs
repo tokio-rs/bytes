@@ -603,7 +603,7 @@ impl BytesMut {
                     v.reserve(additional);
 
                     // Update the info
-                    self.ptr = vptr(v.as_mut_ptr().offset(off as isize));
+                    self.ptr = vptr(v.as_mut_ptr().add(off));
                     self.len = v.len() - off;
                     self.cap = v.capacity() - off;
                 }
@@ -818,7 +818,7 @@ impl BytesMut {
         // Updating the start of the view is setting `ptr` to point to the
         // new start and updating the `len` field to reflect the new length
         // of the view.
-        self.ptr = vptr(self.ptr.as_ptr().offset(start as isize));
+        self.ptr = vptr(self.ptr.as_ptr().add(start));
 
         if self.len >= start {
             self.len -= start;
@@ -842,7 +842,7 @@ impl BytesMut {
             return Ok(());
         }
 
-        let ptr = unsafe { self.ptr.as_ptr().offset(self.len as isize) };
+        let ptr = unsafe { self.ptr.as_ptr().add(self.len) };
         if ptr == other.ptr.as_ptr()
             && self.kind() == KIND_ARC
             && other.kind() == KIND_ARC
@@ -931,7 +931,7 @@ impl BytesMut {
     #[inline]
     fn uninit_slice(&mut self) -> &mut UninitSlice {
         unsafe {
-            let ptr = self.ptr.as_ptr().offset(self.len as isize);
+            let ptr = self.ptr.as_ptr().add(self.len);
             let len = self.cap - self.len;
 
             UninitSlice::from_raw_parts_mut(ptr, len)
@@ -1178,7 +1178,7 @@ impl<'a> IntoIterator for &'a BytesMut {
     type IntoIter = core::slice::Iter<'a, u8>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.as_ref().into_iter()
+        self.as_ref().iter()
     }
 }
 
@@ -1207,7 +1207,7 @@ impl<'a> Extend<&'a u8> for BytesMut {
     where
         T: IntoIterator<Item = &'a u8>,
     {
-        self.extend(iter.into_iter().map(|b| *b))
+        self.extend(iter.into_iter().copied())
     }
 }
 
@@ -1219,7 +1219,7 @@ impl FromIterator<u8> for BytesMut {
 
 impl<'a> FromIterator<&'a u8> for BytesMut {
     fn from_iter<T: IntoIterator<Item = &'a u8>>(into_iter: T) -> Self {
-        BytesMut::from_iter(into_iter.into_iter().map(|b| *b))
+        BytesMut::from_iter(into_iter.into_iter().copied())
     }
 }
 
@@ -1409,7 +1409,7 @@ impl PartialOrd<BytesMut> for str {
 
 impl PartialEq<Vec<u8>> for BytesMut {
     fn eq(&self, other: &Vec<u8>) -> bool {
-        *self == &other[..]
+        *self == other[..]
     }
 }
 
@@ -1433,7 +1433,7 @@ impl PartialOrd<BytesMut> for Vec<u8> {
 
 impl PartialEq<String> for BytesMut {
     fn eq(&self, other: &String) -> bool {
-        *self == &other[..]
+        *self == other[..]
     }
 }
 
@@ -1499,13 +1499,13 @@ impl PartialOrd<BytesMut> for &str {
 
 impl PartialEq<BytesMut> for Bytes {
     fn eq(&self, other: &BytesMut) -> bool {
-        &other[..] == &self[..]
+        other[..] == self[..]
     }
 }
 
 impl PartialEq<Bytes> for BytesMut {
     fn eq(&self, other: &Bytes) -> bool {
-        &other[..] == &self[..]
+        other[..] == self[..]
     }
 }
 
