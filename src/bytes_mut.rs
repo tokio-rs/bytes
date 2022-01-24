@@ -644,21 +644,39 @@ impl BytesMut {
 
                     self.ptr = vptr(ptr);
                     self.cap = v.capacity();
+                } else {
+                    // calculate offset
+                    let off = self.ptr.as_ptr().offset_from(v.as_mut_ptr());
+                    debug_assert!(off >= 0);
+                    let off = off as usize;
 
-                    return;
+                    // new_cap is calculated in terms of `BytesMut`, not the underlying
+                    // `Vec`, so it does not take the offset into account.
+                    //
+                    // Thus we have to manually add it here.
+                    new_cap += off;
+
+                    // The vector capacity is not sufficient. The reserve request is
+                    // asking for more than the initial buffer capacity. Allocate more
+                    // than requested if `new_cap` is not much bigger than the current
+                    // capacity.
+                    //
+                    // There are some situations, using `reserve_exact` that the
+                    // buffer capacity could be below `original_capacity`, so do a
+                    // check.
+                    let double = v.capacity().checked_shl(1).unwrap_or(new_cap);
+
+                    new_cap = cmp::max(cmp::max(double, new_cap), original_capacity);
+
+                    // No space - allocate more
+                    v.reserve(new_cap - v.len());
+
+                    // Update the info
+                    self.ptr = vptr(v.as_mut_ptr().add(off));
+                    self.cap = v.capacity() - off;
                 }
 
-                // The vector capacity is not sufficient. The reserve request is
-                // asking for more than the initial buffer capacity. Allocate more
-                // than requested if `new_cap` is not much bigger than the current
-                // capacity.
-                //
-                // There are some situations, using `reserve_exact` that the
-                // buffer capacity could be below `original_capacity`, so do a
-                // check.
-                let double = v.capacity().checked_shl(1).unwrap_or(new_cap);
-
-                new_cap = cmp::max(cmp::max(double, new_cap), original_capacity);
+                return;
             } else {
                 new_cap = cmp::max(new_cap, original_capacity);
             }

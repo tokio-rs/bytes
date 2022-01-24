@@ -443,7 +443,7 @@ fn reserve_growth() {
     let _ = bytes.split();
 
     bytes.reserve(65);
-    assert_eq!(bytes.capacity(), 128);
+    assert_eq!(bytes.capacity(), 117);
 }
 
 #[test]
