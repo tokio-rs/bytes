@@ -652,7 +652,7 @@ impl BytesMut {
                     // `Vec`, so it does not take the offset into account.
                     //
                     // Thus we have to manually add it here.
-                    new_cap += off;
+                    new_cap = new_cap.checked_add(off).expect("overflow");
 
                     // The vector capacity is not sufficient. The reserve request is
                     // asking for more than the initial buffer capacity. Allocate more
