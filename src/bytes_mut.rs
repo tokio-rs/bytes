@@ -658,11 +658,17 @@ impl BytesMut {
                 // sure that the vector has enough capacity.
                 let v = &mut (*shared).vec;
 
-                if v.capacity() >= new_cap {
-                    // The capacity is sufficient, reclaim the buffer
-                    let ptr = v.as_mut_ptr();
+                let v_capacity = v.capacity();
+                let ptr = v.as_mut_ptr();
+                let offset = self.ptr.as_ptr().offset_from(ptr) as usize;
 
-                    ptr::copy(self.ptr.as_ptr(), ptr, len);
+                // Compare the condition in the `kind == KIND_VEC` case above for more details.
+                if v_capacity >= new_cap && offset >= len {
+                    // The capacity is sufficient, and copying is not too much overhead:
+                    // reclaim the buffer!
+
+                    // offset >= len implies no overlap
+                    ptr::copy_nonoverlapping(self.ptr.as_ptr(), ptr, len);
 
                     self.ptr = vptr(ptr);
                     self.cap = v.capacity();
