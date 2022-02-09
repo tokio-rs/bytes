@@ -512,18 +512,18 @@ impl BytesMut {
     ///
     /// Before allocating new buffer space, the function will attempt to reclaim
     /// space in the existing buffer. If all other handles referencing part of
-    /// the same original buffer have been dropped and the current handle 
+    /// the same original buffer have been dropped and the current handle
     /// references a relatively small view of the original buffer that's
     /// relatively far offset into the original buffer, then no new allocation
     /// is necessary, as long as the original buffer's capacity is sufficiently
     /// large to contain the current view _and_ the requested additional amount
     /// of bytes. In this case, the current view will be copied to the front of
     /// the existing buffer, and the handle will take ownership of the full buffer.
-    /// 
+    ///
     /// There are additional constraints for when this reclaiming can happen,
     /// in order to prevent access patterns with surprising amounts of expensive
     /// copying operations. If there is nothing to copy (i.e. the current view
-    /// is empty), then reallocation is always avoided whenever the original
+    /// is empty), then the reclaiming _always_ happens whenever the original
     /// buffer is sufficiently large. Otherwise, as of this writing, the buffer
     /// will -- even if it is sufficiently large -- only be reclaimed if the
     /// offset of the current view (from the start of the original buffer) is be
