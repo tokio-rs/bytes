@@ -511,21 +511,24 @@ impl BytesMut {
     /// reallocations. A call to `reserve` may result in an allocation.
     ///
     /// Before allocating new buffer space, the function will attempt to reclaim
-    /// space in the existing buffer. If all other handles referencing part of the same
-    /// original buffer have been dropped and the current handle references a relatively small view
-    /// of the original buffer that's relatively far offset into the original buffer, then no new
-    /// allocation is necessary, as long as the original buffer's capacity is sufficiently large to
-    /// contain the current view _and_ the requested additional amount of bytes. In this case, the
-    /// current view will be copied to the front of the existing buffer, and the handle will take
-    /// ownership of the full buffer.
+    /// space in the existing buffer. If all other handles referencing part of
+    /// the same original buffer have been dropped and the current handle 
+    /// references a relatively small view of the original buffer that's
+    /// relatively far offset into the original buffer, then no new allocation
+    /// is necessary, as long as the original buffer's capacity is sufficiently
+    /// large to contain the current view _and_ the requested additional amount
+    /// of bytes. In this case, the current view will be copied to the front of
+    /// the existing buffer, and the handle will take ownership of the full buffer.
     /// 
     /// There are additional constraints for when this reclaiming can happen,
-    /// in order to prevent access patterns with surprising amounts of expensive copying operations.
-    /// If there is nothing to copy (i.e. the current view is empty), then reallocation is always
-    /// avoided whenever the original buffer is sufficiently large. Otherwise, as of this writing,
-    /// the buffer will -- even if it is sufficiently large -- only be reclaimed if the offset of the current view (from the start
-    /// of the original buffer) is be greater than or equal to the length of the current view,
-    /// but this precise condition might change in the future.
+    /// in order to prevent access patterns with surprising amounts of expensive
+    /// copying operations. If there is nothing to copy (i.e. the current view
+    /// is empty), then reallocation is always avoided whenever the original
+    /// buffer is sufficiently large. Otherwise, as of this writing, the buffer
+    /// will -- even if it is sufficiently large -- only be reclaimed if the
+    /// offset of the current view (from the start of the original buffer) is be
+    /// greater than or equal to the length of the current view, but this
+    /// precise condition might change in the future.
     ///
     /// # Examples
     ///
@@ -590,24 +593,27 @@ impl BytesMut {
             //
             // Otherwise, since backed by a vector, use `Vec::reserve`
             //
-            // We need to make sure that this optimization does not kill the amortized
-            // runtimes of BytesMut's operations.
+            // We need to make sure that this optimization does not kill the
+            // amortized runtimes of BytesMut's operations.
             unsafe {
                 let (off, prev) = self.get_vec_pos();
 
                 // Only reuse space if we can satisfy the requested additional space.
                 //
-                // Also check if the value of `off` suggests that enough bytes have been read
-                // to account for the overhead of shifting all the data (in an amortized analysis).
+                // Also check if the value of `off` suggests that enough bytes
+                // have been read to account for the overhead of shifting all
+                // the data (in an amortized analysis).
                 // Hence the condition `off >= self.len()`.
                 //
-                // This condition also already implies that the buffer is going to be
-                // (at least) half-empty in the end; so we do not break the (amortized) runtime
-                // with future resizes of the underlying `Vec`.
+                // This condition also already implies that the buffer is going
+                // to be (at least) half-empty in the end; so we do not break
+                // the (amortized) runtime with future resizes of the underlying
+                // `Vec`.
                 //
                 // [For more details check issue #524, and PR #525.]
                 if self.capacity() - self.len() + off >= additional && off >= self.len() {
-                    // There's enough space, and it's not too much overhead - reuse the space
+                    // There's enough space, and it's not too much overhead:
+                    // reuse the space!
                     //
                     // Just move the pointer back to the start after copying
                     // data back.
@@ -621,7 +627,8 @@ impl BytesMut {
                     // can gain capacity back.
                     self.cap += off;
                 } else {
-                    // Not enough space, or reusing might be too much overhead - allocate more space
+                    // Not enough space, or reusing might be too much overhead:
+                    // allocate more space!
                     let mut v =
                         ManuallyDrop::new(rebuild_vec(self.ptr.as_ptr(), self.len, self.cap, off));
                     v.reserve(additional);
@@ -664,12 +671,13 @@ impl BytesMut {
                 let ptr = v.as_mut_ptr();
                 let offset = self.ptr.as_ptr().offset_from(ptr) as usize;
 
-                // Compare the condition in the `kind == KIND_VEC` case above for more details.
+                // Compare the condition in the `kind == KIND_VEC` case above
+                // for more details.
                 if v_capacity >= new_cap && offset >= len {
-                    // The capacity is sufficient, and copying is not too much overhead:
-                    // reclaim the buffer!
+                    // The capacity is sufficient, and copying is not too much
+                    // overhead: reclaim the buffer!
 
-                    // offset >= len implies no overlap
+                    // `offset >= len` means: no overlap
                     ptr::copy_nonoverlapping(self.ptr.as_ptr(), ptr, len);
 
                     self.ptr = vptr(ptr);
