@@ -511,11 +511,19 @@ impl BytesMut {
     /// reallocations. A call to `reserve` may result in an allocation.
     ///
     /// Before allocating new buffer space, the function will attempt to reclaim
-    /// space in the existing buffer. If the current handle references a small
-    /// view in the original buffer and all other handles have been dropped,
-    /// and the requested capacity is less than or equal to the existing
-    /// buffer's capacity, then the current view will be copied to the front of
-    /// the buffer and the handle will take ownership of the full buffer.
+    /// space in the existing buffer. If all other handles referencing part of the same
+    /// original buffer have been dropped and the current handle references a relatively small view
+    /// of the original buffer that's relatively far offset into the original buffer, then no new
+    /// allocation is necessary, as long as the original buffer's capacity is sufficiently large to
+    /// contain the current view _and_ the requested additional amount of bytes. In this case, the
+    /// current view will be copied to the front of the existing buffer, and the handle will take
+    /// ownership of the full buffer. Additional constraints will apply for when this can happen,
+    /// in order to prevent access patterns with surprising amounts of expensive copying operations.
+    /// If there is nothing to copy (i.e. the current view is empty), then reallocation is always
+    /// avoided whenever the original buffer is sufficiently large. In general, as of this writing,
+    /// the buffer will only be reclaimed if the offset of the current view (from the start
+    /// of the original buffer) is be greater than or equal to the length of the current view,
+    /// but this precise condition might change in the future.
     ///
     /// # Examples
     ///
