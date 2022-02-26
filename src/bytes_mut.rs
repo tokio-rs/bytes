@@ -664,7 +664,7 @@ impl BytesMut {
                     // check.
                     let double = v.capacity().checked_shl(1).unwrap_or(new_cap);
 
-                    new_cap = cmp::max(cmp::max(double, new_cap), original_capacity);
+                    new_cap = cmp::max(double, new_cap);
 
                     // No space - allocate more
                     v.reserve(new_cap - v.len());
