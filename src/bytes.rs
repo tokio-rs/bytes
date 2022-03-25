@@ -55,7 +55,7 @@ use crate::Buf;
 /// # Sharing
 ///
 /// `Bytes` contains a vtable, which allows implementations of `Bytes` to define
-/// how sharing/cloneing is implemented in detail.
+/// how sharing/cloning is implemented in detail.
 /// When `Bytes::clone()` is called, `Bytes` will call the vtable function for
 /// cloning the backing storage in order to share it behind between multiple
 /// `Bytes` instances.
@@ -78,18 +78,18 @@ use crate::Buf;
 ///
 /// ```text
 ///
-///    Arc ptrs                   +---------+
-///    ________________________ / | Bytes 2 |
-///   /                           +---------+
-///  /          +-----------+     |         |
-/// |_________/ |  Bytes 1  |     |         |
-/// |           +-----------+     |         |
+///    Arc ptrs                   ┌─────────┐
+///    ________________________ / │ Bytes 2 │
+///   /                           └─────────┘
+///  /          ┌───────────┐     |         |
+/// |_________/ │  Bytes 1  │     |         |
+/// |           └───────────┘     |         |
 /// |           |           | ___/ data     | tail
 /// |      data |      tail |/              |
 /// v           v           v               v
-/// +-----+---------------------------------+-----+
-/// | Arc |     |           |               |     |
-/// +-----+---------------------------------+-----+
+/// ┌─────┬─────┬───────────┬───────────────┬─────┐
+/// │ Arc │     │           │               │     │
+/// └─────┴─────┴───────────┴───────────────┴─────┘
 /// ```
 pub struct Bytes {
     ptr: *const u8,
