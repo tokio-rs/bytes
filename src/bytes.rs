@@ -422,6 +422,48 @@ impl Bytes {
         ret
     }
 
+    /// Absorbs a `Bytes` that was previously split off.
+    ///
+    /// If the two `Bytes` objects were previously contiguous, i.e.,
+    /// if `other` was created by calling `split_off` or `split_to` on
+    /// the same `BytesMut`, then this is an `O(1)` operation that
+    /// just decreases a reference count and sets a few
+    /// indices. Otherwise this method creates a new allocation and
+    /// copies both buffers into it.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::BytesMut;
+    ///
+    /// let mut buf = BytesMut::with_capacity(64);
+    /// buf.extend_from_slice(b"aaabbbcccddd");
+    ///
+    /// let mut split_1 = buf.split_to(3).freeze();
+    /// assert_eq!(b"aaa", &split_1[..]);
+    /// assert_eq!(b"bbbcccddd", &buf[..]);
+    ///
+    /// let split_2 = buf.split_to(3).freeze();
+    /// assert_eq!(b"bbb", &split_2[..]);
+    /// assert_eq!(b"cccddd", &buf[..]);
+    ///
+    /// split_1.unsplit(split_2);
+    /// assert_eq!(b"aaabbb", &split_1[..]);
+    /// ```
+    pub fn unsplit(&mut self, other: Bytes) {
+        if self.is_empty() {
+            *self = other;
+            return;
+        }
+
+        if let Err(other) = self.try_unsplit(other) {
+            let mut new = crate::BytesMut::with_capacity(self.len + other.len);
+            new.extend_from_slice(self.as_ref());
+            new.extend_from_slice(other.as_ref());
+            *self = new.freeze();
+        }
+    }
+
     /// Shortens the buffer, keeping the first `len` bytes and dropping the
     /// rest.
     ///
@@ -502,6 +544,24 @@ impl Bytes {
         debug_assert!(self.len >= by, "internal: inc_start out of bounds");
         self.len -= by;
         self.ptr = self.ptr.add(by);
+    }
+
+    fn try_unsplit(&mut self, other: Bytes) -> Result<(), Bytes> {
+        if other.len == 0 {
+            return Ok(());
+        }
+
+        let shared = self.data.load(Ordering::Acquire);
+        let other_shared = other.data.load(Ordering::Acquire);
+
+        let ptr = unsafe { self.ptr.add(self.len) };
+        if ptr == other.ptr && shared as usize & KIND_MASK == KIND_ARC && shared == other_shared {
+            // Contiguous blocks, just combine directly
+            self.len += other.len;
+            Ok(())
+        } else {
+            Err(other)
+        }
     }
 }
 
