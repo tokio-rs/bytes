@@ -1061,7 +1061,7 @@ unsafe fn shallow_clone_vec(
 
 unsafe fn release_shared(ptr: *mut Shared) {
     // `Shared` storage... follow the drop steps from Arc.
-    if (*ptr).ref_cnt.fetch_sub(1, Ordering::Release) != 1 {
+    if (*ptr).ref_cnt.fetch_sub(1, Ordering::AcqRel) != 1 {
         return;
     }
 
@@ -1082,13 +1082,13 @@ unsafe fn release_shared(ptr: *mut Shared) {
     // > "acquire" operation before deleting the object.
     //
     // [1]: (www.boost.org/doc/libs/1_55_0/doc/html/atomic/usage_examples.html)
-    #[cfg(not(thread = "sanitize"))]
-    atomic::fence(Ordering::Acquire);
+    //#[cfg(not(thread = "sanitize"))]
+    //atomic::fence(Ordering::Acquire);
 
     // Thread sanitizer does not support atomic fences. Use an atomic load
     // instead.
-    #[cfg(thread = "sanitize")]
-    (*ptr).ref_count.load(Ordering::Acquire);
+    //#[cfg(thread = "sanitize")]
+    //(*ptr).ref_count.load(Ordering::Acquire);
 
     // Drop the data
     Box::from_raw(ptr);
