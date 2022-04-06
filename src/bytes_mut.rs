@@ -733,10 +733,11 @@ impl BytesMut {
 
     /// Absorbs a `BytesMut` that was previously split off.
     ///
-    /// If the two `BytesMut` objects were previously contiguous, i.e., if
-    /// `other` was created by calling `split_off` on this `BytesMut`, then
-    /// this is an `O(1)` operation that just decreases a reference
-    /// count and sets a few indices. Otherwise this method degenerates to
+    /// If the two `BytesMut` objects were previously contiguous and not mutated
+    /// in a way that causes re-allocation i.e., if `other` was created by
+    /// calling `split_off` on this `BytesMut`, then this is an `O(1)` operation
+    /// that just decreases a reference count and sets a few indices.
+    /// Otherwise this method degenerates to
     /// `self.extend_from_slice(other.as_ref())`.
     ///
     /// # Examples
