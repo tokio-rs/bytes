@@ -907,7 +907,7 @@ unsafe fn promotable_even_drop(data: &mut AtomicPtr<()>, ptr: *const u8, len: us
         } else {
             debug_assert_eq!(kind, KIND_VEC);
             let buf = ptr_map(shared.cast(), |addr| addr & !KIND_MASK);
-            drop(rebuild_boxed_slice(buf, ptr, len));
+            free_boxed_slice(buf, ptr, len);
         }
     });
 }
@@ -934,14 +934,14 @@ unsafe fn promotable_odd_drop(data: &mut AtomicPtr<()>, ptr: *const u8, len: usi
         } else {
             debug_assert_eq!(kind, KIND_VEC);
 
-            drop(rebuild_boxed_slice(shared.cast(), ptr, len));
+            free_boxed_slice(shared.cast(), ptr, len);
         }
     });
 }
 
-unsafe fn rebuild_boxed_slice(buf: *mut u8, offset: *const u8, len: usize) -> Box<[u8]> {
+unsafe fn free_boxed_slice(buf: *mut u8, offset: *const u8, len: usize) {
     let cap = (offset as usize - buf as usize) + len;
-    Box::from_raw(ptr::slice_from_raw_parts_mut(buf, cap))
+    dealloc(buf, Layout::from_size_align(cap, 1).unwrap())
 }
 
 // ===== impl SharedVtable =====
