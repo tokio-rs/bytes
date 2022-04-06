@@ -1107,8 +1107,7 @@ where
 {
     let old_addr = ptr as usize;
     let new_addr = f(old_addr);
-    let diff = new_addr.wrapping_sub(old_addr);
-    ptr.wrapping_add(diff)
+    ptr.wrapping_sub(old_addr).wrapping_add(new_addr)
 }
 
 // compile-fails
