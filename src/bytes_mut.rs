@@ -511,24 +511,20 @@ impl BytesMut {
     /// reallocations. A call to `reserve` may result in an allocation.
     ///
     /// Before allocating new buffer space, the function will attempt to reclaim
-    /// space in the existing buffer. If all other handles referencing part of
-    /// the same original buffer have been dropped and the current handle
-    /// references a relatively small view of the original buffer that's
-    /// relatively far offset into the original buffer, then no new allocation
-    /// is necessary, as long as the original buffer's capacity is sufficiently
-    /// large to contain the current view _and_ the requested additional amount
-    /// of bytes. In this case, the current view will be copied to the front of
-    /// the existing buffer, and the handle will take ownership of the full buffer.
+    /// space in the existing buffer. If the current handle references a view
+    /// into a larger original buffer, and all other handles referencing part
+    /// of the same original buffer have been dropped, then the current view
+    /// can be copied/shifted to the front of the buffer and the handle can take
+    /// ownership of the full buffer, provided that the full buffer is large
+    /// enough to fit the requested additional capacity.
     ///
-    /// There are additional constraints for when this reclaiming can happen,
-    /// in order to prevent access patterns with surprising amounts of expensive
-    /// copying operations. If there is nothing to copy (i.e. the current view
-    /// is empty), then the reclaiming _always_ happens whenever the original
-    /// buffer is sufficiently large. Otherwise, as of this writing, the buffer
-    /// will -- even if it is sufficiently large -- only be reclaimed if the
-    /// offset of the current view (from the start of the original buffer) is be
-    /// greater than or equal to the length of the current view, but this
-    /// precise condition might change in the future.
+    /// This optimization will only happen if shifting the data from the current
+    /// view to the front of the buffer is not too expensive in terms of the
+    /// (amortized) time required. The precise condition is subject to change;
+    /// as of now, the length of the data being shifted needs to be at least as
+    /// large as the distance that it's shifted by. If the current view is empty
+    /// and the original buffer is large enough to fit the requested additional
+    /// capacity, then reallocations will never happen.
     ///
     /// # Examples
     ///
