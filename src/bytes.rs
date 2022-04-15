@@ -314,15 +314,15 @@ impl Bytes {
         assert!(
             sub_p >= bytes_p,
             "subset pointer ({:p}) is smaller than self pointer ({:p})",
-            sub_p as *const u8,
-            bytes_p as *const u8,
+            subset.as_ptr(),
+            self.as_ptr(),
         );
         assert!(
             sub_p + sub_len <= bytes_p + bytes_len,
             "subset is out of bounds: self = ({:p}, {}), subset = ({:p}, {})",
-            bytes_p as *const u8,
+            self.as_ptr(),
             bytes_len,
-            sub_p as *const u8,
+            subset.as_ptr(),
             sub_len,
         );
 
@@ -821,18 +821,18 @@ impl From<Box<[u8]>> for Bytes {
         let ptr = Box::into_raw(slice) as *mut u8;
 
         if ptr as usize & 0x1 == 0 {
-            let data = ptr as usize | KIND_VEC;
+            let data = ptr_map(ptr, |addr| addr | KIND_VEC);
             Bytes {
                 ptr,
                 len,
-                data: AtomicPtr::new(data as *mut _),
+                data: AtomicPtr::new(data.cast()),
                 vtable: &PROMOTABLE_EVEN_VTABLE,
             }
         } else {
             Bytes {
                 ptr,
                 len,
-                data: AtomicPtr::new(ptr as *mut _),
+                data: AtomicPtr::new(ptr.cast()),
                 vtable: &PROMOTABLE_ODD_VTABLE,
             }
         }
@@ -889,10 +889,10 @@ unsafe fn promotable_even_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize
     let kind = shared as usize & KIND_MASK;
 
     if kind == KIND_ARC {
-        shallow_clone_arc(shared as _, ptr, len)
+        shallow_clone_arc(shared.cast(), ptr, len)
     } else {
         debug_assert_eq!(kind, KIND_VEC);
-        let buf = (shared as usize & !KIND_MASK) as *mut u8;
+        let buf = ptr_map(shared.cast(), |addr| addr & !KIND_MASK);
         shallow_clone_vec(data, shared, buf, ptr, len)
     }
 }
@@ -903,11 +903,11 @@ unsafe fn promotable_even_drop(data: &mut AtomicPtr<()>, ptr: *const u8, len: us
         let kind = shared as usize & KIND_MASK;
 
         if kind == KIND_ARC {
-            release_shared(shared as *mut Shared);
+            release_shared(shared.cast());
         } else {
             debug_assert_eq!(kind, KIND_VEC);
-            let buf = (shared as usize & !KIND_MASK) as *mut u8;
-            drop(rebuild_boxed_slice(buf, ptr, len));
+            let buf = ptr_map(shared.cast(), |addr| addr & !KIND_MASK);
+            free_boxed_slice(buf, ptr, len);
         }
     });
 }
@@ -920,7 +920,7 @@ unsafe fn promotable_odd_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize)
         shallow_clone_arc(shared as _, ptr, len)
     } else {
         debug_assert_eq!(kind, KIND_VEC);
-        shallow_clone_vec(data, shared, shared as *mut u8, ptr, len)
+        shallow_clone_vec(data, shared, shared.cast(), ptr, len)
     }
 }
 
@@ -930,18 +930,18 @@ unsafe fn promotable_odd_drop(data: &mut AtomicPtr<()>, ptr: *const u8, len: usi
         let kind = shared as usize & KIND_MASK;
 
         if kind == KIND_ARC {
-            release_shared(shared as *mut Shared);
+            release_shared(shared.cast());
         } else {
             debug_assert_eq!(kind, KIND_VEC);
 
-            drop(rebuild_boxed_slice(shared as *mut u8, ptr, len));
+            free_boxed_slice(shared.cast(), ptr, len);
         }
     });
 }
 
-unsafe fn rebuild_boxed_slice(buf: *mut u8, offset: *const u8, len: usize) -> Box<[u8]> {
+unsafe fn free_boxed_slice(buf: *mut u8, offset: *const u8, len: usize) {
     let cap = (offset as usize - buf as usize) + len;
-    Box::from_raw(slice::from_raw_parts_mut(buf, cap))
+    dealloc(buf, Layout::from_size_align(cap, 1).unwrap())
 }
 
 // ===== impl SharedVtable =====
@@ -981,7 +981,7 @@ unsafe fn shared_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Byte
 
 unsafe fn shared_drop(data: &mut AtomicPtr<()>, _ptr: *const u8, _len: usize) {
     data.with_mut(|shared| {
-        release_shared(*shared as *mut Shared);
+        release_shared(shared.cast());
     });
 }
 
@@ -1102,6 +1102,16 @@ unsafe fn release_shared(ptr: *mut Shared) {
 
     // Drop the data
     Box::from_raw(ptr);
+}
+
+fn ptr_map<F>(ptr: *mut u8, f: F) -> *mut u8
+where
+    F: FnOnce(usize) -> usize,
+{
+    let old_addr = ptr as usize;
+    let new_addr = f(old_addr);
+    // this optimizes better than `ptr.wrapping_add(new_addr.wrapping_sub(old_addr))`
+    ptr.wrapping_sub(old_addr).wrapping_add(new_addr)
 }
 
 // compile-fails
