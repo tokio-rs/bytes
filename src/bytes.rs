@@ -1107,6 +1107,7 @@ where
 {
     let old_addr = ptr as usize;
     let new_addr = f(old_addr);
+    // this optimizes better than `ptr.wrapping_add(new_addr.wrapping_sub(old_addr))`
     ptr.wrapping_sub(old_addr).wrapping_add(new_addr)
 }
 
