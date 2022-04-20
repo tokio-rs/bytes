@@ -1031,6 +1031,7 @@ fn box_slice_empty() {
 
 #[test]
 fn bytes_into_vec() {
+    // Test kind == KIND_VEC
     let content = b"helloworld";
 
     let mut bytes = BytesMut::new();
@@ -1039,12 +1040,28 @@ fn bytes_into_vec() {
     let vec: Vec<u8> = bytes.into();
     assert_eq!(&vec, content);
 
+    // Test kind == KIND_ARC, shared.is_unique() == True
     let mut bytes = BytesMut::new();
     bytes.put_slice(b"abcdewe23");
     bytes.put_slice(content);
 
+    // Overwrite the bytes to make sure only one reference to the underlying
+    // Vec exists.
     bytes = bytes.split_off(9);
 
     let vec: Vec<u8> = bytes.into();
     assert_eq!(&vec, content);
+
+    // Test kind == KIND_ARC, shared.is_unique() == False
+    let prefix = b"abcdewe23";
+
+    let mut bytes = BytesMut::new();
+    bytes.put_slice(prefix);
+    bytes.put_slice(content);
+
+    let vec: Vec<u8> = bytes.split_off(prefix.len()).into();
+    assert_eq!(&vec, content);
+
+    let vec: Vec<u8> = bytes.into();
+    assert_eq!(&vec, prefix);
 }
