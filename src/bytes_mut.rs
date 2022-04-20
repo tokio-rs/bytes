@@ -1560,7 +1560,7 @@ impl Into<Vec<u8>> for BytesMut {
 
                 vec
             } else {
-                return shared.vec.clone();
+                return self.deref().into();
             }
         };
 
