@@ -1549,9 +1549,7 @@ impl Into<Vec<u8>> for BytesMut {
                 let (off, _) = self.get_vec_pos();
                 rebuild_vec(self.ptr.as_ptr(), self.len, self.cap, off)
             }
-        } else {
-            debug_assert_eq!(kind, KIND_ARC);
-
+        } else if kind == KIND_ARC {
             let shared = unsafe { &mut *(self.data as *mut Shared) };
             if shared.is_unique() {
                 let vec = mem::replace(&mut shared.vec, Vec::new());
@@ -1562,6 +1560,8 @@ impl Into<Vec<u8>> for BytesMut {
             } else {
                 return self.deref().into();
             }
+        } else {
+            return self.deref().into();
         };
 
         let len = self.len;
