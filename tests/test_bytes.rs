@@ -2,7 +2,6 @@
 
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 
-use std::convert::TryInto;
 use std::usize;
 
 const LONG: &[u8] = b"mary had a little lamb, little lamb, little lamb";
@@ -1037,7 +1036,7 @@ fn bytes_into_vec() {
     let mut bytes = BytesMut::new();
     bytes.put_slice(content);
 
-    let vec: Vec<u8> = bytes.try_into().unwrap();
+    let vec: Vec<u8> = bytes.into();
     assert_eq!(&vec, content);
 
     let mut bytes = BytesMut::new();
@@ -1046,6 +1045,6 @@ fn bytes_into_vec() {
 
     bytes = bytes.split_off(9);
 
-    let vec: Vec<u8> = bytes.try_into().unwrap();
+    let vec: Vec<u8> = bytes.into();
     assert_eq!(&vec, content);
 }
