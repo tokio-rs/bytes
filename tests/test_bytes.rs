@@ -2,6 +2,7 @@
 
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 
+use std::convert::TryInto;
 use std::usize;
 
 const LONG: &[u8] = b"mary had a little lamb, little lamb, little lamb";
@@ -1027,4 +1028,24 @@ fn box_slice_empty() {
     let empty: Box<[u8]> = Default::default();
     let b = Bytes::from(empty);
     assert!(b.is_empty());
+}
+
+#[test]
+fn bytes_into_vec() {
+    let content = b"helloworld";
+
+    let mut bytes = BytesMut::new();
+    bytes.put_slice(content);
+
+    let vec: Vec<u8> = bytes.try_into().unwrap();
+    assert_eq!(&vec, content);
+
+    let mut bytes = BytesMut::new();
+    bytes.put_slice(b"abcdewe23");
+    bytes.put_slice(content);
+
+    bytes = bytes.split_off(9);
+
+    let vec: Vec<u8> = bytes.try_into().unwrap();
+    assert_eq!(&vec, content);
 }

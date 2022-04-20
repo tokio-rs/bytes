@@ -1,3 +1,4 @@
+use core::convert::TryInto;
 use core::iter::{FromIterator, Iterator};
 use core::mem::{self, ManuallyDrop};
 use core::ops::{Deref, DerefMut};
@@ -1537,6 +1538,45 @@ impl PartialEq<BytesMut> for Bytes {
 impl PartialEq<Bytes> for BytesMut {
     fn eq(&self, other: &Bytes) -> bool {
         other[..] == self[..]
+    }
+}
+
+impl TryInto<Vec<u8>> for BytesMut {
+    type Error = BytesMut;
+
+    fn try_into(mut self) -> Result<Vec<u8>, Self::Error> {
+        let kind = self.kind();
+
+        let mut vec = if kind == KIND_VEC {
+            unsafe {
+                let (off, _) = self.get_vec_pos();
+                rebuild_vec(self.ptr.as_ptr(), self.len, self.cap, off)
+            }
+        } else if kind == KIND_ARC {
+            let shared = unsafe { &mut *(self.data as *mut Shared) };
+            if !shared.is_unique() {
+                return Err(self);
+            }
+
+            let vec = mem::replace(&mut shared.vec, Vec::new());
+
+            unsafe { release_shared(shared) };
+
+            vec
+        } else {
+            return Err(self);
+        };
+
+        let len = self.len;
+
+        unsafe {
+            ptr::copy(self.ptr.as_ptr(), vec.as_mut_ptr(), len);
+            vec.set_len(len);
+        }
+
+        mem::forget(self);
+
+        Ok(vec)
     }
 }
 
