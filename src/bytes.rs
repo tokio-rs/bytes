@@ -109,6 +109,10 @@ pub(crate) struct Vtable {
     /// fn(data, ptr, len)
     pub clone: unsafe fn(&AtomicPtr<()>, *const u8, usize) -> Bytes,
     /// fn(data, ptr, len)
+    ///
+    /// takes `Bytes` to value
+    pub to_vec: unsafe fn(&AtomicPtr<()>, *const u8, usize) -> Vec<u8>,
+    /// fn(data, ptr, len)
     pub drop: unsafe fn(&mut AtomicPtr<()>, *const u8, usize),
 }
 
@@ -845,6 +849,13 @@ impl From<String> for Bytes {
     }
 }
 
+impl From<Bytes> for Vec<u8> {
+    fn from(bytes: Bytes) -> Vec<u8> {
+        let bytes = mem::ManuallyDrop::new(bytes);
+        unsafe { (bytes.vtable.to_vec)(&bytes.data, bytes.ptr, bytes.len) }
+    }
+}
+
 // ===== impl Vtable =====
 
 impl fmt::Debug for Vtable {
@@ -860,6 +871,7 @@ impl fmt::Debug for Vtable {
 
 const STATIC_VTABLE: Vtable = Vtable {
     clone: static_clone,
+    to_vec: static_to_vec,
     drop: static_drop,
 };
 
@@ -868,19 +880,32 @@ unsafe fn static_clone(_: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Bytes {
     Bytes::from_static(slice)
 }
 
+unsafe fn static_to_vec(_: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Vec<u8> {
+    let slice = slice::from_raw_parts(ptr, len);
+    slice.into()
+}
+
 unsafe fn static_drop(_: &mut AtomicPtr<()>, _: *const u8, _: usize) {
     // nothing to drop for &'static [u8]
+}
+
+unsafe fn set_shared_to_empty_vec(shared: &mut Shared) {
+    let mut vec = Vec::new();
+    shared.buf = vec.as_mut_ptr();
+    shared.cap = vec.capacity();
 }
 
 // ===== impl PromotableVtable =====
 
 static PROMOTABLE_EVEN_VTABLE: Vtable = Vtable {
     clone: promotable_even_clone,
+    to_vec: promotable_even_to_vec,
     drop: promotable_even_drop,
 };
 
 static PROMOTABLE_ODD_VTABLE: Vtable = Vtable {
     clone: promotable_odd_clone,
+    to_vec: promotable_odd_to_vec,
     drop: promotable_odd_drop,
 };
 
@@ -894,6 +919,42 @@ unsafe fn promotable_even_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize
         debug_assert_eq!(kind, KIND_VEC);
         let buf = ptr_map(shared.cast(), |addr| addr & !KIND_MASK);
         shallow_clone_vec(data, shared, buf, ptr, len)
+    }
+}
+
+unsafe fn promotable_even_to_vec(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Vec<u8> {
+    let shared = data.load(Ordering::Acquire);
+    let kind = shared as usize & KIND_MASK;
+
+    if kind == KIND_ARC {
+        let shared: &Shared = &*shared.cast();
+
+        if shared.ref_cnt.load(Ordering::Relaxed) == 1 {
+            let buf = shared.buf;
+            let cap = shared.cap;
+
+            // Drop Shared
+            #[allow(clippy::cast_ref_to_mut)]
+            let shared = &mut *(shared as *const Shared as *mut Shared);
+
+            set_shared_to_empty_vec(shared);
+            release_shared(shared);
+
+            // Copy back buffer
+            ptr::copy(ptr, buf, len);
+
+            Vec::from_raw_parts(buf, len, cap)
+        } else {
+            slice::from_raw_parts(ptr, len).into()
+        }
+    } else {
+        // If Bytes holds a Vec, then the offset must be 0.
+        debug_assert_eq!(kind, KIND_VEC);
+
+        let buf = ptr_map(shared.cast(), |addr| addr & !KIND_MASK);
+        let cap = (ptr as usize - buf as usize) + len;
+
+        Vec::from_raw_parts(buf, len, cap)
     }
 }
 
@@ -921,6 +982,42 @@ unsafe fn promotable_odd_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize)
     } else {
         debug_assert_eq!(kind, KIND_VEC);
         shallow_clone_vec(data, shared, shared.cast(), ptr, len)
+    }
+}
+
+unsafe fn promotable_odd_to_vec(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Vec<u8> {
+    let shared = data.load(Ordering::Acquire);
+    let kind = shared as usize & KIND_MASK;
+
+    if kind == KIND_ARC {
+        let shared: &Shared = &*shared.cast();
+
+        if shared.ref_cnt.load(Ordering::Relaxed) == 1 {
+            let buf = shared.buf;
+            let cap = shared.cap;
+
+            // Drop Shared
+            #[allow(clippy::cast_ref_to_mut)]
+            let shared = &mut *(shared as *const Shared as *mut Shared);
+
+            set_shared_to_empty_vec(shared);
+            release_shared(shared);
+
+            // Copy back buffer
+            ptr::copy(ptr, buf, len);
+
+            Vec::from_raw_parts(buf, len, cap)
+        } else {
+            slice::from_raw_parts(ptr, len).into()
+        }
+    } else {
+        // If Bytes holds a Vec, then the offset must be 0.
+        debug_assert_eq!(kind, KIND_VEC);
+
+        let buf = shared.cast();
+        let cap = (ptr as usize - buf as usize) + len;
+
+        Vec::from_raw_parts(buf, len, cap)
     }
 }
 
@@ -967,6 +1064,7 @@ const _: [(); 0 - mem::align_of::<Shared>() % 2] = []; // Assert that the alignm
 
 static SHARED_VTABLE: Vtable = Vtable {
     clone: shared_clone,
+    to_vec: shared_to_vec,
     drop: shared_drop,
 };
 
@@ -977,6 +1075,29 @@ const KIND_MASK: usize = 0b1;
 unsafe fn shared_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Bytes {
     let shared = data.load(Ordering::Relaxed);
     shallow_clone_arc(shared as _, ptr, len)
+}
+
+unsafe fn shared_to_vec(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Vec<u8> {
+    let shared: &Shared = &*data.load(Ordering::Relaxed).cast();
+
+    if shared.ref_cnt.load(Ordering::Relaxed) == 1 {
+        let buf = shared.buf;
+        let cap = shared.cap;
+
+        // Drop Shared
+        #[allow(clippy::cast_ref_to_mut)]
+        let shared = &mut *(shared as *const Shared as *mut Shared);
+
+        set_shared_to_empty_vec(shared);
+        release_shared(shared);
+
+        // Copy back buffer
+        ptr::copy(ptr, buf, len);
+
+        Vec::from_raw_parts(buf, len, cap)
+    } else {
+        slice::from_raw_parts(ptr, len).into()
+    }
 }
 
 unsafe fn shared_drop(data: &mut AtomicPtr<()>, _ptr: *const u8, _len: usize) {
