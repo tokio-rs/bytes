@@ -2,7 +2,6 @@
 
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 
-use std::mem;
 use std::usize;
 
 const LONG: &[u8] = b"mary had a little lamb, little lamb, little lamb";
@@ -535,11 +534,11 @@ fn reserve_in_arc_nonunique_does_not_overallocate() {
 fn reserve_shared_reuse() {
     let mut bytes = BytesMut::with_capacity(1000);
     bytes.put_slice(b"Hello, World!");
-    mem::forget(bytes.split());
+    drop(bytes.split());
 
     bytes.put_slice(b"!123ex123,sadchELLO,_wORLD!");
     // Use split_off so that v.capacity() - self.cap != off
-    mem::forget(bytes.split_off(9));
+    drop(bytes.split_off(9));
     assert_eq!(&*bytes, b"!123ex123");
 
     bytes.reserve(2000);
