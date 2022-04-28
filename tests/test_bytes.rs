@@ -527,6 +527,25 @@ fn reserve_in_arc_nonunique_does_not_overallocate() {
     assert_eq!(2001, bytes.capacity());
 }
 
+/// This function tests `BytesMut::reserve_inner`, where `BytesMut` holds
+/// a unique reference to the shared vector and decide to reuse it
+/// by reallocating the `Vec`.
+#[test]
+fn reserve_shared_reuse() {
+    let mut bytes = BytesMut::with_capacity(1000);
+    bytes.put_slice(b"Hello, World!");
+    drop(bytes.split());
+
+    bytes.put_slice(b"!123ex123,sadchELLO,_wORLD!");
+    // Use split_off so that v.capacity() - self.cap != off
+    drop(bytes.split_off(9));
+    assert_eq!(&*bytes, b"!123ex123");
+
+    bytes.reserve(2000);
+    assert_eq!(&*bytes, b"!123ex123");
+    assert_eq!(bytes.capacity(), 2009);
+}
+
 #[test]
 fn extend_mut() {
     let mut bytes = BytesMut::with_capacity(0);
