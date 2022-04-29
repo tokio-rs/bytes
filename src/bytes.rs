@@ -1104,14 +1104,25 @@ unsafe fn release_shared(ptr: *mut Shared) {
     Box::from_raw(ptr);
 }
 
+#[cfg(miri)]
 fn ptr_map<F>(ptr: *mut u8, f: F) -> *mut u8
 where
     F: FnOnce(usize) -> usize,
 {
     let old_addr = ptr as usize;
     let new_addr = f(old_addr);
-    // this optimizes better than `ptr.wrapping_add(new_addr.wrapping_sub(old_addr))`
-    ptr.wrapping_sub(old_addr).wrapping_add(new_addr)
+    let diff = new_addr.wrapping_sub(old_addr);
+    ptr.wrapping_add(diff)
+}
+
+#[cfg(not(miri))]
+fn ptr_map<F>(ptr: *mut u8, f: F) -> *mut u8
+where
+    F: FnOnce(usize) -> usize,
+{
+    let old_addr = ptr as usize;
+    let new_addr = f(old_addr);
+    new_addr as *mut u8
 }
 
 // compile-fails
