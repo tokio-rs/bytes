@@ -1104,14 +1104,31 @@ unsafe fn release_shared(ptr: *mut Shared) {
     Box::from_raw(ptr);
 }
 
+// Ideally we would always use this version of `ptr_map` since it is strict
+// provenance compatible, but it results in worse codegen. We will however still
+// use it on miri because it gives better diagnostics for people who test bytes
+// code with miri.
+//
+// See https://github.com/tokio-rs/bytes/pull/545 for more info.
+#[cfg(miri)]
 fn ptr_map<F>(ptr: *mut u8, f: F) -> *mut u8
 where
     F: FnOnce(usize) -> usize,
 {
     let old_addr = ptr as usize;
     let new_addr = f(old_addr);
-    // this optimizes better than `ptr.wrapping_add(new_addr.wrapping_sub(old_addr))`
-    ptr.wrapping_sub(old_addr).wrapping_add(new_addr)
+    let diff = new_addr.wrapping_sub(old_addr);
+    ptr.wrapping_add(diff)
+}
+
+#[cfg(not(miri))]
+fn ptr_map<F>(ptr: *mut u8, f: F) -> *mut u8
+where
+    F: FnOnce(usize) -> usize,
+{
+    let old_addr = ptr as usize;
+    let new_addr = f(old_addr);
+    new_addr as *mut u8
 }
 
 // compile-fails
