@@ -1104,6 +1104,12 @@ unsafe fn release_shared(ptr: *mut Shared) {
     Box::from_raw(ptr);
 }
 
+// Ideally we would always use this version of `ptr_map` since it is strict
+// provenance compatible, but it results in worse codegen. We will however still
+// use it on miri because it gives better diagnostics for people who test bytes
+// code with miri.
+//
+// See https://github.com/tokio-rs/bytes/pull/545 for more info.
 #[cfg(miri)]
 fn ptr_map<F>(ptr: *mut u8, f: F) -> *mut u8
 where
