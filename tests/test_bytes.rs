@@ -1117,4 +1117,11 @@ fn test_bytes_into_vec_promotable_even() {
 
     // Test cases where vtable = SHARED_VTABLE, kind == KIND_ARC, ref_cnt == 1
     assert_eq!(Vec::from(b2), vec);
+
+    // Test cases where offset != 0
+    let mut b1 = Bytes::from(vec.clone());
+    let b2 = b1.split_off(20);
+
+    assert_eq!(Vec::from(b2), vec[20..]);
+    assert_eq!(Vec::from(b1), vec[..20]);
 }
