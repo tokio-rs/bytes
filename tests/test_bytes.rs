@@ -1095,6 +1095,16 @@ fn test_bytes_into_vec() {
     // shared.is_unique() = True
     eprintln!("6");
     assert_eq!(&*Vec::from(b1), bs);
+
+    // Test bytes_mut.SHARED_VTABLE.to_vec impl where offset != 0
+    let mut bytes_mut1: BytesMut = bs[..].into();
+    let bytes_mut2 = bytes_mut1.split_off(9);
+
+    let b1 = bytes_mut1.freeze();
+    let b2 = bytes_mut2.freeze();
+
+    assert_eq!(Vec::from(b2), bs[9..]);
+    assert_eq!(Vec::from(b1), bs[..9]);
 }
 
 #[test]
