@@ -935,7 +935,9 @@ unsafe fn promotable_even_to_vec(data: &AtomicPtr<()>, ptr: *const u8, len: usiz
 
             Vec::from_raw_parts(buf, len, cap)
         } else {
-            slice::from_raw_parts(ptr, len).into()
+            let v = slice::from_raw_parts(ptr, len).into();
+            release_shared(shared);
+            v
         }
     } else {
         // If Bytes holds a Vec, then the offset must be 0.
@@ -994,7 +996,9 @@ unsafe fn promotable_odd_to_vec(data: &AtomicPtr<()>, ptr: *const u8, len: usize
 
             Vec::from_raw_parts(buf, len, cap)
         } else {
-            slice::from_raw_parts(ptr, len).into()
+            let v = slice::from_raw_parts(ptr, len).into();
+            release_shared(shared);
+            v
         }
     } else {
         // If Bytes holds a Vec, then the offset must be 0.
@@ -1078,7 +1082,9 @@ unsafe fn shared_to_vec(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Vec
 
         Vec::from_raw_parts(buf, len, cap)
     } else {
-        slice::from_raw_parts(ptr, len).into()
+        let v = slice::from_raw_parts(ptr, len).into();
+        release_shared(shared);
+        v
     }
 }
 

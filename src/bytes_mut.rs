@@ -1623,12 +1623,9 @@ unsafe fn shared_v_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> By
 }
 
 unsafe fn shared_v_to_vec(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Vec<u8> {
-    let shared: &Shared = &*data.load(Ordering::Relaxed).cast();
+    let shared: &mut Shared = &mut *data.load(Ordering::Relaxed).cast();
 
     if shared.is_unique() {
-        #[allow(clippy::cast_ref_to_mut)]
-        let shared = &mut *(shared as *const Shared as *mut Shared);
-
         // Drop shared
         let mut vec = mem::replace(&mut shared.vec, Vec::new());
         release_shared(shared);
@@ -1639,7 +1636,9 @@ unsafe fn shared_v_to_vec(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> V
 
         vec
     } else {
-        slice::from_raw_parts(ptr, len).into()
+        let v = slice::from_raw_parts(ptr, len).into();
+        release_shared(shared);
+        v
     }
 }
 
