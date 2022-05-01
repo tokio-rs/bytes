@@ -889,12 +889,6 @@ unsafe fn static_drop(_: &mut AtomicPtr<()>, _: *const u8, _: usize) {
     // nothing to drop for &'static [u8]
 }
 
-unsafe fn set_shared_to_empty_vec(shared: &mut Shared) {
-    let mut vec = Vec::new();
-    shared.buf = vec.as_mut_ptr();
-    shared.cap = vec.capacity();
-}
-
 // ===== impl PromotableVtable =====
 
 static PROMOTABLE_EVEN_VTABLE: Vtable = Vtable {
@@ -935,10 +929,7 @@ unsafe fn promotable_even_to_vec(data: &AtomicPtr<()>, ptr: *const u8, len: usiz
 
             // Drop Shared
             #[allow(clippy::cast_ref_to_mut)]
-            let shared = &mut *(shared as *const Shared as *mut Shared);
-
-            set_shared_to_empty_vec(shared);
-            release_shared(shared);
+            dealloc_shared(&mut *(shared as *const Shared as *mut Shared));
 
             // Copy back buffer
             ptr::copy(ptr, buf, len);
@@ -998,10 +989,7 @@ unsafe fn promotable_odd_to_vec(data: &AtomicPtr<()>, ptr: *const u8, len: usize
 
             // Drop Shared
             #[allow(clippy::cast_ref_to_mut)]
-            let shared = &mut *(shared as *const Shared as *mut Shared);
-
-            set_shared_to_empty_vec(shared);
-            release_shared(shared);
+            dealloc_shared(&mut *(shared as *const Shared as *mut Shared));
 
             // Copy back buffer
             ptr::copy(ptr, buf, len);
@@ -1086,10 +1074,7 @@ unsafe fn shared_to_vec(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Vec
 
         // Drop Shared
         #[allow(clippy::cast_ref_to_mut)]
-        let shared = &mut *(shared as *const Shared as *mut Shared);
-
-        set_shared_to_empty_vec(shared);
-        release_shared(shared);
+        dealloc_shared(&mut *(shared as *const Shared as *mut Shared));
 
         // Copy back buffer
         ptr::copy(ptr, buf, len);
@@ -1222,6 +1207,18 @@ unsafe fn release_shared(ptr: *mut Shared) {
     (*ptr).ref_cnt.load(Ordering::Acquire);
 
     // Drop the data
+    Box::from_raw(ptr);
+}
+
+/// Deallocate shared immediately without checking for `ref_cnt` or deallocating the `Vec`.
+///
+/// Precondition:
+///  - `ref_cnt` == 1
+///  - `Vec` is moved or deallocated separately
+unsafe fn dealloc_shared(ptr: *mut Shared) {
+    let ptr: *mut mem::ManuallyDrop<Shared> = ptr.cast();
+
+    // Deallocate the data
     Box::from_raw(ptr);
 }
 
