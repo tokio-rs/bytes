@@ -921,15 +921,14 @@ unsafe fn promotable_even_to_vec(data: &AtomicPtr<()>, ptr: *const u8, len: usiz
     let kind = shared as usize & KIND_MASK;
 
     if kind == KIND_ARC {
-        let shared: &Shared = &*shared.cast();
+        let shared: &mut Shared = &mut *shared.cast();
 
         if shared.ref_cnt.load(Ordering::Relaxed) == 1 {
             let buf = shared.buf;
             let cap = shared.cap;
 
-            // Drop Shared
-            #[allow(clippy::cast_ref_to_mut)]
-            dealloc_shared(&mut *(shared as *const Shared as *mut Shared));
+            // Deallocate Shared
+            dealloc_shared(shared);
 
             // Copy back buffer
             ptr::copy(ptr, buf, len);
@@ -981,15 +980,14 @@ unsafe fn promotable_odd_to_vec(data: &AtomicPtr<()>, ptr: *const u8, len: usize
     let kind = shared as usize & KIND_MASK;
 
     if kind == KIND_ARC {
-        let shared: &Shared = &*shared.cast();
+        let shared: &mut Shared = &mut *shared.cast();
 
         if shared.ref_cnt.load(Ordering::Relaxed) == 1 {
             let buf = shared.buf;
             let cap = shared.cap;
 
-            // Drop Shared
-            #[allow(clippy::cast_ref_to_mut)]
-            dealloc_shared(&mut *(shared as *const Shared as *mut Shared));
+            // Deallocate Shared
+            dealloc_shared(shared);
 
             // Copy back buffer
             ptr::copy(ptr, buf, len);
@@ -1066,15 +1064,14 @@ unsafe fn shared_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Byte
 }
 
 unsafe fn shared_to_vec(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Vec<u8> {
-    let shared: &Shared = &*data.load(Ordering::Relaxed).cast();
+    let shared: &mut Shared = &mut *data.load(Ordering::Relaxed).cast();
 
     if shared.ref_cnt.load(Ordering::Relaxed) == 1 {
         let buf = shared.buf;
         let cap = shared.cap;
 
-        // Drop Shared
-        #[allow(clippy::cast_ref_to_mut)]
-        dealloc_shared(&mut *(shared as *const Shared as *mut Shared));
+        // Deallocate Shared
+        dealloc_shared(shared);
 
         // Copy back buffer
         ptr::copy(ptr, buf, len);
