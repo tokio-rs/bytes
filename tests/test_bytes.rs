@@ -411,8 +411,8 @@ fn freeze_after_split_off() {
 fn fns_defined_for_bytes_mut() {
     let mut bytes = BytesMut::from(&b"hello world"[..]);
 
-    bytes.as_ptr();
-    bytes.as_mut_ptr();
+    let _ = bytes.as_ptr();
+    let _ = bytes.as_mut_ptr();
 
     // Iterator
     let v: Vec<u8> = bytes.as_ref().iter().cloned().collect();
