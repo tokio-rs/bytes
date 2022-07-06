@@ -45,7 +45,7 @@ impl Ledger {
             if entry_ptr
                 .compare_exchange(
                     ptr,
-                    usize::MAX as *mut u8,
+                    invalid_ptr(usize::MAX),
                     Ordering::SeqCst,
                     Ordering::SeqCst,
                 )
@@ -102,4 +102,21 @@ fn test_bytes_truncate_and_advance() {
     bytes.truncate(2);
     bytes.advance(1);
     drop(bytes);
+}
+
+/// Returns a dangling pointer with the given address. This is used to store
+/// integer data in pointer fields.
+#[inline]
+fn invalid_ptr<T>(addr: usize) -> *mut T {
+    #[cfg(miri)]
+    {
+        let ptr = std::ptr::null_mut::<u8>().wrapping_add(addr);
+        assert_eq!(ptr as usize, addr);
+        ptr.cast::<T>()
+    }
+
+    #[cfg(not(miri))]
+    {
+        addr as *mut T
+    }
 }

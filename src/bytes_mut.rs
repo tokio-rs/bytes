@@ -253,7 +253,7 @@ impl BytesMut {
 
             let ptr = self.ptr.as_ptr();
             let len = self.len;
-            let data = AtomicPtr::new(self.data as _);
+            let data = AtomicPtr::new(self.data.cast());
             mem::forget(self);
             unsafe { Bytes::with_vtable(ptr, len, data, &SHARED_VTABLE) }
         }
@@ -613,7 +613,7 @@ impl BytesMut {
         }
 
         debug_assert_eq!(kind, KIND_ARC);
-        let shared: *mut Shared = self.data as _;
+        let shared: *mut Shared = self.data;
 
         // Reserving involves abandoning the currently shared buffer and
         // allocating a new vector with the requested capacity.
@@ -692,7 +692,7 @@ impl BytesMut {
 
         // Update self
         let data = (original_capacity_repr << ORIGINAL_CAPACITY_OFFSET) | KIND_VEC;
-        self.data = data as _;
+        self.data = invalid_ptr(data);
         self.ptr = vptr(v.as_mut_ptr());
         self.len = v.len();
         self.cap = v.capacity();
@@ -723,7 +723,7 @@ impl BytesMut {
             // Reserved above
             debug_assert!(dst.len() >= cnt);
 
-            ptr::copy_nonoverlapping(extend.as_ptr(), dst.as_mut_ptr() as *mut u8, cnt);
+            ptr::copy_nonoverlapping(extend.as_ptr(), dst.as_mut_ptr(), cnt);
         }
 
         unsafe {
@@ -788,7 +788,7 @@ impl BytesMut {
             ptr,
             len,
             cap,
-            data: data as *mut _,
+            data: invalid_ptr(data),
         }
     }
 
@@ -909,7 +909,7 @@ impl BytesMut {
         // always succeed.
         debug_assert_eq!(shared as usize & KIND_MASK, KIND_ARC);
 
-        self.data = shared as _;
+        self.data = shared;
     }
 
     /// Makes an exact shallow clone of `self`.
@@ -942,7 +942,7 @@ impl BytesMut {
         debug_assert_eq!(self.kind(), KIND_VEC);
         debug_assert!(pos <= MAX_VEC_POS);
 
-        self.data = ((pos << VEC_POS_OFFSET) | (prev & NOT_VEC_POS_MASK)) as *mut _;
+        self.data = invalid_ptr((pos << VEC_POS_OFFSET) | (prev & NOT_VEC_POS_MASK));
     }
 
     #[inline]
@@ -968,7 +968,7 @@ impl Drop for BytesMut {
                 let _ = rebuild_vec(self.ptr.as_ptr(), self.len, self.cap, off);
             }
         } else if kind == KIND_ARC {
-            unsafe { release_shared(self.data as _) };
+            unsafe { release_shared(self.data) };
         }
     }
 }
@@ -1549,6 +1549,23 @@ fn vptr(ptr: *mut u8) -> NonNull<u8> {
     }
 }
 
+/// Returns a dangling pointer with the given address. This is used to store
+/// integer data in pointer fields.
+#[inline]
+fn invalid_ptr<T>(addr: usize) -> *mut T {
+    #[cfg(miri)]
+    {
+        let ptr = std::ptr::null_mut::<u8>().wrapping_add(addr);
+        assert_eq!(ptr as usize, addr);
+        ptr.cast::<T>()
+    }
+
+    #[cfg(not(miri))]
+    {
+        addr as *mut T
+    }
+}
+
 unsafe fn rebuild_vec(ptr: *mut u8, mut len: usize, mut cap: usize, off: usize) -> Vec<u8> {
     let ptr = ptr.offset(-(off as isize));
     len += off;
@@ -1568,7 +1585,7 @@ unsafe fn shared_v_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> By
     let shared = data.load(Ordering::Relaxed) as *mut Shared;
     increment_shared(shared);
 
-    let data = AtomicPtr::new(shared as _);
+    let data = AtomicPtr::new(shared as *mut ());
     Bytes::with_vtable(ptr, len, data, &SHARED_VTABLE)
 }
 
