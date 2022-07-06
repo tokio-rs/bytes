@@ -1540,17 +1540,17 @@ impl PartialEq<Bytes> for BytesMut {
     }
 }
 
-impl Into<Vec<u8>> for BytesMut {
-    fn into(mut self) -> Vec<u8> {
-        let kind = self.kind();
+impl From<BytesMut> for Vec<u8> {
+    fn from(mut bytes: BytesMut) -> Self {
+        let kind = bytes.kind();
 
         let mut vec = if kind == KIND_VEC {
             unsafe {
-                let (off, _) = self.get_vec_pos();
-                rebuild_vec(self.ptr.as_ptr(), self.len, self.cap, off)
+                let (off, _) = bytes.get_vec_pos();
+                rebuild_vec(bytes.ptr.as_ptr(), bytes.len, bytes.cap, off)
             }
         } else if kind == KIND_ARC {
-            let shared = unsafe { &mut *(self.data as *mut Shared) };
+            let shared = unsafe { &mut *(bytes.data as *mut Shared) };
             if shared.is_unique() {
                 let vec = mem::replace(&mut shared.vec, Vec::new());
 
@@ -1558,20 +1558,20 @@ impl Into<Vec<u8>> for BytesMut {
 
                 vec
             } else {
-                return self.deref().into();
+                return bytes.deref().into();
             }
         } else {
-            return self.deref().into();
+            return bytes.deref().into();
         };
 
-        let len = self.len;
+        let len = bytes.len;
 
         unsafe {
-            ptr::copy(self.ptr.as_ptr(), vec.as_mut_ptr(), len);
+            ptr::copy(bytes.ptr.as_ptr(), vec.as_mut_ptr(), len);
             vec.set_len(len);
         }
 
-        mem::forget(self);
+        mem::forget(bytes);
 
         vec
     }
