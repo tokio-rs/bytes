@@ -108,15 +108,7 @@ fn test_bytes_truncate_and_advance() {
 /// integer data in pointer fields.
 #[inline]
 fn invalid_ptr<T>(addr: usize) -> *mut T {
-    #[cfg(miri)]
-    {
-        let ptr = std::ptr::null_mut::<u8>().wrapping_add(addr);
-        assert_eq!(ptr as usize, addr);
-        ptr.cast::<T>()
-    }
-
-    #[cfg(not(miri))]
-    {
-        addr as *mut T
-    }
+    let ptr = std::ptr::null_mut::<u8>().wrapping_add(addr);
+    debug_assert_eq!(ptr as usize, addr);
+    ptr.cast::<T>()
 }

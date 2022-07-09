@@ -1551,19 +1551,14 @@ fn vptr(ptr: *mut u8) -> NonNull<u8> {
 
 /// Returns a dangling pointer with the given address. This is used to store
 /// integer data in pointer fields.
+///
+/// It is equivalent to `addr as *mut T`, but this fails on miri when strict
+/// provenance checking is enabled.
 #[inline]
 fn invalid_ptr<T>(addr: usize) -> *mut T {
-    #[cfg(miri)]
-    {
-        let ptr = std::ptr::null_mut::<u8>().wrapping_add(addr);
-        assert_eq!(ptr as usize, addr);
-        ptr.cast::<T>()
-    }
-
-    #[cfg(not(miri))]
-    {
-        addr as *mut T
-    }
+    let ptr = std::ptr::null_mut::<u8>().wrapping_add(addr);
+    debug_assert_eq!(ptr as usize, addr);
+    ptr.cast::<T>()
 }
 
 unsafe fn rebuild_vec(ptr: *mut u8, mut len: usize, mut cap: usize, off: usize) -> Vec<u8> {
