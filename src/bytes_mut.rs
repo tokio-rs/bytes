@@ -1556,7 +1556,7 @@ fn vptr(ptr: *mut u8) -> NonNull<u8> {
 /// provenance checking is enabled.
 #[inline]
 fn invalid_ptr<T>(addr: usize) -> *mut T {
-    let ptr = std::ptr::null_mut::<u8>().wrapping_add(addr);
+    let ptr = core::ptr::null_mut::<u8>().wrapping_add(addr);
     debug_assert_eq!(ptr as usize, addr);
     ptr.cast::<T>()
 }
