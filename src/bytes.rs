@@ -925,7 +925,12 @@ unsafe fn promoteable_to_vec_impl(buf: *mut u8, ptr: *const u8, len: usize) -> V
     Vec::from_raw_parts(buf, len, cap)
 }
 
-unsafe fn promotable_even_to_vec(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Vec<u8> {
+unsafe fn promotable_to_vec(
+    data: &AtomicPtr<()>,
+    ptr: *const u8,
+    len: usize,
+    f: fn(*mut ()) -> *mut u8,
+) -> Vec<u8> {
     let shared = data.load(Ordering::Acquire);
     let kind = shared as usize & KIND_MASK;
 
@@ -935,9 +940,14 @@ unsafe fn promotable_even_to_vec(data: &AtomicPtr<()>, ptr: *const u8, len: usiz
         // If Bytes holds a Vec, then the offset must be 0.
         debug_assert_eq!(kind, KIND_VEC);
 
-        let buf = ptr_map(shared.cast(), |addr| addr & !KIND_MASK);
-        promoteable_to_vec_impl(buf, ptr, len)
+        promoteable_to_vec_impl(f(shared), ptr, len)
     }
+}
+
+unsafe fn promotable_even_to_vec(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Vec<u8> {
+    promotable_to_vec(data, ptr, len, |shared| {
+        ptr_map(shared.cast(), |addr| addr & !KIND_MASK)
+    })
 }
 
 unsafe fn promotable_even_drop(data: &mut AtomicPtr<()>, ptr: *const u8, len: usize) {
@@ -968,18 +978,7 @@ unsafe fn promotable_odd_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize)
 }
 
 unsafe fn promotable_odd_to_vec(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Vec<u8> {
-    let shared = data.load(Ordering::Acquire);
-    let kind = shared as usize & KIND_MASK;
-
-    if kind == KIND_ARC {
-        shared_to_vec_impl(shared.cast(), ptr, len)
-    } else {
-        // If Bytes holds a Vec, then the offset must be 0.
-        debug_assert_eq!(kind, KIND_VEC);
-
-        let buf = shared.cast();
-        promoteable_to_vec_impl(buf, ptr, len)
-    }
+    promotable_to_vec(data, ptr, len, |shared| shared.cast())
 }
 
 unsafe fn promotable_odd_drop(data: &mut AtomicPtr<()>, ptr: *const u8, len: usize) {
