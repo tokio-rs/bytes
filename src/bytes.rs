@@ -921,7 +921,7 @@ unsafe fn promotable_even_to_vec(data: &AtomicPtr<()>, ptr: *const u8, len: usiz
     let kind = shared as usize & KIND_MASK;
 
     if kind == KIND_ARC {
-        shared_to_vec_impl(&mut *shared.cast(), ptr, len)
+        shared_to_vec_impl(shared.cast(), ptr, len)
     } else {
         // If Bytes holds a Vec, then the offset must be 0.
         debug_assert_eq!(kind, KIND_VEC);
@@ -965,7 +965,7 @@ unsafe fn promotable_odd_to_vec(data: &AtomicPtr<()>, ptr: *const u8, len: usize
     let kind = shared as usize & KIND_MASK;
 
     if kind == KIND_ARC {
-        shared_to_vec_impl(&mut *shared.cast(), ptr, len)
+        shared_to_vec_impl(shared.cast(), ptr, len)
     } else {
         // If Bytes holds a Vec, then the offset must be 0.
         debug_assert_eq!(kind, KIND_VEC);
@@ -1033,16 +1033,15 @@ unsafe fn shared_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Byte
     shallow_clone_arc(shared as _, ptr, len)
 }
 
-unsafe fn shared_to_vec_impl(shared: &mut Shared, ptr: *const u8, len: usize) -> Vec<u8> {
+unsafe fn shared_to_vec_impl(shared: *mut Shared, ptr: *const u8, len: usize) -> Vec<u8> {
     // This fence is needed for the same reason in release_shared.
-    if shared.ref_cnt.load(Ordering::Acquire) == 1 {
-        let buf = shared.buf;
-        let cap = shared.cap;
+    if (*shared).ref_cnt.load(Ordering::Acquire) == 1 {
+        let buf = (*shared).buf;
+        let cap = (*shared).cap;
 
         // Deallocate Shared
         {
-            let ptr: *mut mem::ManuallyDrop<Shared> = (shared as *mut Shared).cast();
-            Box::from_raw(ptr);
+            Box::from_raw(shared as *mut mem::ManuallyDrop<Shared>);
         }
 
         // Copy back buffer
