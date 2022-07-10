@@ -1040,7 +1040,10 @@ unsafe fn shared_to_vec_impl(shared: &mut Shared, ptr: *const u8, len: usize) ->
         let cap = shared.cap;
 
         // Deallocate Shared
-        dealloc_shared(shared);
+        {
+            let ptr: *mut mem::ManuallyDrop<Shared> = (shared as *mut Shared).cast();
+            Box::from_raw(ptr);
+        }
 
         // Copy back buffer
         ptr::copy(ptr, buf, len);
@@ -1179,18 +1182,6 @@ unsafe fn release_shared(ptr: *mut Shared) {
     (*ptr).ref_cnt.load(Ordering::Acquire);
 
     // Drop the data
-    Box::from_raw(ptr);
-}
-
-/// Deallocate shared immediately without checking for `ref_cnt` or deallocating the `Vec`.
-///
-/// Precondition:
-///  - `ref_cnt` == 1
-///  - `Vec` is moved or deallocated separately
-unsafe fn dealloc_shared(ptr: *mut Shared) {
-    let ptr: *mut mem::ManuallyDrop<Shared> = ptr.cast();
-
-    // Deallocate the data
     Box::from_raw(ptr);
 }
 
