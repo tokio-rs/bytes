@@ -916,6 +916,12 @@ unsafe fn promotable_even_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize
     }
 }
 
+unsafe fn promoteable_to_vec_impl(buf: *mut u8, ptr: *const u8, len: usize) -> Vec<u8> {
+    let cap = (ptr as usize - buf as usize) + len;
+
+    Vec::from_raw_parts(buf, len, cap)
+}
+
 unsafe fn promotable_even_to_vec(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Vec<u8> {
     let shared = data.load(Ordering::Acquire);
     let kind = shared as usize & KIND_MASK;
@@ -927,9 +933,7 @@ unsafe fn promotable_even_to_vec(data: &AtomicPtr<()>, ptr: *const u8, len: usiz
         debug_assert_eq!(kind, KIND_VEC);
 
         let buf = ptr_map(shared.cast(), |addr| addr & !KIND_MASK);
-        let cap = (ptr as usize - buf as usize) + len;
-
-        Vec::from_raw_parts(buf, len, cap)
+        promoteable_to_vec_impl(buf, ptr, len)
     }
 }
 
@@ -971,9 +975,7 @@ unsafe fn promotable_odd_to_vec(data: &AtomicPtr<()>, ptr: *const u8, len: usize
         debug_assert_eq!(kind, KIND_VEC);
 
         let buf = shared.cast();
-        let cap = (ptr as usize - buf as usize) + len;
-
-        Vec::from_raw_parts(buf, len, cap)
+        promoteable_to_vec_impl(buf, ptr, len)
     }
 }
 
