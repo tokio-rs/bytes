@@ -1054,7 +1054,7 @@ unsafe fn shared_to_vec_impl(shared: *mut Shared, ptr: *const u8, len: usize) ->
 }
 
 unsafe fn shared_to_vec(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Vec<u8> {
-    shared_to_vec_impl(&mut *data.load(Ordering::Relaxed).cast(), ptr, len)
+    shared_to_vec_impl(data.load(Ordering::Relaxed).cast(), ptr, len)
 }
 
 unsafe fn shared_drop(data: &mut AtomicPtr<()>, _ptr: *const u8, _len: usize) {
