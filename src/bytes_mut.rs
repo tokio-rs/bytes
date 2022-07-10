@@ -1540,6 +1540,43 @@ impl PartialEq<Bytes> for BytesMut {
     }
 }
 
+impl From<BytesMut> for Vec<u8> {
+    fn from(mut bytes: BytesMut) -> Self {
+        let kind = bytes.kind();
+
+        let mut vec = if kind == KIND_VEC {
+            unsafe {
+                let (off, _) = bytes.get_vec_pos();
+                rebuild_vec(bytes.ptr.as_ptr(), bytes.len, bytes.cap, off)
+            }
+        } else if kind == KIND_ARC {
+            let shared = unsafe { &mut *(bytes.data as *mut Shared) };
+            if shared.is_unique() {
+                let vec = mem::replace(&mut shared.vec, Vec::new());
+
+                unsafe { release_shared(shared) };
+
+                vec
+            } else {
+                return bytes.deref().into();
+            }
+        } else {
+            return bytes.deref().into();
+        };
+
+        let len = bytes.len;
+
+        unsafe {
+            ptr::copy(bytes.ptr.as_ptr(), vec.as_mut_ptr(), len);
+            vec.set_len(len);
+        }
+
+        mem::forget(bytes);
+
+        vec
+    }
+}
+
 #[inline]
 fn vptr(ptr: *mut u8) -> NonNull<u8> {
     if cfg!(debug_assertions) {
