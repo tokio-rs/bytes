@@ -1034,7 +1034,8 @@ unsafe fn shared_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Byte
 }
 
 unsafe fn shared_to_vec_impl(shared: &mut Shared, ptr: *const u8, len: usize) -> Vec<u8> {
-    if shared.ref_cnt.load(Ordering::Relaxed) == 1 {
+    // This fence is needed for the same reason in release_shared.
+    if shared.ref_cnt.load(Ordering::Acquire) == 1 {
         let buf = shared.buf;
         let cap = shared.cap;
 
