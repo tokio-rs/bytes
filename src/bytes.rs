@@ -916,15 +916,6 @@ unsafe fn promotable_even_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize
     }
 }
 
-unsafe fn promoteable_to_vec_impl(buf: *mut u8, ptr: *const u8, len: usize) -> Vec<u8> {
-    let cap = (ptr as usize - buf as usize) + len;
-
-    // Copy back buffer
-    ptr::copy(ptr, buf, len);
-
-    Vec::from_raw_parts(buf, len, cap)
-}
-
 unsafe fn promotable_to_vec(
     data: &AtomicPtr<()>,
     ptr: *const u8,
@@ -940,7 +931,14 @@ unsafe fn promotable_to_vec(
         // If Bytes holds a Vec, then the offset must be 0.
         debug_assert_eq!(kind, KIND_VEC);
 
-        promoteable_to_vec_impl(f(shared), ptr, len)
+        let buf = f(shared);
+
+        let cap = (ptr as usize - buf as usize) + len;
+
+        // Copy back buffer
+        ptr::copy(ptr, buf, len);
+
+        Vec::from_raw_parts(buf, len, cap)
     }
 }
 
