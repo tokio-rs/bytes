@@ -921,24 +921,7 @@ unsafe fn promotable_even_to_vec(data: &AtomicPtr<()>, ptr: *const u8, len: usiz
     let kind = shared as usize & KIND_MASK;
 
     if kind == KIND_ARC {
-        let shared: &mut Shared = &mut *shared.cast();
-
-        if shared.ref_cnt.load(Ordering::Relaxed) == 1 {
-            let buf = shared.buf;
-            let cap = shared.cap;
-
-            // Deallocate Shared
-            dealloc_shared(shared);
-
-            // Copy back buffer
-            ptr::copy(ptr, buf, len);
-
-            Vec::from_raw_parts(buf, len, cap)
-        } else {
-            let v = slice::from_raw_parts(ptr, len).into();
-            release_shared(shared);
-            v
-        }
+        shared_to_vec_impl(&mut *shared.cast(), ptr, len)
     } else {
         // If Bytes holds a Vec, then the offset must be 0.
         debug_assert_eq!(kind, KIND_VEC);
@@ -982,24 +965,7 @@ unsafe fn promotable_odd_to_vec(data: &AtomicPtr<()>, ptr: *const u8, len: usize
     let kind = shared as usize & KIND_MASK;
 
     if kind == KIND_ARC {
-        let shared: &mut Shared = &mut *shared.cast();
-
-        if shared.ref_cnt.load(Ordering::Relaxed) == 1 {
-            let buf = shared.buf;
-            let cap = shared.cap;
-
-            // Deallocate Shared
-            dealloc_shared(shared);
-
-            // Copy back buffer
-            ptr::copy(ptr, buf, len);
-
-            Vec::from_raw_parts(buf, len, cap)
-        } else {
-            let v = slice::from_raw_parts(ptr, len).into();
-            release_shared(shared);
-            v
-        }
+        shared_to_vec_impl(&mut *shared.cast(), ptr, len)
     } else {
         // If Bytes holds a Vec, then the offset must be 0.
         debug_assert_eq!(kind, KIND_VEC);
@@ -1067,9 +1033,7 @@ unsafe fn shared_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Byte
     shallow_clone_arc(shared as _, ptr, len)
 }
 
-unsafe fn shared_to_vec(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Vec<u8> {
-    let shared: &mut Shared = &mut *data.load(Ordering::Relaxed).cast();
-
+unsafe fn shared_to_vec_impl(shared: &mut Shared, ptr: *const u8, len: usize) -> Vec<u8> {
     if shared.ref_cnt.load(Ordering::Relaxed) == 1 {
         let buf = shared.buf;
         let cap = shared.cap;
@@ -1086,6 +1050,10 @@ unsafe fn shared_to_vec(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Vec
         release_shared(shared);
         v
     }
+}
+
+unsafe fn shared_to_vec(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Vec<u8> {
+    shared_to_vec_impl(&mut *data.load(Ordering::Relaxed).cast(), ptr, len)
 }
 
 unsafe fn shared_drop(data: &mut AtomicPtr<()>, _ptr: *const u8, _len: usize) {
