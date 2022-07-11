@@ -1042,7 +1042,7 @@ unsafe fn shared_to_vec_impl(shared: *mut Shared, ptr: *const u8, len: usize) ->
         let cap = (*shared).cap;
 
         // Deallocate Shared
-        Box::from_raw(shared as *mut mem::ManuallyDrop<Shared>);
+        drop(Box::from_raw(shared as *mut mem::ManuallyDrop<Shared>));
 
         // Copy back buffer
         ptr::copy(ptr, buf, len);
