@@ -1049,7 +1049,7 @@ unsafe fn shared_to_vec_impl(shared: *mut Shared, ptr: *const u8, len: usize) ->
 
         Vec::from_raw_parts(buf, len, cap)
     } else {
-        let v = slice::from_raw_parts(ptr, len).into();
+        let v = slice::from_raw_parts(ptr, len).to_vec();
         release_shared(shared);
         v
     }
