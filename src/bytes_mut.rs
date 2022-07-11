@@ -1636,7 +1636,7 @@ unsafe fn shared_v_to_vec(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> V
 
         vec
     } else {
-        let v = slice::from_raw_parts(ptr, len).into();
+        let v = slice::from_raw_parts(ptr, len).to_vec();
         release_shared(shared);
         v
     }
