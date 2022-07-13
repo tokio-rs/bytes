@@ -1550,18 +1550,19 @@ impl From<BytesMut> for Vec<u8> {
                 rebuild_vec(bytes.ptr.as_ptr(), bytes.len, bytes.cap, off)
             }
         } else if kind == KIND_ARC {
-            let shared = unsafe { &mut *(bytes.data as *mut Shared) };
-            if shared.is_unique() {
-                let vec = mem::replace(&mut shared.vec, Vec::new());
+            let shared = bytes.data as *mut Shared;
+
+            if unsafe { (*shared).is_unique() } {
+                let vec = mem::replace(unsafe { &mut (*shared).vec }, Vec::new());
 
                 unsafe { release_shared(shared) };
 
                 vec
             } else {
-                return bytes.deref().into();
+                return bytes.deref().to_vec();
             }
         } else {
-            return bytes.deref().into();
+            return bytes.deref().to_vec();
         };
 
         let len = bytes.len;
