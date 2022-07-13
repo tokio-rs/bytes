@@ -1559,10 +1559,10 @@ impl From<BytesMut> for Vec<u8> {
 
                 vec
             } else {
-                return bytes.deref().into();
+                return bytes.deref().to_vec();
             }
         } else {
-            return bytes.deref().into();
+            return bytes.deref().to_vec();
         };
 
         let len = bytes.len;
