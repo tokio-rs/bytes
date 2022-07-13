@@ -1553,7 +1553,7 @@ impl From<BytesMut> for Vec<u8> {
             let shared = bytes.data as *mut Shared;
 
             if unsafe { (*shared).is_unique() } {
-                let vec = mem::take(unsafe { &mut (*shared).vec });
+                let vec = mem::replace(unsafe { &mut (*shared).vec }, Vec::new());
 
                 unsafe { release_shared(shared) };
 
