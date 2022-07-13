@@ -1036,8 +1036,17 @@ unsafe fn shared_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Byte
 }
 
 unsafe fn shared_to_vec_impl(shared: *mut Shared, ptr: *const u8, len: usize) -> Vec<u8> {
-    // This fence is needed for the same reason in release_shared.
-    if (*shared).ref_cnt.load(Ordering::Acquire) == 1 {
+    // Check that the ref_cnt is 1 (unique).
+    //
+    // If it is unique, then it is set to 0 with AcqRel fence for the same
+    // reason in release_shared.
+    //
+    // Otherwise, we take the other branch and call release_shared.
+    if (*shared)
+        .ref_cnt
+        .compare_exchange(1, 0, Ordering::AcqRel, Ordering::Relaxed)
+        .is_ok()
+    {
         let buf = (*shared).buf;
         let cap = (*shared).cap;
 
