@@ -1623,9 +1623,11 @@ unsafe fn shared_v_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> By
 }
 
 unsafe fn shared_v_to_vec(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Vec<u8> {
-    let shared: &mut Shared = &mut *data.load(Ordering::Relaxed).cast();
+    let shared: *mut Shared = data.load(Ordering::Relaxed).cast();
 
-    if shared.is_unique() {
+    if (*shared).is_unique() {
+        let shared = &mut *shared;
+
         // Drop shared
         let mut vec = mem::replace(&mut shared.vec, Vec::new());
         release_shared(shared);
