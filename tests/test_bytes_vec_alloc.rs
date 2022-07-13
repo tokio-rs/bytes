@@ -112,3 +112,32 @@ fn invalid_ptr<T>(addr: usize) -> *mut T {
     debug_assert_eq!(ptr as usize, addr);
     ptr.cast::<T>()
 }
+
+#[test]
+fn test_bytes_into_vec() {
+    let vec = vec![33u8; 1024];
+
+    // Test cases where kind == KIND_VEC
+    let b1 = Bytes::from(vec.clone());
+    assert_eq!(Vec::from(b1), vec);
+
+    // Test cases where kind == KIND_ARC, ref_cnt == 1
+    let b1 = Bytes::from(vec.clone());
+    drop(b1.clone());
+    assert_eq!(Vec::from(b1), vec);
+
+    // Test cases where kind == KIND_ARC, ref_cnt == 2
+    let b1 = Bytes::from(vec.clone());
+    let b2 = b1.clone();
+    assert_eq!(Vec::from(b1), vec);
+
+    // Test cases where vtable = SHARED_VTABLE, kind == KIND_ARC, ref_cnt == 1
+    assert_eq!(Vec::from(b2), vec);
+
+    // Test cases where offset != 0
+    let mut b1 = Bytes::from(vec.clone());
+    let b2 = b1.split_off(20);
+
+    assert_eq!(Vec::from(b2), vec[20..]);
+    assert_eq!(Vec::from(b1), vec[..20]);
+}

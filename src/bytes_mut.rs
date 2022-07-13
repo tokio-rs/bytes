@@ -1611,6 +1611,7 @@ unsafe fn rebuild_vec(ptr: *mut u8, mut len: usize, mut cap: usize, off: usize) 
 
 static SHARED_VTABLE: Vtable = Vtable {
     clone: shared_v_clone,
+    to_vec: shared_v_to_vec,
     drop: shared_v_drop,
 };
 
@@ -1620,6 +1621,28 @@ unsafe fn shared_v_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> By
 
     let data = AtomicPtr::new(shared as *mut ());
     Bytes::with_vtable(ptr, len, data, &SHARED_VTABLE)
+}
+
+unsafe fn shared_v_to_vec(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Vec<u8> {
+    let shared: *mut Shared = data.load(Ordering::Relaxed).cast();
+
+    if (*shared).is_unique() {
+        let shared = &mut *shared;
+
+        // Drop shared
+        let mut vec = mem::replace(&mut shared.vec, Vec::new());
+        release_shared(shared);
+
+        // Copy back buffer
+        ptr::copy(ptr, vec.as_mut_ptr(), len);
+        vec.set_len(len);
+
+        vec
+    } else {
+        let v = slice::from_raw_parts(ptr, len).to_vec();
+        release_shared(shared);
+        v
+    }
 }
 
 unsafe fn shared_v_drop(data: &mut AtomicPtr<()>, _ptr: *const u8, _len: usize) {
