@@ -511,11 +511,20 @@ impl BytesMut {
     /// reallocations. A call to `reserve` may result in an allocation.
     ///
     /// Before allocating new buffer space, the function will attempt to reclaim
-    /// space in the existing buffer. If the current handle references a small
-    /// view in the original buffer and all other handles have been dropped,
-    /// and the requested capacity is less than or equal to the existing
-    /// buffer's capacity, then the current view will be copied to the front of
-    /// the buffer and the handle will take ownership of the full buffer.
+    /// space in the existing buffer. If the current handle references a view
+    /// into a larger original buffer, and all other handles referencing part
+    /// of the same original buffer have been dropped, then the current view
+    /// can be copied/shifted to the front of the buffer and the handle can take
+    /// ownership of the full buffer, provided that the full buffer is large
+    /// enough to fit the requested additional capacity.
+    ///
+    /// This optimization will only happen if shifting the data from the current
+    /// view to the front of the buffer is not too expensive in terms of the
+    /// (amortized) time required. The precise condition is subject to change;
+    /// as of now, the length of the data being shifted needs to be at least as
+    /// large as the distance that it's shifted by. If the current view is empty
+    /// and the original buffer is large enough to fit the requested additional
+    /// capacity, then reallocations will never happen.
     ///
     /// # Examples
     ///
@@ -579,17 +588,34 @@ impl BytesMut {
             // space.
             //
             // Otherwise, since backed by a vector, use `Vec::reserve`
+            //
+            // We need to make sure that this optimization does not kill the
+            // amortized runtimes of BytesMut's operations.
             unsafe {
                 let (off, prev) = self.get_vec_pos();
 
                 // Only reuse space if we can satisfy the requested additional space.
-                if self.capacity() - self.len() + off >= additional {
-                    // There's space - reuse it
+                //
+                // Also check if the value of `off` suggests that enough bytes
+                // have been read to account for the overhead of shifting all
+                // the data (in an amortized analysis).
+                // Hence the condition `off >= self.len()`.
+                //
+                // This condition also already implies that the buffer is going
+                // to be (at least) half-empty in the end; so we do not break
+                // the (amortized) runtime with future resizes of the underlying
+                // `Vec`.
+                //
+                // [For more details check issue #524, and PR #525.]
+                if self.capacity() - self.len() + off >= additional && off >= self.len() {
+                    // There's enough space, and it's not too much overhead:
+                    // reuse the space!
                     //
                     // Just move the pointer back to the start after copying
                     // data back.
                     let base_ptr = self.ptr.as_ptr().offset(-(off as isize));
-                    ptr::copy(self.ptr.as_ptr(), base_ptr, self.len);
+                    // Since `off >= self.len()`, the two regions don't overlap.
+                    ptr::copy_nonoverlapping(self.ptr.as_ptr(), base_ptr, self.len);
                     self.ptr = vptr(base_ptr);
                     self.set_vec_pos(0, prev);
 
@@ -597,7 +623,8 @@ impl BytesMut {
                     // can gain capacity back.
                     self.cap += off;
                 } else {
-                    // No space - allocate more
+                    // Not enough space, or reusing might be too much overhead:
+                    // allocate more space!
                     let mut v =
                         ManuallyDrop::new(rebuild_vec(self.ptr.as_ptr(), self.len, self.cap, off));
                     v.reserve(additional);
@@ -636,11 +663,19 @@ impl BytesMut {
                 // sure that the vector has enough capacity.
                 let v = &mut (*shared).vec;
 
-                if v.capacity() >= new_cap {
-                    // The capacity is sufficient, reclaim the buffer
-                    let ptr = v.as_mut_ptr();
+                let v_capacity = v.capacity();
+                let ptr = v.as_mut_ptr();
 
-                    ptr::copy(self.ptr.as_ptr(), ptr, len);
+                let offset = offset_from(self.ptr.as_ptr(), ptr);
+
+                // Compare the condition in the `kind == KIND_VEC` case above
+                // for more details.
+                if v_capacity >= new_cap && offset >= len {
+                    // The capacity is sufficient, and copying is not too much
+                    // overhead: reclaim the buffer!
+
+                    // `offset >= len` means: no overlap
+                    ptr::copy_nonoverlapping(self.ptr.as_ptr(), ptr, len);
 
                     self.ptr = vptr(ptr);
                     self.cap = v.capacity();
@@ -1294,7 +1329,7 @@ unsafe fn release_shared(ptr: *mut Shared) {
     (*ptr).ref_count.load(Ordering::Acquire);
 
     // Drop the data
-    Box::from_raw(ptr);
+    drop(Box::from_raw(ptr));
 }
 
 impl Shared {
@@ -1597,6 +1632,23 @@ fn invalid_ptr<T>(addr: usize) -> *mut T {
     let ptr = core::ptr::null_mut::<u8>().wrapping_add(addr);
     debug_assert_eq!(ptr as usize, addr);
     ptr.cast::<T>()
+}
+
+/// Precondition: dst >= original
+///
+/// The following line is equivalent to:
+///
+/// ```rust,ignore
+/// self.ptr.as_ptr().offset_from(ptr) as usize;
+/// ```
+///
+/// But due to min rust is 1.39 and it is only stablised
+/// in 1.47, we cannot use it.
+#[inline]
+fn offset_from(dst: *mut u8, original: *mut u8) -> usize {
+    debug_assert!(dst >= original);
+
+    dst as usize - original as usize
 }
 
 unsafe fn rebuild_vec(ptr: *mut u8, mut len: usize, mut cap: usize, off: usize) -> Vec<u8> {

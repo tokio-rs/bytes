@@ -1190,7 +1190,7 @@ unsafe fn release_shared(ptr: *mut Shared) {
     (*ptr).ref_cnt.load(Ordering::Acquire);
 
     // Drop the data
-    Box::from_raw(ptr);
+    drop(Box::from_raw(ptr));
 }
 
 // Ideally we would always use this version of `ptr_map` since it is strict
