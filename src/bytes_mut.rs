@@ -665,7 +665,14 @@ impl BytesMut {
 
                 let v_capacity = v.capacity();
                 let ptr = v.as_mut_ptr();
-                let offset = self.ptr.as_ptr().offset_from(ptr) as usize;
+
+                // The following line is equivalent to:
+                //
+                //     self.ptr.as_ptr().offset_from(ptr) as usize;
+                //
+                // But due to min rust is 1.39 and it is only stablised
+                // in 1.47, we cannot use it.
+                let offset = self.ptr.as_ptr() as usize - ptr as usize;
 
                 // Compare the condition in the `kind == KIND_VEC` case above
                 // for more details.
