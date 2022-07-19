@@ -1335,7 +1335,7 @@ unsafe fn release_shared(ptr: *mut Shared) {
     (*ptr).ref_count.load(Ordering::Acquire);
 
     // Drop the data
-    Box::from_raw(ptr);
+    drop(Box::from_raw(ptr));
 }
 
 impl Shared {
