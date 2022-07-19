@@ -1638,7 +1638,9 @@ fn invalid_ptr<T>(addr: usize) -> *mut T {
 ///
 /// The following line is equivalent to:
 ///
-///     self.ptr.as_ptr().offset_from(ptr) as usize;
+/// ```rust,ignore
+/// self.ptr.as_ptr().offset_from(ptr) as usize;
+/// ```
 ///
 /// But due to min rust is 1.39 and it is only stablised
 /// in 1.47, we cannot use it.
