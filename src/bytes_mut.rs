@@ -666,13 +666,7 @@ impl BytesMut {
                 let v_capacity = v.capacity();
                 let ptr = v.as_mut_ptr();
 
-                // The following line is equivalent to:
-                //
-                //     self.ptr.as_ptr().offset_from(ptr) as usize;
-                //
-                // But due to min rust is 1.39 and it is only stablised
-                // in 1.47, we cannot use it.
-                let offset = self.ptr.as_ptr() as usize - ptr as usize;
+                let offset = offset_from(self.ptr.as_ptr(), ptr);
 
                 // Compare the condition in the `kind == KIND_VEC` case above
                 // for more details.
@@ -1638,6 +1632,21 @@ fn invalid_ptr<T>(addr: usize) -> *mut T {
     let ptr = core::ptr::null_mut::<u8>().wrapping_add(addr);
     debug_assert_eq!(ptr as usize, addr);
     ptr.cast::<T>()
+}
+
+/// Precondition: dst >= original
+///
+/// The following line is equivalent to:
+///
+///     self.ptr.as_ptr().offset_from(ptr) as usize;
+///
+/// But due to min rust is 1.39 and it is only stablised
+/// in 1.47, we cannot use it.
+#[inline]
+fn offset_from(dst: *mut u8, original: *mut u8) -> usize {
+    debug_assert!(dst >= original);
+
+    dst as usize - original as usize
 }
 
 unsafe fn rebuild_vec(ptr: *mut u8, mut len: usize, mut cap: usize, off: usize) -> Vec<u8> {
