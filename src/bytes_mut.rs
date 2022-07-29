@@ -670,7 +670,10 @@ impl BytesMut {
 
                 // Compare the condition in the `kind == KIND_VEC` case above
                 // for more details.
-                if v_capacity >= new_cap && offset >= len {
+                if v_capacity >= new_cap + offset {
+                    self.cap = new_cap;
+                    // no copy is necessary
+                } else if v_capacity >= new_cap && offset >= len {
                     // The capacity is sufficient, and copying is not too much
                     // overhead: reclaim the buffer!
 
