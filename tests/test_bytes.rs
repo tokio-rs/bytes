@@ -516,6 +516,34 @@ fn reserve_in_arc_unique_doubles() {
 }
 
 #[test]
+fn reserve_in_arc_unique_does_not_overallocate_after_split() {
+    let mut bytes = BytesMut::from(LONG);
+    let orig_capacity = bytes.capacity();
+    drop(bytes.split_off(LONG.len() / 2));
+
+    // now bytes is Arc and refcount == 1
+
+    let new_capacity = bytes.capacity();
+    bytes.reserve(orig_capacity - new_capacity);
+    assert_eq!(bytes.capacity(), orig_capacity);
+}
+
+#[test]
+fn reserve_in_arc_unique_does_not_overallocate_after_multiple_splits() {
+    let mut bytes = BytesMut::from(LONG);
+    let orig_capacity = bytes.capacity();
+    for _ in 0..10 {
+        drop(bytes.split_off(LONG.len() / 2));
+
+        // now bytes is Arc and refcount == 1
+
+        let new_capacity = bytes.capacity();
+        bytes.reserve(orig_capacity - new_capacity);
+    }
+    assert_eq!(bytes.capacity(), orig_capacity);
+}
+
+#[test]
 fn reserve_in_arc_nonunique_does_not_overallocate() {
     let mut bytes = BytesMut::with_capacity(1000);
     let _copy = bytes.split();
