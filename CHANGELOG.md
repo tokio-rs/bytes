@@ -1,3 +1,9 @@
+# 1.2.1 (July 30, 2022)
+
+### Fixed
+
+- Fix unbounded memory growth when using `reserve` (#560)
+
 # 1.2.0 (July 19, 2022)
 
 ### Added
