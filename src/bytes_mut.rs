@@ -705,6 +705,15 @@ impl BytesMut {
                     new_cap = cmp::max(double, new_cap);
 
                     // No space - allocate more
+                    //
+                    // The length field of `Shared::vec` is not used by the `BytesMut`;
+                    // instead we use the `len` field in the `BytesMut` itself. However,
+                    // when calling `reserve`, it doesn't guarantee that data stored in
+                    // the unused capacity of the vector is copied over to the new
+                    // allocation, so we need to ensure that we don't have any data we
+                    // care about in the unused capacity before calling `reserve`.
+                    debug_assert!(off + len <= v.capacity());
+                    v.set_len(off + len);
                     v.reserve(new_cap - v.len());
 
                     // Update the info
