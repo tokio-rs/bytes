@@ -1713,6 +1713,14 @@ unsafe impl crate::BytesImpl for SharedImpl {
         (AtomicPtr::new(this.shared.cast()), this.ptr, this.len)
     }
 
+    unsafe fn from_bytes_parts(data: &mut AtomicPtr<()>, ptr: *const u8, len: usize) -> Self {
+        SharedImpl {
+            shared: (data.with_mut(|p| *p)).cast(),
+            ptr,
+            len,
+        }
+    }
+
     unsafe fn clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Bytes {
         let shared = data.load(Ordering::Relaxed) as *mut Shared;
         increment_shared(shared);

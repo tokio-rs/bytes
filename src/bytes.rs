@@ -1,3 +1,4 @@
+use core::any::TypeId;
 use core::iter::FromIterator;
 use core::ops::{Deref, RangeBounds};
 use core::{cmp, fmt, hash, mem, ptr, slice, usize};
@@ -114,6 +115,9 @@ pub unsafe trait BytesImpl: 'static {
     /// Decompose `Self` into parts used by `Bytes`.
     fn into_bytes_parts(this: Self) -> (AtomicPtr<()>, *const u8, usize);
 
+    /// Creates itself directly from the raw bytes parts decomposed with `into_bytes_parts`.
+    unsafe fn from_bytes_parts(data: &mut AtomicPtr<()>, ptr: *const u8, len: usize) -> Self;
+
     /// Returns new `Bytes` based on the current parts.
     unsafe fn clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Bytes;
 
@@ -132,6 +136,7 @@ pub unsafe trait BytesImpl: 'static {
 }
 
 struct Vtable {
+    type_id: fn() -> TypeId,
     /// fn(data, ptr, len)
     clone: unsafe fn(&AtomicPtr<()>, *const u8, usize) -> Bytes,
     /// fn(data, ptr, len)
@@ -192,6 +197,7 @@ impl Bytes {
     #[cfg(not(all(loom, test)))]
     pub const fn from_static(bytes: &'static [u8]) -> Bytes {
         const STATIC_VTABLE: Vtable = Vtable {
+            type_id: TypeId::of::<StaticImpl>,
             clone: <StaticImpl as BytesImpl>::clone,
             will_truncate: <StaticImpl as BytesImpl>::will_truncate,
             into_vec: <StaticImpl as BytesImpl>::into_vec,
@@ -209,6 +215,7 @@ impl Bytes {
     #[cfg(all(loom, test))]
     pub fn from_static(bytes: &'static [u8]) -> Bytes {
         const STATIC_VTABLE: Vtable = Vtable {
+            type_id: TypeId::of::<StaticImpl>,
             clone: <StaticImpl as BytesImpl>::clone,
             will_truncate: <StaticImpl as BytesImpl>::will_truncate,
             into_vec: <StaticImpl as BytesImpl>::into_vec,
@@ -235,6 +242,7 @@ impl Bytes {
             len,
             data,
             vtable: &Vtable {
+                type_id: TypeId::of::<T>,
                 clone: T::clone,
                 will_truncate: T::will_truncate,
                 into_vec: T::into_vec,
@@ -541,6 +549,19 @@ impl Bytes {
     #[inline]
     pub fn clear(&mut self) {
         self.truncate(0);
+    }
+
+    /// Downcast this `Bytes` into its underlying implementation.
+    #[inline]
+    pub fn downcast_impl<T: BytesImpl>(self) -> Result<T, Bytes> {
+        if TypeId::of::<T>() == (self.vtable.type_id)() {
+            Ok(unsafe {
+                let this = &mut *mem::ManuallyDrop::new(self);
+                T::from_bytes_parts(&mut this.data, this.ptr, this.len)
+            })
+        } else {
+            Err(self)
+        }
     }
 
     // private
@@ -919,6 +940,7 @@ impl From<Bytes> for Vec<u8> {
 impl fmt::Debug for Vtable {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Vtable")
+            .field("type_id", &self.type_id)
             .field("clone", &(self.clone as *const ()))
             .field("will_truncate", &(self.will_truncate as *const ()))
             .field("into_vec", &(self.into_vec as *const ()))
@@ -934,7 +956,15 @@ struct StaticImpl(&'static [u8]);
 unsafe impl BytesImpl for StaticImpl {
     fn into_bytes_parts(this: Self) -> (AtomicPtr<()>, *const u8, usize) {
         let mut bytes = mem::ManuallyDrop::new(Bytes::from_static(this.0));
-        (mem::take(&mut bytes.data), bytes.ptr, bytes.len)
+        (
+            mem::replace(&mut bytes.data, AtomicPtr::default()),
+            bytes.ptr,
+            bytes.len,
+        )
+    }
+
+    unsafe fn from_bytes_parts(_data: &mut AtomicPtr<()>, ptr: *const u8, len: usize) -> Self {
+        StaticImpl(slice::from_raw_parts(ptr, len))
     }
 
     unsafe fn clone(_: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Bytes {
@@ -960,7 +990,6 @@ struct PromotableOddImpl(Promotable);
 
 enum Promotable {
     Owned(Box<[u8]>),
-    #[allow(dead_code)]
     Shared(SharedImpl),
 }
 
@@ -978,6 +1007,12 @@ unsafe impl BytesImpl for PromotableEvenImpl {
         let data = ptr_map(ptr, |addr| addr | KIND_VEC);
 
         (AtomicPtr::new(data.cast()), ptr, len)
+    }
+
+    unsafe fn from_bytes_parts(data: &mut AtomicPtr<()>, ptr: *const u8, len: usize) -> Self {
+        PromotableEvenImpl(promotable_from_bytes_parts(data, ptr, len, |shared| {
+            ptr_map(shared.cast(), |addr| addr & !KIND_MASK)
+        }))
     }
 
     unsafe fn clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Bytes {
@@ -1022,6 +1057,30 @@ unsafe impl BytesImpl for PromotableEvenImpl {
     }
 }
 
+unsafe fn promotable_from_bytes_parts(
+    data: &mut AtomicPtr<()>,
+    ptr: *const u8,
+    len: usize,
+    f: fn(*mut ()) -> *mut u8,
+) -> Promotable {
+    let shared = data.with_mut(|p| *p);
+    let kind = shared as usize & KIND_MASK;
+
+    if kind == KIND_ARC {
+        Promotable::Shared(SharedImpl::from_bytes_parts(data, ptr, len))
+    } else {
+        debug_assert_eq!(kind, KIND_VEC);
+
+        let buf = f(shared);
+
+        let cap = (ptr as usize - buf as usize) + len;
+
+        let vec = Vec::from_raw_parts(buf, cap, cap);
+
+        Promotable::Owned(vec.into_boxed_slice())
+    }
+}
+
 unsafe fn promotable_into_vec(
     data: &mut AtomicPtr<()>,
     ptr: *const u8,
@@ -1060,6 +1119,12 @@ unsafe impl BytesImpl for PromotableOddImpl {
         assert!(ptr as usize & 0x1 == 1);
 
         (AtomicPtr::new(ptr.cast()), ptr, len)
+    }
+
+    unsafe fn from_bytes_parts(data: &mut AtomicPtr<()>, ptr: *const u8, len: usize) -> Self {
+        PromotableOddImpl(promotable_from_bytes_parts(data, ptr, len, |shared| {
+            shared.cast()
+        }))
     }
 
     unsafe fn clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Bytes {
@@ -1140,6 +1205,14 @@ const KIND_MASK: usize = 0b1;
 unsafe impl BytesImpl for SharedImpl {
     fn into_bytes_parts(this: Self) -> (AtomicPtr<()>, *const u8, usize) {
         (AtomicPtr::new(this.shared.cast()), this.offset, this.len)
+    }
+
+    unsafe fn from_bytes_parts(data: &mut AtomicPtr<()>, ptr: *const u8, len: usize) -> Self {
+        SharedImpl {
+            shared: (data.with_mut(|p| *p)).cast(),
+            offset: ptr,
+            len,
+        }
     }
 
     unsafe fn clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Bytes {
