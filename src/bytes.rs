@@ -110,6 +110,11 @@ pub(crate) struct Vtable {
     pub clone: unsafe fn(&AtomicPtr<()>, *const u8, usize) -> Bytes,
     /// fn(data, ptr, len)
     ///
+    /// Called before the `Bytes::truncate` is processed.
+    /// Useful if the implementation needs some preparation step for it.
+    pub will_truncate: unsafe fn(&mut AtomicPtr<()>, *const u8, usize),
+    /// fn(data, ptr, len)
+    ///
     /// Consumes `Bytes` to return `Vec<u8>`
     pub into_vec: unsafe fn(&mut AtomicPtr<()>, *const u8, usize) -> Vec<u8>,
     /// fn(data, ptr, len)
@@ -455,16 +460,10 @@ impl Bytes {
     #[inline]
     pub fn truncate(&mut self, len: usize) {
         if len < self.len {
-            // The Vec "promotable" vtables do not store the capacity,
-            // so we cannot truncate while using this repr. We *have* to
-            // promote using `split_off` so the capacity can be stored.
-            if self.vtable as *const Vtable == &PROMOTABLE_EVEN_VTABLE
-                || self.vtable as *const Vtable == &PROMOTABLE_ODD_VTABLE
-            {
-                drop(self.split_off(len));
-            } else {
-                self.len = len;
+            unsafe {
+                (self.vtable.will_truncate)(&mut self.data, self.ptr, self.len);
             }
+            self.len = len;
         }
     }
 
@@ -890,6 +889,7 @@ impl fmt::Debug for Vtable {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Vtable")
             .field("clone", &(self.clone as *const ()))
+            .field("will_truncate", &(self.will_truncate as *const ()))
             .field("into_vec", &(self.into_vec as *const ()))
             .field("drop", &(self.drop as *const ()))
             .finish()
@@ -900,6 +900,7 @@ impl fmt::Debug for Vtable {
 
 const STATIC_VTABLE: Vtable = Vtable {
     clone: static_clone,
+    will_truncate: static_will_truncate,
     into_vec: static_into_vec,
     drop: static_drop,
 };
@@ -907,6 +908,10 @@ const STATIC_VTABLE: Vtable = Vtable {
 unsafe fn static_clone(_: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Bytes {
     let slice = slice::from_raw_parts(ptr, len);
     Bytes::from_static(slice)
+}
+
+unsafe fn static_will_truncate(_: &mut AtomicPtr<()>, _: *const u8, _: usize) {
+    // nothing to do before truncate for &'static [u8]
 }
 
 unsafe fn static_into_vec(_: &mut AtomicPtr<()>, ptr: *const u8, len: usize) -> Vec<u8> {
@@ -922,12 +927,14 @@ unsafe fn static_drop(_: &mut AtomicPtr<()>, _: *const u8, _: usize) {
 
 static PROMOTABLE_EVEN_VTABLE: Vtable = Vtable {
     clone: promotable_even_clone,
+    will_truncate: promotable_even_will_truncate,
     into_vec: promotable_even_into_vec,
     drop: promotable_even_drop,
 };
 
 static PROMOTABLE_ODD_VTABLE: Vtable = Vtable {
     clone: promotable_odd_clone,
+    will_truncate: promotable_odd_will_truncate,
     into_vec: promotable_odd_into_vec,
     drop: promotable_odd_drop,
 };
@@ -943,6 +950,13 @@ unsafe fn promotable_even_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize
         let buf = ptr_map(shared.cast(), |addr| addr & !KIND_MASK);
         shallow_clone_vec(data, shared, buf, ptr, len)
     }
+}
+
+unsafe fn promotable_even_will_truncate(data: &mut AtomicPtr<()>, ptr: *const u8, len: usize) {
+    // The Vec "promotable" vtables do not store the capacity,
+    // so we cannot truncate while using this repr. We *have* to
+    // promote using `clone` so the capacity can be stored.
+    drop(promotable_even_clone(&*data, ptr, len));
 }
 
 unsafe fn promotable_into_vec(
@@ -1008,6 +1022,13 @@ unsafe fn promotable_odd_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize)
     }
 }
 
+unsafe fn promotable_odd_will_truncate(data: &mut AtomicPtr<()>, ptr: *const u8, len: usize) {
+    // The Vec "promotable" vtables do not store the capacity,
+    // so we cannot truncate while using this repr. We *have* to
+    // promote using `clone` so the capacity can be stored.
+    drop(promotable_odd_clone(&*data, ptr, len));
+}
+
 unsafe fn promotable_odd_into_vec(data: &mut AtomicPtr<()>, ptr: *const u8, len: usize) -> Vec<u8> {
     promotable_into_vec(data, ptr, len, |shared| shared.cast())
 }
@@ -1055,6 +1076,7 @@ const _: [(); 0 - mem::align_of::<Shared>() % 2] = []; // Assert that the alignm
 
 static SHARED_VTABLE: Vtable = Vtable {
     clone: shared_clone,
+    will_truncate: shared_will_truncate,
     into_vec: shared_into_vec,
     drop: shared_drop,
 };
@@ -1066,6 +1088,10 @@ const KIND_MASK: usize = 0b1;
 unsafe fn shared_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Bytes {
     let shared = data.load(Ordering::Relaxed);
     shallow_clone_arc(shared as _, ptr, len)
+}
+
+unsafe fn shared_will_truncate(_: &mut AtomicPtr<()>, _: *const u8, _: usize) {
+    // nothing to do before truncate for Shared
 }
 
 unsafe fn shared_into_vec_impl(shared: *mut Shared, ptr: *const u8, len: usize) -> Vec<u8> {

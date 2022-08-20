@@ -1705,6 +1705,7 @@ unsafe fn rebuild_vec(ptr: *mut u8, mut len: usize, mut cap: usize, off: usize) 
 
 static SHARED_VTABLE: Vtable = Vtable {
     clone: shared_v_clone,
+    will_truncate: shared_v_will_truncate,
     into_vec: shared_v_into_vec,
     drop: shared_v_drop,
 };
@@ -1715,6 +1716,10 @@ unsafe fn shared_v_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> By
 
     let data = AtomicPtr::new(shared as *mut ());
     Bytes::with_vtable(ptr, len, data, &SHARED_VTABLE)
+}
+
+unsafe fn shared_v_will_truncate(_: &mut AtomicPtr<()>, _: *const u8, _: usize) {
+    // nothing to do before truncate for Shared
 }
 
 unsafe fn shared_v_into_vec(data: &mut AtomicPtr<()>, ptr: *const u8, len: usize) -> Vec<u8> {
