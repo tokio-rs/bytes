@@ -87,7 +87,7 @@ mod bytes;
 mod bytes_mut;
 mod fmt;
 mod loom;
-pub use crate::bytes::Bytes;
+pub use crate::bytes::{Bytes, BytesImpl};
 pub use crate::bytes_mut::BytesMut;
 
 // Optional Serde support

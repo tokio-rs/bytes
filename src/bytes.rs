@@ -104,6 +104,32 @@ pub struct Bytes {
     data: AtomicPtr<()>,
     vtable: &'static Vtable,
 }
+/// A trait for underlying implementations for `Bytes` type.
+///
+/// All implementations must fulfill the following requirements:
+/// - They are cheaply cloneable and thereby shareable between an unlimited amount
+///   of components, for example by modifying a reference count.
+/// - Instances can be sliced to refer to a subset of the the original buffer.
+pub unsafe trait BytesImpl: 'static {
+    /// Decompose `Self` into parts used by `Bytes`.
+    fn into_bytes_parts(this: Self) -> (AtomicPtr<()>, *const u8, usize);
+
+    /// Returns new `Bytes` based on the current parts.
+    unsafe fn clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Bytes;
+
+    /// Called before the `Bytes::truncate` is processed.
+    /// Useful if the implementation needs some preparation step for it.
+    unsafe fn will_truncate(data: &mut AtomicPtr<()>, ptr: *const u8, len: usize) {
+        // do nothing by default
+        let _ = (data, ptr, len);
+    }
+
+    /// Consumes underlying resources and return `Vec<u8>`
+    unsafe fn into_vec(data: &mut AtomicPtr<()>, ptr: *const u8, len: usize) -> Vec<u8>;
+
+    /// Release underlying resources.
+    unsafe fn drop(data: &mut AtomicPtr<()>, ptr: *const u8, len: usize);
+}
 
 pub(crate) struct Vtable {
     /// fn(data, ptr, len)
@@ -115,7 +141,7 @@ pub(crate) struct Vtable {
     pub will_truncate: unsafe fn(&mut AtomicPtr<()>, *const u8, usize),
     /// fn(data, ptr, len)
     ///
-    /// Consumes `Bytes` to return `Vec<u8>`
+    /// Consumes `Bytes` and return `Vec<u8>`
     pub into_vec: unsafe fn(&mut AtomicPtr<()>, *const u8, usize) -> Vec<u8>,
     /// fn(data, ptr, len)
     pub drop: unsafe fn(&mut AtomicPtr<()>, *const u8, usize),
@@ -180,6 +206,26 @@ impl Bytes {
             len: bytes.len(),
             data: AtomicPtr::new(ptr::null_mut()),
             vtable: &STATIC_VTABLE,
+        }
+    }
+
+    /// Creates a new `Bytes` from `BytesImpl` implementation.
+    ///
+    /// Useful if you want to construct `Bytes` from your own buffer implementation.
+    #[inline]
+    pub fn with_impl<T: BytesImpl>(bytes_impl: T) -> Bytes {
+        let (data, ptr, len) = BytesImpl::into_bytes_parts(bytes_impl);
+
+        Bytes {
+            ptr,
+            len,
+            data,
+            vtable: &Vtable {
+                clone: T::clone,
+                will_truncate: T::will_truncate,
+                into_vec: T::into_vec,
+                drop: T::drop,
+            },
         }
     }
 
