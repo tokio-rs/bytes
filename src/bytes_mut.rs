@@ -13,7 +13,6 @@ use alloc::{
 };
 
 use crate::buf::{IntoIter, UninitSlice};
-use crate::bytes::Vtable;
 #[allow(unused)]
 use crate::loom::sync::atomic::AtomicMut;
 use crate::loom::sync::atomic::{AtomicPtr, AtomicUsize, Ordering};
@@ -253,9 +252,9 @@ impl BytesMut {
 
             let ptr = self.ptr.as_ptr();
             let len = self.len;
-            let data = AtomicPtr::new(self.data.cast());
+            let shared = self.data;
             mem::forget(self);
-            unsafe { Bytes::with_vtable(ptr, len, data, &SHARED_VTABLE) }
+            Bytes::with_impl(SharedImpl { shared, ptr, len })
         }
     }
 
@@ -1703,51 +1702,51 @@ unsafe fn rebuild_vec(ptr: *mut u8, mut len: usize, mut cap: usize, off: usize) 
 
 // ===== impl SharedVtable =====
 
-static SHARED_VTABLE: Vtable = Vtable {
-    clone: shared_v_clone,
-    will_truncate: shared_v_will_truncate,
-    into_vec: shared_v_into_vec,
-    drop: shared_v_drop,
-};
-
-unsafe fn shared_v_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Bytes {
-    let shared = data.load(Ordering::Relaxed) as *mut Shared;
-    increment_shared(shared);
-
-    let data = AtomicPtr::new(shared as *mut ());
-    Bytes::with_vtable(ptr, len, data, &SHARED_VTABLE)
+struct SharedImpl {
+    shared: *mut Shared,
+    ptr: *const u8,
+    len: usize,
 }
 
-unsafe fn shared_v_will_truncate(_: &mut AtomicPtr<()>, _: *const u8, _: usize) {
-    // nothing to do before truncate for Shared
-}
-
-unsafe fn shared_v_into_vec(data: &mut AtomicPtr<()>, ptr: *const u8, len: usize) -> Vec<u8> {
-    let shared: *mut Shared = (data.with_mut(|p| *p)).cast();
-
-    if (*shared).is_unique() {
-        let shared = &mut *shared;
-
-        // Drop shared
-        let mut vec = mem::replace(&mut shared.vec, Vec::new());
-        release_shared(shared);
-
-        // Copy back buffer
-        ptr::copy(ptr, vec.as_mut_ptr(), len);
-        vec.set_len(len);
-
-        vec
-    } else {
-        let v = slice::from_raw_parts(ptr, len).to_vec();
-        release_shared(shared);
-        v
+unsafe impl crate::BytesImpl for SharedImpl {
+    fn into_bytes_parts(this: Self) -> (AtomicPtr<()>, *const u8, usize) {
+        (AtomicPtr::new(this.shared.cast()), this.ptr, this.len)
     }
-}
 
-unsafe fn shared_v_drop(data: &mut AtomicPtr<()>, _ptr: *const u8, _len: usize) {
-    data.with_mut(|shared| {
-        release_shared(*shared as *mut Shared);
-    });
+    unsafe fn clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Bytes {
+        let shared = data.load(Ordering::Relaxed) as *mut Shared;
+        increment_shared(shared);
+
+        Bytes::with_impl(SharedImpl { shared, ptr, len })
+    }
+
+    unsafe fn into_vec(data: &mut AtomicPtr<()>, ptr: *const u8, len: usize) -> Vec<u8> {
+        let shared: *mut Shared = (data.with_mut(|p| *p)).cast();
+
+        if (*shared).is_unique() {
+            let shared = &mut *shared;
+
+            // Drop shared
+            let mut vec = mem::replace(&mut shared.vec, Vec::new());
+            release_shared(shared);
+
+            // Copy back buffer
+            ptr::copy(ptr, vec.as_mut_ptr(), len);
+            vec.set_len(len);
+
+            vec
+        } else {
+            let v = slice::from_raw_parts(ptr, len).to_vec();
+            release_shared(shared);
+            v
+        }
+    }
+
+    unsafe fn drop(data: &mut AtomicPtr<()>, _ptr: *const u8, _len: usize) {
+        data.with_mut(|shared| {
+            release_shared(*shared as *mut Shared);
+        });
+    }
 }
 
 // compile-fails
