@@ -20,7 +20,7 @@ edition = "2018"
 [features]
 default = ["std"]
 std = []
-atomic-polyfill = ["dep:atomic-polyfill"]
+use-atomic-polyfill = ["atomic-polyfill"]
 
 [dependencies]
 serde = { version = "1.0.60", optional = true, default-features = false, features = ["alloc"] }
