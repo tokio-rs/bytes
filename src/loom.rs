@@ -1,7 +1,11 @@
 #[cfg(not(all(test, loom)))]
 pub(crate) mod sync {
     pub(crate) mod atomic {
+        #[cfg(not(feature = "atomic-polyfill"))]
         pub(crate) use core::sync::atomic::{AtomicPtr, AtomicUsize, Ordering};
+
+        #[cfg(feature = "atomic-polyfill")]
+        pub(crate) use atomic_polyfill::{AtomicPtr, AtomicUsize, Ordering};
 
         pub(crate) trait AtomicMut<T> {
             fn with_mut<F, R>(&mut self, f: F) -> R
