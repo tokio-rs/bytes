@@ -2,6 +2,7 @@
 //! vectors (pointers where the LSB is set).
 
 #![cfg(not(miri))] // Miri does not support custom allocators (also, Miri is "odd" by default with 50% chance)
+#![cfg(feature = "alloc")]
 
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::ptr;

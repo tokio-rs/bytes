@@ -56,6 +56,7 @@ fn test_bufs_vec() {
     assert_eq!(1, buf.chunks_vectored(&mut dst[..]));
 }
 
+#[cfg(feature = "alloc")]
 #[test]
 fn test_vec_deque() {
     use std::collections::VecDeque;
@@ -98,10 +99,13 @@ fn test_deref_buf_forwards() {
     // these should all use the specialized method
     assert_eq!(Special.get_u8(), b'x');
     assert_eq!((&mut Special as &mut dyn Buf).get_u8(), b'x');
+    #[cfg(feature = "alloc")]
     assert_eq!((Box::new(Special) as Box<dyn Buf>).get_u8(), b'x');
+    #[cfg(feature = "alloc")]
     assert_eq!(Box::new(Special).get_u8(), b'x');
 }
 
+#[cfg(feature = "alloc")]
 #[test]
 fn copy_to_bytes_less() {
     let mut buf = &b"hello world"[..];
@@ -111,6 +115,7 @@ fn copy_to_bytes_less() {
     assert_eq!(buf, &b" world"[..])
 }
 
+#[cfg(feature = "alloc")]
 #[test]
 #[should_panic]
 fn copy_to_bytes_overflow() {

@@ -1,3 +1,4 @@
+#![cfg(feature = "alloc")]
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::ptr::null_mut;
 use std::sync::atomic::{AtomicPtr, AtomicUsize, Ordering};
