@@ -674,6 +674,28 @@ pub trait Buf {
         buf_get_impl!(le => self, u64, nbytes);
     }
 
+    /// Gets an unsigned usize byte integer from `self` in big-endian byte order.
+    ///
+    /// The current position is advanced by `size_of::<usize>()`.
+    ///
+    /// # Panics
+    ///
+    /// This function panics if there is not enough remaining data in `self`.
+    fn get_usize(&mut self) -> usize {
+        buf_get_impl!(self, usize::from_be_bytes);
+    }
+
+    /// Gets an unsigned usize byte integer from `self` in big-endian byte order.
+    ///
+    /// The current position is advanced by `size_of::<usize>()`.
+    ///
+    /// # Panics
+    ///
+    /// This function panics if there is not enough remaining data in `self`.
+    fn get_usize_le(&mut self) -> usize {
+        buf_get_impl!(self, usize::from_le_bytes);
+    }
+
     /// Gets a signed n-byte integer from `self` in big-endian byte order.
     ///
     /// The current position is advanced by `nbytes`.
@@ -712,6 +734,28 @@ pub trait Buf {
     /// This function panics if there is not enough remaining data in `self`.
     fn get_int_le(&mut self, nbytes: usize) -> i64 {
         buf_get_impl!(le => self, i64, nbytes);
+    }
+
+    /// Gets a signed isize byte integer from `self` in big-endian byte order.
+    ///
+    /// The current position is advanced by `size_of::<isize>()`.
+    ///
+    /// # Panics
+    ///
+    /// This function panics if there is not enough remaining data in `self`.
+    fn get_isize(&mut self) -> isize {
+        buf_get_impl!(self, isize::from_be_bytes);
+    }
+
+    /// Gets a signed isize byte integer from `self` in big-endian byte order.
+    ///
+    /// The current position is advanced by `size_of::<isize>()`.
+    ///
+    /// # Panics
+    ///
+    /// This function panics if there is not enough remaining data in `self`.
+    fn get_isize_le(&mut self) -> isize {
+        buf_get_impl!(self, isize::from_le_bytes);
     }
 
     /// Gets an IEEE754 single-precision (4 bytes) floating point number from

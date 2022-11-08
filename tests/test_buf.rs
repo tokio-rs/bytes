@@ -43,6 +43,30 @@ fn test_get_u16_buffer_underflow() {
     buf.get_u16();
 }
 
+#[test]
+fn test_get_isize() {
+    let mut buf = &isize::MAX.to_be_bytes()[..];
+    assert_eq!(isize::MAX, buf.get_isize());
+}
+
+#[test]
+fn test_get_isize_le() {
+    let mut buf = &isize::MIN.to_le_bytes()[..];
+    assert_eq!(isize::MIN, buf.get_isize_le());
+}
+
+#[test]
+fn test_get_usize() {
+    let mut buf = &usize::MAX.to_be_bytes()[..];
+    assert_eq!(usize::MAX, buf.get_usize());
+}
+
+#[test]
+fn test_get_usize_le() {
+    let mut buf = &usize::MIN.to_le_bytes()[..];
+    assert_eq!(usize::MIN, buf.get_usize_le());
+}
+
 #[cfg(feature = "std")]
 #[test]
 fn test_bufs_vec() {
