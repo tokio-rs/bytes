@@ -32,7 +32,7 @@ use crate::Buf;
 /// All `Bytes` implementations must fulfill the following requirements:
 /// - They are cheaply cloneable and thereby shareable between an unlimited amount
 ///   of components, for example by modifying a reference count.
-/// - Instances can be sliced to refer to a subset of the the original buffer.
+/// - Instances can be sliced to refer to a subset of the original buffer.
 ///
 /// ```
 /// use bytes::Bytes;
@@ -71,7 +71,7 @@ use crate::Buf;
 ///
 /// For `Bytes` implementations which point to a reference counted shared storage
 /// (e.g. an `Arc<[u8]>`), sharing will be implemented by increasing the
-/// the reference count.
+/// reference count.
 ///
 /// Due to this mechanism, multiple `Bytes` instances may point to the same
 /// shared memory region.
