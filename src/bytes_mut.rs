@@ -761,6 +761,7 @@ impl BytesMut {
     ///
     /// assert_eq!(b"aaabbbcccddd", &buf[..]);
     /// ```
+    #[inline]
     pub fn extend_from_slice(&mut self, extend: &[u8]) {
         let cnt = extend.len();
         self.reserve(cnt);
