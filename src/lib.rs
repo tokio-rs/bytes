@@ -88,8 +88,11 @@ mod bytes;
 mod bytes_mut;
 mod fmt;
 mod loom;
-pub use crate::bytes::{Bytes, BytesImpl};
+mod shared_buf;
+mod impls;
+pub use crate::bytes::Bytes;
 pub use crate::bytes_mut::BytesMut;
+pub use crate::shared_buf::{ SharedBuf, BufferParts };
 
 // Optional Serde support
 #[cfg(feature = "serde")]
