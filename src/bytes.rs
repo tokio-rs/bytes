@@ -181,7 +181,7 @@ impl Bytes {
         const STATIC_VTABLE: Vtable = Vtable {
             type_id: TypeId::of::<static_buf::StaticImpl>,
             clone: <static_buf::StaticImpl as SharedBuf>::clone,
-            will_truncate: <static_buf::StaticImpl as SharedBuf>::will_truncate,
+            try_resize: <static_buf::StaticImpl as SharedBuf>::try_resize,
             into_vec: <static_buf::StaticImpl as SharedBuf>::into_vec,
             drop: <static_buf::StaticImpl as SharedBuf>::drop,
         };
