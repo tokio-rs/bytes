@@ -194,9 +194,10 @@ impl Bytes {
         }
     }
 
-    /// Creates a new `Bytes` from `SharedBuf` implementation.
+    /// Creates a new `Bytes` instance using an impl of [`SharedBuf`] as the internal buffer.
     ///
-    /// Useful if you want to construct `Bytes` from your own buffer implementation.
+    /// This takes an impl of `SharedBuf`, and wraps it in a `Bytes` instance.
+    /// This can be reversed with the [`into_shared_buf`] method.
     #[inline]
     pub fn from_shared_buf<T: SharedBuf>(buf_impl: T) -> Bytes {
         let (data, ptr, len) = SharedBuf::into_parts(buf_impl);
@@ -516,6 +517,14 @@ impl Bytes {
     }
 
     /// Downcast this `Bytes` into its underlying implementation.
+    ///
+    /// The target type, T, must match the type that was originally used
+    /// to construct this `Bytes` instance. A runtime check is used
+    /// to validate this.
+    ///
+    /// On success, T is returned.
+    ///
+    /// On failure, self is returned as an `Err`
     #[inline]
     pub fn into_shared_buf<T: SharedBuf>(self) -> Result<T, Bytes> {
         if TypeId::of::<T>() == (self.vtable.type_id)() {
