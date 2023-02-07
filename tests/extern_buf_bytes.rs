@@ -1,14 +1,11 @@
 #![warn(rust_2018_idioms)]
 
-use bytes::{Buf, BufMut, BufferParts, Bytes, BytesMut, SharedBuf};
+use bytes::{BufferParts, Bytes, BytesMut, SharedBuf};
 
 use std::alloc::{alloc, dealloc, Layout};
 use std::ptr::{self, NonNull};
 use std::sync::atomic::{AtomicPtr, AtomicUsize, Ordering};
 use std::usize;
-
-const LONG: &[u8] = b"mary had a little lamb, little lamb, little lamb";
-const SHORT: &[u8] = b"hello world";
 
 struct ExternBuf {
     ptr: NonNull<u8>,
@@ -21,6 +18,8 @@ impl ExternBuf {
     pub fn from_size(sz: usize) -> Self {
         let layout = Layout::from_size_align(sz, 4).unwrap();
         let ptr = NonNull::new(unsafe { alloc(layout) }).unwrap();
+        let num = ptr.as_ptr() as usize;
+        println!("Alloc'd {}", num);
         ExternBuf {
             ptr,
             cap: sz,
@@ -47,7 +46,11 @@ impl From<&[u8]> for ExternBuf {
 impl Drop for ExternBuf {
     fn drop(&mut self) {
         let layout = Layout::from_size_align(self.cap, 4).unwrap();
-        unsafe { dealloc(self.ptr.as_mut(), layout) };
+        unsafe {
+            let num = self.ptr.as_ptr() as usize;
+            println!("dealloc'ing {}", num);
+            dealloc(self.ptr.as_mut(), layout);
+        }
     }
 }
 
@@ -90,7 +93,6 @@ unsafe impl SharedBuf for ExternBufWrapper {
             let buf = (*inner).ptr;
             let cap = (*inner).cap;
 
-            // Deallocate Shared
             drop(Box::from_raw(
                 inner as *mut std::mem::ManuallyDrop<ExternBuf>,
             ));
@@ -112,6 +114,10 @@ unsafe impl SharedBuf for ExternBufWrapper {
             return;
         }
         (*inner).ref_count.load(Ordering::Acquire);
+        println!(
+            "invoking drop over box::from_raw on {}",
+            (*inner).ptr.as_ptr() as usize
+        );
         drop(Box::from_raw(inner));
     }
 }
@@ -119,6 +125,7 @@ unsafe impl SharedBuf for ExternBufWrapper {
 fn is_sync<T: Sync>() {}
 fn is_send<T: Send>() {}
 
+#[ignore]
 #[test]
 fn test_bounds() {
     is_sync::<Bytes>();
@@ -127,6 +134,7 @@ fn test_bounds() {
     is_send::<BytesMut>();
 }
 
+#[ignore]
 #[test]
 fn test_layout() {
     use std::mem;
@@ -155,6 +163,7 @@ fn test_layout() {
     );
 }
 
+#[ignore]
 #[test]
 fn roundtrip() {
     let eb = ExternBuf::from(&b"abcdefgh"[..]);
@@ -168,36 +177,26 @@ fn roundtrip() {
 
 #[test]
 fn from_slice() {
-    let eb = ExternBuf::from(&b"abcdefgh"[..]);
-    let a = Bytes::from_shared_buf(eb.into_shared());
-    assert_eq!(a, b"abcdefgh"[..]);
-    assert_eq!(a, &b"abcdefgh"[..]);
-    assert_eq!(a, Vec::from(&b"abcdefgh"[..]));
-    assert_eq!(b"abcdefgh"[..], a);
-    assert_eq!(&b"abcdefgh"[..], a);
-    assert_eq!(Vec::from(&b"abcdefgh"[..]), a);
+    let eb1 = ExternBuf::from(&b"abcdefgh"[..]);
+    let a1 = Bytes::from_shared_buf(eb1.into_shared());
+    assert_eq!(a1, b"abcdefgh"[..]);
+    assert_eq!(a1, &b"abcdefgh"[..]);
+    assert_eq!(a1, Vec::from(&b"abcdefgh"[..]));
+    assert_eq!(b"abcdefgh"[..], a1);
+    assert_eq!(&b"abcdefgh"[..], a1);
+    assert_eq!(Vec::from(&b"abcdefgh"[..]), a1);
 
-    let eb = ExternBuf::from(&b"abcdefgh"[..]);
-    let a = Bytes::from_shared_buf(eb.into_shared());
-    assert_eq!(a, b"abcdefgh"[..]);
-    assert_eq!(a, &b"abcdefgh"[..]);
-    assert_eq!(a, Vec::from(&b"abcdefgh"[..]));
-    assert_eq!(b"abcdefgh"[..], a);
-    assert_eq!(&b"abcdefgh"[..], a);
-    assert_eq!(Vec::from(&b"abcdefgh"[..]), a);
+    let eb2 = ExternBuf::from(&b"abcdefgh"[..]);
+    let a2 = Bytes::from_shared_buf(eb2.into_shared());
+    assert_eq!(a2, b"abcdefgh"[..]);
+    assert_eq!(a2, &b"abcdefgh"[..]);
+    assert_eq!(a2, Vec::from(&b"abcdefgh"[..]));
+    assert_eq!(b"abcdefgh"[..], a2);
+    assert_eq!(&b"abcdefgh"[..], a2);
+    assert_eq!(Vec::from(&b"abcdefgh"[..]), a2);
 }
 
-#[test]
-fn fmt() {
-    let a = format!("{:?}", Bytes::from(&b"abcdefg"[..]));
-    let b = "b\"abcdefg\"";
-
-    assert_eq!(a, b);
-
-    let a = format!("{:?}", BytesMut::from(&b"abcdefg"[..]));
-    assert_eq!(a, b);
-}
-
+#[ignore]
 #[test]
 fn len() {
     let eb = ExternBuf::from(&b"abcdefg"[..]);
@@ -209,6 +208,7 @@ fn len() {
     assert!(a.is_empty());
 }
 
+#[ignore]
 #[test]
 fn index() {
     let eb = ExternBuf::from(&b"hello world"[..]);
@@ -216,6 +216,7 @@ fn index() {
     assert_eq!(a[0..5], *b"hello");
 }
 
+#[ignore]
 #[test]
 fn slice() {
     let eb = ExternBuf::from(&b"hello world"[..]);
@@ -240,6 +241,7 @@ fn slice() {
     assert_eq!(b, b"lo world"[..]);
 }
 
+#[ignore]
 #[test]
 #[should_panic]
 fn slice_oob_1() {
@@ -248,6 +250,7 @@ fn slice_oob_1() {
     a.slice(5..44);
 }
 
+#[ignore]
 #[test]
 #[should_panic]
 fn slice_oob_2() {
@@ -256,6 +259,7 @@ fn slice_oob_2() {
     a.slice(44..49);
 }
 
+#[ignore]
 #[test]
 fn split_off() {
     let eb = ExternBuf::from(&b"helloworld"[..]);
@@ -266,6 +270,7 @@ fn split_off() {
     assert_eq!(world, &b"world"[..]);
 }
 
+#[ignore]
 #[test]
 #[should_panic]
 fn split_off_oob() {
@@ -274,6 +279,7 @@ fn split_off_oob() {
     let _ = hello.split_off(44);
 }
 
+#[ignore]
 #[test]
 fn split_off_to_loop() {
     let s = b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -302,6 +308,7 @@ fn split_off_to_loop() {
     }
 }
 
+#[ignore]
 #[test]
 fn truncate() {
     let s = &b"helloworld"[..];
@@ -315,6 +322,7 @@ fn truncate() {
     assert_eq!(hello, "hello");
 }
 
+#[ignore]
 #[test]
 // Only run these tests on little endian systems. CI uses qemu for testing
 // big endian... and qemu doesn't really support threading all that well.

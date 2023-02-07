@@ -36,6 +36,16 @@ pub(crate) struct SharedImpl {
     len: usize,
 }
 
+impl SharedImpl {
+    pub(crate) fn new(shared: *mut Shared, ptr: *const u8, len: usize) -> Self {
+        SharedImpl {
+            shared,
+            offset: ptr,
+            len
+        }
+    }
+}
+
 unsafe impl SharedBuf for SharedImpl {
     fn into_parts(this: Self) -> (AtomicPtr<()>, *const u8, usize) {
         (AtomicPtr::new(this.shared.cast()), this.offset, this.len)

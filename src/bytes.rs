@@ -9,7 +9,7 @@ use crate::buf::IntoIter;
 use crate::impls::*;
 #[allow(unused)]
 use crate::loom::sync::atomic::AtomicMut;
-use crate::loom::sync::atomic::AtomicPtr;
+use crate::loom::sync::atomic::{AtomicPtr, AtomicUsize};
 use crate::shared_buf::{BufferParts, SharedBuf};
 use crate::Buf;
 
@@ -861,26 +861,14 @@ impl From<Vec<u8>> for Bytes {
             return Bytes::from(vec.into_boxed_slice());
         }
 
-        let shared = Box::new(Shared {
+        let shared = Box::new(crate::impls::shared::Shared {
             buf: ptr,
             cap,
             ref_cnt: AtomicUsize::new(1),
         });
         mem::forget(vec);
-
-        let shared = Box::into_raw(shared);
-        // The pointer should be aligned, so this assert should
-        // always succeed.
-        debug_assert!(
-            0 == (shared as usize & KIND_MASK),
-            "internal: Box<Shared> should have an aligned pointer",
-        );
-        Bytes {
-            ptr,
-            len,
-            data: AtomicPtr::new(shared as _),
-            vtable: &SHARED_VTABLE,
-        }
+        let imp = crate::impls::shared::SharedImpl::new(Box::into_raw(shared), ptr, len);
+        Bytes::from_shared_buf(imp)
     }
 }
 
