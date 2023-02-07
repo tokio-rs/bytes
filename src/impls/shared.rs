@@ -41,7 +41,7 @@ impl SharedImpl {
         SharedImpl {
             shared,
             offset: ptr,
-            len
+            len,
         }
     }
 }

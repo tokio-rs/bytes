@@ -16,7 +16,7 @@ use crate::buf::{IntoIter, UninitSlice};
 #[allow(unused)]
 use crate::loom::sync::atomic::AtomicMut;
 use crate::loom::sync::atomic::{AtomicPtr, AtomicUsize, Ordering};
-use crate::shared_buf::{ SharedBuf, BufferParts };
+use crate::shared_buf::{BufferParts, SharedBuf};
 use crate::{Buf, BufMut, Bytes};
 
 /// A unique reference to a contiguous slice of memory.
