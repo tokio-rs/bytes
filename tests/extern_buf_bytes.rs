@@ -16,7 +16,7 @@ struct ExternBuf {
 impl ExternBuf {
     // We're pretending that this is some sort of exotic allocation/recycling scheme
     pub fn from_size(sz: usize) -> Self {
-        let layout = Layout::from_size_align(sz, 4).unwrap();
+        let layout = Layout::from_size_align(sz, 1).unwrap();
         let ptr = NonNull::new(unsafe { alloc(layout) }).unwrap();
         let num = ptr.as_ptr() as usize;
         println!("Alloc'd {}", num);
@@ -45,11 +45,11 @@ impl From<&[u8]> for ExternBuf {
 
 impl Drop for ExternBuf {
     fn drop(&mut self) {
-        let layout = Layout::from_size_align(self.cap, 4).unwrap();
+        let layout = Layout::from_size_align(self.cap, 1).unwrap();
         unsafe {
             let num = self.ptr.as_ptr() as usize;
             println!("dealloc'ing {}", num);
-            dealloc(self.ptr.as_mut(), layout);
+            dealloc(self.ptr.as_ptr(), layout);
         }
     }
 }
@@ -109,7 +109,7 @@ unsafe impl SharedBuf for ExternBufWrapper {
     }
 
     unsafe fn drop(data: &mut AtomicPtr<()>, _ptr: *const u8, _len: usize) {
-        let inner: *mut ExternBuf = (*data.get_mut()).cast();
+        let inner: *mut ExternBuf = (data.get_mut()).cast();
         if (*inner).ref_count.fetch_sub(1, Ordering::Release) != 1 {
             return;
         }
@@ -175,6 +175,27 @@ fn roundtrip() {
     assert_eq!(a2, b"abcdefgh"[..]);
 }
 
+#[test]
+fn to_vec() {
+    let eb = ExternBuf::from(&b"abcdefgh"[..]);
+    let a = Bytes::from_shared_buf(eb.into_shared());
+    let v = Vec::from(a);
+    assert_eq!(v, b"abcdefgh"[..]);
+}
+
+#[test]
+fn refer_madness() {
+    let eb = ExternBuf::from(&b"abcdefgh"[..]);
+    let a = Bytes::from_shared_buf(eb.into_shared());
+    let b = a.slice(..);
+    let c = b.slice(..);
+    let d = c.slice(..5);
+    let e = d.slice(1..3);
+    drop(d);
+    assert_eq!(e, b"bc"[..]);
+}
+
+#[ignore]
 #[test]
 fn from_slice() {
     let eb1 = ExternBuf::from(&b"abcdefgh"[..]);
