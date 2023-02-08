@@ -16,10 +16,8 @@ struct ExternBuf {
 impl ExternBuf {
     // We're pretending that this is some sort of exotic allocation/recycling scheme
     pub fn from_size(sz: usize) -> Self {
-        let layout = Layout::from_size_align(sz, 1).unwrap();
+        let layout = Layout::array::<u8>(sz).unwrap();
         let ptr = NonNull::new(unsafe { alloc(layout) }).unwrap();
-        let num = ptr.as_ptr() as usize;
-        println!("Alloc'd {}", num);
         ExternBuf {
             ptr,
             cap: sz,
@@ -45,10 +43,8 @@ impl From<&[u8]> for ExternBuf {
 
 impl Drop for ExternBuf {
     fn drop(&mut self) {
-        let layout = Layout::from_size_align(self.cap, 1).unwrap();
+        let layout = Layout::array::<u8>(self.cap).unwrap();
         unsafe {
-            let num = self.ptr.as_ptr() as usize;
-            println!("dealloc'ing {}", num);
             dealloc(self.ptr.as_ptr(), layout);
         }
     }
@@ -114,10 +110,6 @@ unsafe impl SharedBuf for ExternBufWrapper {
             return;
         }
         (*inner).ref_count.load(Ordering::Acquire);
-        println!(
-            "invoking drop over box::from_raw on {}",
-            (*inner).ptr.as_ptr() as usize
-        );
         drop(Box::from_raw(inner));
     }
 }
