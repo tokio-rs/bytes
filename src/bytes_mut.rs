@@ -1102,7 +1102,7 @@ unsafe impl BufMut for BytesMut {
         if self.capacity() == self.len() {
             self.reserve(64);
         }
-        UninitSlice::from_slice(self.spare_capacity_mut())
+        self.spare_capacity_mut().into()
     }
 
     // Specialize these methods so they can skip checking `remaining_mut`
