@@ -1419,6 +1419,41 @@ unsafe impl BufMut for &mut [u8] {
     }
 }
 
+unsafe impl BufMut for &mut [core::mem::MaybeUninit<u8>] {
+    #[inline]
+    fn remaining_mut(&self) -> usize {
+        self.len()
+    }
+
+    #[inline]
+    fn chunk_mut(&mut self) -> &mut UninitSlice {
+        UninitSlice::from_uninit_slice(self)
+    }
+
+    #[inline]
+    unsafe fn advance_mut(&mut self, cnt: usize) {
+        // Lifetime dance taken from `impl Write for &mut [u8]`.
+        let (_, b) = core::mem::replace(self, &mut []).split_at_mut(cnt);
+        *self = b;
+    }
+
+    #[inline]
+    fn put_slice(&mut self, src: &[u8]) {
+        self.chunk_mut()[..src.len()].copy_from_slice(src);
+        unsafe {
+            self.advance_mut(src.len());
+        }
+    }
+
+    fn put_bytes(&mut self, val: u8, cnt: usize) {
+        assert!(self.remaining_mut() >= cnt);
+        unsafe {
+            ptr::write_bytes(self.as_mut_ptr() as *mut u8, val, cnt);
+            self.advance_mut(cnt);
+        }
+    }
+}
+
 unsafe impl BufMut for Vec<u8> {
     #[inline]
     fn remaining_mut(&self) -> usize {

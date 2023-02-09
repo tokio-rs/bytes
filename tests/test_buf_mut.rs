@@ -3,6 +3,7 @@
 use bytes::buf::UninitSlice;
 use bytes::{BufMut, BytesMut};
 use core::fmt::Write;
+use core::mem::MaybeUninit;
 use core::usize;
 
 #[test]
@@ -101,24 +102,120 @@ fn test_clone() {
     assert!(buf != buf2);
 }
 
-#[test]
-fn test_mut_slice() {
-    let mut v = vec![0, 0, 0, 0];
-    let mut s = &mut v[..];
-    s.put_u32(42);
+fn do_test_slice_small<T: ?Sized>(make: impl Fn(&mut [u8]) -> &mut T)
+where
+    for<'r> &'r mut T: BufMut,
+{
+    let mut buf = [b'X'; 8];
 
-    assert_eq!(s.len(), 0);
-    assert_eq!(&v, &[0, 0, 0, 42]);
+    let mut slice = make(&mut buf[..]);
+    slice.put_bytes(b'A', 2);
+    slice.put_u8(b'B');
+    slice.put_slice(b"BCC");
+    assert_eq!(2, slice.remaining_mut());
+    assert_eq!(b"AABBCCXX", &buf[..]);
+
+    let mut slice = make(&mut buf[..]);
+    slice.put_u32(0x61626364);
+    assert_eq!(4, slice.remaining_mut());
+    assert_eq!(b"abcdCCXX", &buf[..]);
+
+    let mut slice = make(&mut buf[..]);
+    slice.put_u32_le(0x30313233);
+    assert_eq!(4, slice.remaining_mut());
+    assert_eq!(b"3210CCXX", &buf[..]);
+}
+
+fn do_test_slice_large<T: ?Sized>(make: impl Fn(&mut [u8]) -> &mut T)
+where
+    for<'r> &'r mut T: BufMut,
+{
+    const LEN: usize = 100;
+    const FILL: [u8; LEN] = [b'Y'; LEN];
+
+    let test = |fill: &dyn Fn(&mut &mut T, usize)| {
+        for buf_len in 0..LEN {
+            let mut buf = [b'X'; LEN];
+            for fill_len in 0..=buf_len {
+                let mut slice = make(&mut buf[..buf_len]);
+                fill(&mut slice, fill_len);
+                assert_eq!(buf_len - fill_len, slice.remaining_mut());
+                let (head, tail) = buf.split_at(fill_len);
+                assert_eq!(&FILL[..fill_len], head);
+                assert!(tail.iter().all(|b| *b == b'X'));
+            }
+        }
+    };
+
+    test(&|slice, fill_len| slice.put_slice(&FILL[..fill_len]));
+    test(&|slice, fill_len| slice.put_bytes(FILL[0], fill_len));
+}
+
+fn do_test_slice_put_slice_panics<T: ?Sized>(make: impl Fn(&mut [u8]) -> &mut T)
+where
+    for<'r> &'r mut T: BufMut,
+{
+    let mut buf = [b'X'; 4];
+    let mut slice = make(&mut buf[..]);
+    slice.put_slice(b"12345");
+}
+
+fn do_test_slice_put_bytes_panics<T: ?Sized>(make: impl Fn(&mut [u8]) -> &mut T)
+where
+    for<'r> &'r mut T: BufMut,
+{
+    let mut buf = [b'X'; 4];
+    let mut slice = make(&mut buf[..]);
+    slice.put_bytes(b'1', 5);
 }
 
 #[test]
-fn test_slice_put_bytes() {
-    let mut v = [0, 0, 0, 0];
-    let mut s = &mut v[..];
-    s.put_u8(17);
-    s.put_bytes(19, 2);
-    assert_eq!(1, s.remaining_mut());
-    assert_eq!(&[17, 19, 19, 0], &v[..]);
+fn test_slice_buf_mut_small() {
+    do_test_slice_small(|x| x);
+}
+
+#[test]
+fn test_slice_buf_mut_large() {
+    do_test_slice_large(|x| x);
+}
+
+#[test]
+#[should_panic]
+fn test_slice_buf_mut_put_slice_overflow() {
+    do_test_slice_put_slice_panics(|x| x);
+}
+
+#[test]
+#[should_panic]
+fn test_slice_buf_mut_put_bytes_overflow() {
+    do_test_slice_put_bytes_panics(|x| x);
+}
+
+fn make_maybe_uninit_slice(slice: &mut [u8]) -> &mut [MaybeUninit<u8>] {
+    // SAFETY: [u8] has the same layout as [MaybeUninit<u8>].
+    unsafe { core::mem::transmute(slice) }
+}
+
+#[test]
+fn test_maybe_uninit_buf_mut_small() {
+    do_test_slice_small(make_maybe_uninit_slice);
+}
+
+#[test]
+fn test_maybe_uninit_buf_mut_large() {
+    do_test_slice_large(make_maybe_uninit_slice);
+}
+
+#[test]
+#[should_panic]
+fn test_maybe_uninit_buf_mut_put_slice_overflow() {
+    do_test_slice_put_slice_panics(make_maybe_uninit_slice);
+}
+
+#[test]
+#[should_panic]
+fn test_maybe_uninit_buf_mut_put_bytes_overflow() {
+    do_test_slice_put_bytes_panics(make_maybe_uninit_slice);
 }
 
 #[test]
