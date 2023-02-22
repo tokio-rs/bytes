@@ -142,6 +142,65 @@ impl BytesMut {
     pub fn with_capacity(capacity: usize) -> BytesMut {
         BytesMut::from_vec(Vec::with_capacity(capacity))
     }
+    
+    /// Creates a new `BytesMut` with the specified capacity and alignment.
+    ///
+    /// The returned `BytesMut` will have alignment of `align` and be able to 
+    /// hold at least `capacity` bytes without reallocating.
+    ///
+    /// It is important to note that this function does not specify the length
+    /// of the returned `BytesMut`, but only the capacity.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::BytesMut;
+    ///
+    /// let bytes = BytesMut::with_capacity_aligned(65000, 4096);
+    ///
+    /// // `bytes` contains no data, even though there is capacity
+    /// assert_eq!(bytes.len(), 0);
+    /// // round up to match alignment
+    /// assert_eq!(bytes.capacity(), 65536);
+    /// ```
+    /// 
+    /// # Panics
+    /// + If `align` is zero or not power of two by
+    /// [Layout::from_size_align](std::alloc::Layout::from_size_align)
+    /// + If `capacity` round up to `align` is excess `isize::MAX` by
+    /// [Layout::from_size_align](std::alloc::Layout::from_size_align)
+    /// + If out of memory by [GlobalAlloc::alloc](std::alloc::GlobalAlloc::alloc)
+    #[inline]
+    pub fn with_capacity_aligned(capacity: usize, align: usize) -> BytesMut {
+        // if align isn't power of two it will fail in `std::alloc::Layout::from_size_align`
+	    let lower = align - 1;
+        // round up to nearest number that aligned with `align`, 
+        // if itself aligned this does nothing
+	    let capacity = (capacity + lower) & !lower;
+	    // should be
+	    assert_eq!(capacity % align, 0);
+	    let layout = std::alloc::Layout::from_size_align(capacity, align).unwrap();
+ 
+	    let vec = unsafe {
+            // # Safety
+            // + capacity and alignment has been checked above
+            // + null ptr handled below
+		    let ptr = std::alloc::alloc(layout);
+            if ptr.is_null() {
+                // handle null ptr here because it might cause a problem at `BytesMut::from_vec`
+                panic!("Not enough memory");
+            }
+            // # Safety
+            // + as long as `capacity % align == 0` it prevent `RawVec::drop` to cause `SIGSEGV`
+            //   because `RawVec::drop` will create new Layout during free,
+            //   `RawVec<u8>` will use `Layout::<u8>::array(capacity)` 
+            //   to free instead of our alignment
+		    Vec::from_raw_parts(ptr, 0, capacity)
+	    };
+        // if `BytesMut::from_vec` is deprecated, please use ptr and capacity 
+        // to construct `BytesMut` instead
+	    BytesMut::from_vec(vec)
+    }
 
     /// Creates a new `BytesMut` with default capacity.
     ///
