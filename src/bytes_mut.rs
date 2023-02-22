@@ -173,19 +173,19 @@ impl BytesMut {
     #[inline]
     pub fn with_capacity_aligned(capacity: usize, align: usize) -> BytesMut {
         // if align isn't power of two it will fail in `std::alloc::Layout::from_size_align`
-	    let lower = align - 1;
+        let lower = align - 1;
         // round up to nearest number that aligned with `align`, 
         // if itself aligned this does nothing
-	    let capacity = (capacity + lower) & !lower;
-	    // should be
-	    assert_eq!(capacity % align, 0);
-	    let layout = std::alloc::Layout::from_size_align(capacity, align).unwrap();
- 
-	    let vec = unsafe {
+        let capacity = (capacity + lower) & !lower;
+        // should be
+        assert_eq!(capacity % align, 0);
+        let layout = std::alloc::Layout::from_size_align(capacity, align).unwrap();
+
+        let vec = unsafe {
             // # Safety
             // + capacity and alignment has been checked above
             // + null ptr handled below
-		    let ptr = std::alloc::alloc(layout);
+            let ptr = std::alloc::alloc(layout);
             if ptr.is_null() {
                 // handle null ptr here because it might cause a problem at `BytesMut::from_vec`
                 panic!("Not enough memory");
@@ -195,11 +195,11 @@ impl BytesMut {
             //   because `RawVec::drop` will create new Layout during free,
             //   `RawVec<u8>` will use `Layout::<u8>::array(capacity)` 
             //   to free instead of our alignment
-		    Vec::from_raw_parts(ptr, 0, capacity)
-	    };
+            Vec::from_raw_parts(ptr, 0, capacity)
+        };
         // if `BytesMut::from_vec` is deprecated, please use ptr and capacity 
         // to construct `BytesMut` instead
-	    BytesMut::from_vec(vec)
+        BytesMut::from_vec(vec)
     }
 
     /// Creates a new `BytesMut` with default capacity.
