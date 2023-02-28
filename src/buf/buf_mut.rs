@@ -2,7 +2,7 @@ use crate::buf::{limit, Chain, Limit, UninitSlice};
 #[cfg(feature = "std")]
 use crate::buf::{writer, Writer};
 
-use core::{cmp, mem, ptr, usize};
+use core::{cell::RefMut, cmp, mem, ptr, usize};
 
 use alloc::{boxed::Box, vec::Vec};
 
@@ -1380,6 +1380,10 @@ unsafe impl<T: BufMut + ?Sized> BufMut for &mut T {
 }
 
 unsafe impl<T: BufMut + ?Sized> BufMut for Box<T> {
+    deref_forward_bufmut!();
+}
+
+unsafe impl<T: BufMut + ?Sized> BufMut for RefMut<'_, T> {
     deref_forward_bufmut!();
 }
 
