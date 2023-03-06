@@ -117,7 +117,6 @@ unsafe impl SharedBuf for ExternBufWrapper {
 fn is_sync<T: Sync>() {}
 fn is_send<T: Send>() {}
 
-#[ignore]
 #[test]
 fn test_bounds() {
     is_sync::<Bytes>();
@@ -126,7 +125,6 @@ fn test_bounds() {
     is_send::<BytesMut>();
 }
 
-#[ignore]
 #[test]
 fn test_layout() {
     use std::mem;
@@ -155,7 +153,6 @@ fn test_layout() {
     );
 }
 
-#[ignore]
 #[test]
 fn roundtrip() {
     let eb = ExternBuf::from(&b"abcdefgh"[..]);
@@ -187,7 +184,6 @@ fn refer_madness() {
     assert_eq!(e, b"bc"[..]);
 }
 
-#[ignore]
 #[test]
 fn from_slice() {
     let eb1 = ExternBuf::from(&b"abcdefgh"[..]);
@@ -209,7 +205,6 @@ fn from_slice() {
     assert_eq!(Vec::from(&b"abcdefgh"[..]), a2);
 }
 
-#[ignore]
 #[test]
 fn len() {
     let eb = ExternBuf::from(&b"abcdefg"[..]);
@@ -221,7 +216,6 @@ fn len() {
     assert!(a.is_empty());
 }
 
-#[ignore]
 #[test]
 fn index() {
     let eb = ExternBuf::from(&b"hello world"[..]);
@@ -229,7 +223,6 @@ fn index() {
     assert_eq!(a[0..5], *b"hello");
 }
 
-#[ignore]
 #[test]
 fn slice() {
     let eb = ExternBuf::from(&b"hello world"[..]);
@@ -254,7 +247,6 @@ fn slice() {
     assert_eq!(b, b"lo world"[..]);
 }
 
-#[ignore]
 #[test]
 #[should_panic]
 fn slice_oob_1() {
@@ -263,7 +255,6 @@ fn slice_oob_1() {
     a.slice(5..44);
 }
 
-#[ignore]
 #[test]
 #[should_panic]
 fn slice_oob_2() {
@@ -272,7 +263,6 @@ fn slice_oob_2() {
     a.slice(44..49);
 }
 
-#[ignore]
 #[test]
 fn split_off() {
     let eb = ExternBuf::from(&b"helloworld"[..]);
@@ -283,7 +273,6 @@ fn split_off() {
     assert_eq!(world, &b"world"[..]);
 }
 
-#[ignore]
 #[test]
 #[should_panic]
 fn split_off_oob() {
@@ -292,7 +281,6 @@ fn split_off_oob() {
     let _ = hello.split_off(44);
 }
 
-#[ignore]
 #[test]
 fn split_off_to_loop() {
     let s = b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -321,7 +309,6 @@ fn split_off_to_loop() {
     }
 }
 
-#[ignore]
 #[test]
 fn truncate() {
     let s = &b"helloworld"[..];
@@ -335,7 +322,6 @@ fn truncate() {
     assert_eq!(hello, "hello");
 }
 
-#[ignore]
 #[test]
 // Only run these tests on little endian systems. CI uses qemu for testing
 // big endian... and qemu doesn't really support threading all that well.
