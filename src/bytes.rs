@@ -178,6 +178,46 @@ impl Bytes {
         }
     }
 
+    /// Creates a new `Bytes` from a slice of the current `Bytes`.
+    ///
+    /// This is equivalent to calling [slice()](Bytes::slice), but instead of taking a range, it
+    /// takes a slice to the data.
+    ///
+    /// If the slice is a part of this `Bytes` instance, this method will upgrade the slice to a
+    /// new `Bytes` instance pointing to the same data as the slice. If the slice is not from this
+    /// Bytes, the method returns None.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Bytes;
+    ///
+    /// let data = Bytes::from_static(b"hello");
+    /// let slice = &data[1..];
+    ///
+    /// assert_eq!(data.from_slice(slice), Some(data.slice(1..)));
+    /// assert_eq!(data.from_slice(b"other"), None);
+    /// ```
+    pub fn from_slice(&self, slice: &[u8]) -> Option<Self> {
+        // bounds check: the slice's pointer must be greater than or equal to this bytes's pointer,
+        // and the pointer plus length cannot be longer than this slice's pointer plus length.
+        let start_in_bounds = slice.as_ptr() >= self.ptr;
+        let end_in_bounds = unsafe { slice.as_ptr().add(slice.len()) <= self.ptr.add(self.len) };
+        if !start_in_bounds || !end_in_bounds {
+            return None;
+        }
+
+        // if the slice is within bounds but empty, return empty bytes here.
+        if slice.len() == 0 {
+            return Some(Bytes::new());
+        }
+
+        let mut ret = self.clone();
+        ret.len = slice.len();
+        ret.ptr = slice.as_ptr();
+        Some(ret)
+    }
+
     /// Returns the number of bytes contained in this `Bytes`.
     ///
     /// # Examples
