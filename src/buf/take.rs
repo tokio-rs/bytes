@@ -1,4 +1,6 @@
-use crate::{Buf, Bytes};
+use crate::Buf;
+#[cfg(feature = "alloc")]
+use crate::Bytes;
 
 use core::cmp;
 
@@ -145,6 +147,7 @@ impl<T: Buf> Buf for Take<T> {
         self.limit -= cnt;
     }
 
+    #[cfg(feature = "alloc")]
     fn copy_to_bytes(&mut self, len: usize) -> Bytes {
         assert!(len <= self.remaining(), "`len` greater than remaining");
 

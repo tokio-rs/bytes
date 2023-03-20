@@ -1,5 +1,7 @@
 use crate::buf::{IntoIter, UninitSlice};
-use crate::{Buf, BufMut, Bytes};
+use crate::{Buf, BufMut};
+#[cfg(feature = "alloc")]
+use crate::Bytes;
 
 #[cfg(feature = "std")]
 use std::io::IoSlice;
@@ -171,6 +173,7 @@ where
         n
     }
 
+    #[cfg(feature = "alloc")]
     fn copy_to_bytes(&mut self, len: usize) -> Bytes {
         let a_rem = self.a.remaining();
         if a_rem >= len {
