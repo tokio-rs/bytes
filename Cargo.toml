@@ -3,8 +3,8 @@
 name = "bytes"
 # When releasing to crates.io:
 # - Update CHANGELOG.md.
-# - Create "v1.0.x" git tag.
-version = "1.0.1"
+# - Create "v1.x.y" git tag.
+version = "1.4.0"
 license = "MIT"
 authors = [
     "Carl Lerche <me@carllerche.com>",
