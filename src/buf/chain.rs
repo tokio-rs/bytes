@@ -171,7 +171,6 @@ where
         n
     }
 
-    #[cfg(not(bytes_no_atomic_cas))]
     fn copy_to_bytes(&mut self, len: usize) -> crate::Bytes {
         let a_rem = self.a.remaining();
         if a_rem >= len {

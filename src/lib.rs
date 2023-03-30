@@ -84,24 +84,17 @@ extern crate std;
 pub mod buf;
 pub use crate::buf::{Buf, BufMut};
 
-#[cfg(not(bytes_no_atomic_cas))]
 mod bytes;
-#[cfg(not(bytes_no_atomic_cas))]
 mod bytes_mut;
-#[cfg(not(bytes_no_atomic_cas))]
 mod fmt;
 mod loom;
-#[cfg(not(bytes_no_atomic_cas))]
 pub use crate::bytes::Bytes;
-#[cfg(not(bytes_no_atomic_cas))]
 pub use crate::bytes_mut::BytesMut;
 
 // Optional Serde support
-#[cfg(not(bytes_no_atomic_cas))]
 #[cfg(feature = "serde")]
 mod serde;
 
-#[cfg(not(bytes_no_atomic_cas))]
 #[inline(never)]
 #[cold]
 fn abort() -> ! {

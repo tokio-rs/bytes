@@ -113,16 +113,6 @@ jobs:
 
   # Build for no_std environment.
   no-std:
-    strategy:
-      fail-fast: false
-      matrix:
-        # thumbv7m-none-eabi supports atomic CAS.
-        # thumbv6m-none-eabi supports atomic, but not atomic CAS.
-        # riscv32i-unknown-none-elf does not support atomic at all.
-        target:
-          - thumbv7m-none-eabi
-          - thumbv6m-none-eabi
-          - riscv32i-unknown-none-elf
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -130,23 +120,16 @@ jobs:
         run: rustup update stable
       - name: Install cargo-hack
         run: cargo install cargo-hack
-      - run: rustup target add ${{ matrix.target }}
-        # * --optional-deps is needed for serde feature
-        # * --no-dev-deps is needed to avoid https://github.com/rust-lang/cargo/issues/4866
-      - run: cargo hack build --target ${{ matrix.target }} --feature-powerset --skip std,default --optional-deps --no-dev-deps
-
-  # When this job failed, run ci/no_atomic_cas.sh and commit result changes.
-  # TODO(taiki-e): Ideally, this should be automated using a bot that creates
-  #                PR when failed, but there is no bandwidth to implement it
-  #                right now...
-  codegen:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - name: Install Rust
-        run: rustup update nightly && rustup default nightly
-      - run: ci/no_atomic_cas.sh
-      - run: git diff --exit-code
+      # thumbv7m-none-eabi supports atomic CAS.
+      # thumbv6m-none-eabi supports atomic, but not atomic CAS.
+      - run: rustup target add thumbv7m-none-eabi
+      - run: rustup target add thumbv6m-none-eabi
+      # * --optional-deps is needed for serde feature
+      # * --no-dev-deps is needed to avoid https://github.com/rust-lang/cargo/issues/4866
+      - run: cargo hack build --target thumbv7m-none-eabi --feature-powerset --skip std,default --optional-deps --no-dev-deps
+      # A sound way to provide atomic CAS on platforms without native atomic CAS is system-dependent.
+      # portable-atomic provides major ways via cfgs and accepts user-defined implementations via critical-section feature.
+      - run: cargo hack build --target thumbv6m-none-eabi --feature-powerset --skip std,default --optional-deps --no-dev-deps --features extra-platforms,portable-atomic/critical-section
 
   # Sanitizers
   tsan:

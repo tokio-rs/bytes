@@ -145,7 +145,6 @@ impl<T: Buf> Buf for Take<T> {
         self.limit -= cnt;
     }
 
-    #[cfg(not(bytes_no_atomic_cas))]
     fn copy_to_bytes(&mut self, len: usize) -> crate::Bytes {
         assert!(len <= self.remaining(), "`len` greater than remaining");
 

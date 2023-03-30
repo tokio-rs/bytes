@@ -1,10 +1,10 @@
-#![cfg_attr(not(feature = "std"), allow(unused_imports))]
-
 #[cfg(not(all(test, loom)))]
 pub(crate) mod sync {
-    #[cfg(not(bytes_no_atomic_cas))]
     pub(crate) mod atomic {
+        #[cfg(not(feature = "extra-platforms"))]
         pub(crate) use core::sync::atomic::{AtomicPtr, AtomicUsize, Ordering};
+        #[cfg(feature = "extra-platforms")]
+        pub(crate) use portable_atomic::{AtomicPtr, AtomicUsize, Ordering};
 
         pub(crate) trait AtomicMut<T> {
             fn with_mut<F, R>(&mut self, f: F) -> R
