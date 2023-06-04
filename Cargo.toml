@@ -26,7 +26,8 @@ extra-platforms = ["portable-atomic"]
 
 [dependencies]
 serde = { version = "1.0.60", optional = true, default-features = false, features = ["alloc"] }
-portable-atomic = { version = "1", optional = true, default-features = false }
+# Enable require-cas feature to provide a better error message if the end user forgets to use the cfg or feature.
+portable-atomic = { version = "1.3", optional = true, default-features = false, features = ["require-cas"] }
 
 [dev-dependencies]
 serde_test = "1.0"
