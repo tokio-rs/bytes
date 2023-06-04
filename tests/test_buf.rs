@@ -72,6 +72,7 @@ fn test_vec_deque() {
     assert_eq!(b"world piece", &out[..]);
 }
 
+#[allow(unused_allocation)] // This is intentional.
 #[test]
 fn test_deref_buf_forwards() {
     struct Special;
