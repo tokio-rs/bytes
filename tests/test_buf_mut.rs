@@ -218,6 +218,7 @@ fn test_maybe_uninit_buf_mut_put_bytes_overflow() {
     do_test_slice_put_bytes_panics(make_maybe_uninit_slice);
 }
 
+#[allow(unused_allocation)] // This is intentional.
 #[test]
 fn test_deref_bufmut_forwards() {
     struct Special;
