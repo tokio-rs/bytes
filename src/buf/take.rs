@@ -153,6 +153,7 @@ impl<T: Buf> Buf for Take<T> {
         r
     }
 
+    #[cfg(feature = "std")]
     fn chunks_vectored<'a>(&'a self, dst: &mut [std::io::IoSlice<'a>]) -> usize {
         let cnt = self.inner.chunks_vectored(dst);
         let mut len = 0;
