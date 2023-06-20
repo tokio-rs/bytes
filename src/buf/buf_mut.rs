@@ -1427,7 +1427,7 @@ unsafe impl BufMut for &mut [core::mem::MaybeUninit<u8>] {
 
     #[inline]
     fn chunk_mut(&mut self) -> &mut UninitSlice {
-        UninitSlice::from_uninit_slice(self)
+        UninitSlice::uninit(self)
     }
 
     #[inline]

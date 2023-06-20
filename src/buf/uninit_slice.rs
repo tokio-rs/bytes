@@ -22,7 +22,22 @@ use core::ops::{
 pub struct UninitSlice([MaybeUninit<u8>]);
 
 impl UninitSlice {
-    /// Creates a `&mut UninitSlice` wrapping slice of uninitialised memory.
+    /// Creates a `&mut UninitSlice` wrapping a slice of initialised memory.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::buf::UninitSlice;
+    ///
+    /// let mut buffer = [0u8; 64];
+    /// let slice = UninitSlice::new(&mut buffer[..]);
+    /// ```
+    #[inline]
+    pub fn new(slice: &mut [u8]) -> &mut UninitSlice {
+        unsafe { &mut *(slice as *mut [u8] as *mut [MaybeUninit<u8>] as *mut UninitSlice) }
+    }
+
+    /// Creates a `&mut UninitSlice` wrapping a slice of uninitialised memory.
     ///
     /// # Examples
     ///
@@ -31,33 +46,18 @@ impl UninitSlice {
     /// use core::mem::MaybeUninit;
     ///
     /// let mut buffer = [MaybeUninit::uninit(); 64];
-    /// let slice = UninitSlice::from_uninit_slice(&mut buffer[..]);
+    /// let slice = UninitSlice::uninit(&mut buffer[..]);
     ///
     /// let mut vec = Vec::with_capacity(1024);
     /// let spare: &mut UninitSlice = vec.spare_capacity_mut().into();
     /// ```
     #[inline]
-    pub fn from_uninit_slice(slice: &mut [MaybeUninit<u8>]) -> &mut UninitSlice {
+    pub fn uninit(slice: &mut [MaybeUninit<u8>]) -> &mut UninitSlice {
         unsafe { &mut *(slice as *mut [MaybeUninit<u8>] as *mut UninitSlice) }
     }
 
-    fn from_uninit_slice_ref(slice: &[MaybeUninit<u8>]) -> &UninitSlice {
+    fn uninit_ref(slice: &[MaybeUninit<u8>]) -> &UninitSlice {
         unsafe { &*(slice as *const [MaybeUninit<u8>] as *const UninitSlice) }
-    }
-
-    /// Creates a `&mut UninitSlice` wrapping slice of initialised memory.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use bytes::buf::UninitSlice;
-    ///
-    /// let mut buffer = [0u8; 64];
-    /// let slice = UninitSlice::from_slice(&mut buffer[..]);
-    /// ```
-    #[inline]
-    pub fn from_slice(slice: &mut [u8]) -> &mut UninitSlice {
-        unsafe { &mut *(slice as *mut [u8] as *mut [MaybeUninit<u8>] as *mut UninitSlice) }
     }
 
     /// Create a `&mut UninitSlice` from a pointer and a length.
@@ -82,7 +82,7 @@ impl UninitSlice {
     pub unsafe fn from_raw_parts_mut<'a>(ptr: *mut u8, len: usize) -> &'a mut UninitSlice {
         let maybe_init: &mut [MaybeUninit<u8>] =
             core::slice::from_raw_parts_mut(ptr as *mut _, len);
-        Self::from_uninit_slice(maybe_init)
+        Self::uninit(maybe_init)
     }
 
     /// Write a single byte at the specified offset.
@@ -215,13 +215,13 @@ impl fmt::Debug for UninitSlice {
 
 impl<'a> From<&'a mut [u8]> for &'a mut UninitSlice {
     fn from(slice: &'a mut [u8]) -> Self {
-        UninitSlice::from_slice(slice)
+        UninitSlice::new(slice)
     }
 }
 
 impl<'a> From<&'a mut [MaybeUninit<u8>]> for &'a mut UninitSlice {
     fn from(slice: &'a mut [MaybeUninit<u8>]) -> Self {
-        UninitSlice::from_uninit_slice(slice)
+        UninitSlice::uninit(slice)
     }
 }
 
@@ -233,14 +233,14 @@ macro_rules! impl_index {
 
                 #[inline]
                 fn index(&self, index: $t) -> &UninitSlice {
-                    UninitSlice::from_uninit_slice_ref(&self.0[index])
+                    UninitSlice::uninit_ref(&self.0[index])
                 }
             }
 
             impl IndexMut<$t> for UninitSlice {
                 #[inline]
                 fn index_mut(&mut self, index: $t) -> &mut UninitSlice {
-                    UninitSlice::from_uninit_slice(&mut self.0[index])
+                    UninitSlice::uninit(&mut self.0[index])
                 }
             }
         )*
