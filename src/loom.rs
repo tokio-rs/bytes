@@ -1,7 +1,7 @@
 #[cfg(not(all(test, loom)))]
 pub(crate) mod sync {
     pub(crate) mod atomic {
-        ub(crate) mod atomic {
+        pub(crate) mod atomic {
             #[cfg(not(feature = "extra-platforms"))]
             pub(crate) use core::sync::atomic::{AtomicPtr, AtomicUsize, Ordering};
             #[cfg(feature = "extra-platforms")]
