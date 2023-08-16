@@ -1208,3 +1208,18 @@ fn test_bytes_capacity_len() {
         }
     }
 }
+
+#[test]
+fn test_get_u16() {
+    let mut buf = Bytes::from(&b"\x21\x54zomg"[..]);
+    assert_eq!(0x2154, buf.get_u16());
+    let mut buf = Bytes::from(&b"\x21\x54zomg"[..]);
+    assert_eq!(0x5421, buf.get_u16_le());
+}
+
+#[test]
+#[should_panic]
+fn test_get_u16_buffer_underflow() {
+    let mut buf = Bytes::from(&b"\x21"[..]);
+    buf.get_u16();
+}
