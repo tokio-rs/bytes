@@ -2,7 +2,7 @@
 
 ### Added
 
-- Add `UninitSlice::{new,init}` (#598, #599)
+- Add `UninitSlice::{new,uninit}` (#598, #599)
 - Implement `BufMut` for `&mut [MaybeUninit<u8>]` (#597)
 
 ### Changed
