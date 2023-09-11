@@ -96,11 +96,11 @@ const MIN_ORIGINAL_CAPACITY_WIDTH: usize = 10;
 const ORIGINAL_CAPACITY_MASK: usize = 0b11100;
 const ORIGINAL_CAPACITY_OFFSET: usize = 2;
 
+const VEC_POS_OFFSET: usize = 5;
 // When the storage is in the `Vec` representation, the pointer can be advanced
 // at most this value. This is due to the amount of storage available to track
 // the offset is usize - number of KIND bits and number of ORIGINAL_CAPACITY
 // bits.
-const VEC_POS_OFFSET: usize = 5;
 const MAX_VEC_POS: usize = usize::MAX >> VEC_POS_OFFSET;
 const NOT_VEC_POS_MASK: usize = 0b11111;
 
