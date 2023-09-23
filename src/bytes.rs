@@ -851,22 +851,39 @@ impl From<Box<[u8]>> for Bytes {
 
         let len = slice.len();
         let ptr = Box::into_raw(slice) as *mut u8;
+        from_ptr_and_len(ptr, len)
+    }
+}
 
-        if ptr as usize & 0x1 == 0 {
-            let data = ptr_map(ptr, |addr| addr | KIND_VEC);
-            Bytes {
-                ptr,
-                len,
-                data: AtomicPtr::new(data.cast()),
-                vtable: &PROMOTABLE_EVEN_VTABLE,
-            }
-        } else {
-            Bytes {
-                ptr,
-                len,
-                data: AtomicPtr::new(ptr.cast()),
-                vtable: &PROMOTABLE_ODD_VTABLE,
-            }
+impl<const N: usize> From<Box<[u8; N]>> for Bytes {
+    fn from(slice: Box<[u8; N]>) -> Self {
+        // Box<[u8]> doesn't contain a heap allocation for empty slices,
+        // so the pointer isn't aligned enough for the KIND_VEC stashing to
+        // work.
+        if slice.is_empty() {
+            return Bytes::new();
+        }
+
+        let ptr = Box::into_raw(slice) as *mut u8;
+        from_ptr_and_len(ptr, N)
+    }
+}
+
+fn from_ptr_and_len(ptr: *mut u8, len: usize) -> Bytes {
+    if ptr as usize & 0x1 == 0 {
+        let data = ptr_map(ptr, |addr| addr | KIND_VEC);
+        Bytes {
+            ptr,
+            len,
+            data: AtomicPtr::new(data.cast()),
+            vtable: &PROMOTABLE_EVEN_VTABLE,
+        }
+    } else {
+        Bytes {
+            ptr,
+            len,
+            data: AtomicPtr::new(ptr.cast()),
+            vtable: &PROMOTABLE_ODD_VTABLE,
         }
     }
 }
