@@ -1684,7 +1684,7 @@ fn invalid_ptr<T>(addr: usize) -> *mut T {
 /// self.ptr.as_ptr().offset_from(ptr) as usize;
 /// ```
 ///
-/// But due to min rust is 1.39 and it is only stablised
+/// But due to min rust is 1.39 and it is only stabilized
 /// in 1.47, we cannot use it.
 #[inline]
 fn offset_from(dst: *mut u8, original: *mut u8) -> usize {

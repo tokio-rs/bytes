@@ -168,7 +168,7 @@ impl UninitSlice {
     ///
     /// The caller **must not** read from the referenced memory and **must not** write
     /// **uninitialized** bytes to the slice either. This is because `BufMut` implementation
-    /// that created the `UninitSlice` knows which parts are initialized. Writing uninitalized
+    /// that created the `UninitSlice` knows which parts are initialized. Writing uninitialized
     /// bytes to the slice may cause the `BufMut` to read those bytes and trigger undefined
     /// behavior.
     ///
