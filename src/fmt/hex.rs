@@ -1,6 +1,7 @@
 use core::fmt::{Formatter, LowerHex, Result, UpperHex};
 
 use super::BytesRef;
+#[cfg(feature = "alloc")]
 use crate::{Bytes, BytesMut};
 
 impl LowerHex for BytesRef<'_> {
@@ -21,6 +22,7 @@ impl UpperHex for BytesRef<'_> {
     }
 }
 
+#[cfg(feature = "alloc")]
 macro_rules! hex_impl {
     ($tr:ident, $ty:ty) => {
         impl $tr for $ty {
@@ -31,7 +33,11 @@ macro_rules! hex_impl {
     };
 }
 
+#[cfg(feature = "alloc")]
 hex_impl!(LowerHex, Bytes);
+#[cfg(feature = "alloc")]
 hex_impl!(LowerHex, BytesMut);
+#[cfg(feature = "alloc")]
 hex_impl!(UpperHex, Bytes);
+#[cfg(feature = "alloc")]
 hex_impl!(UpperHex, BytesMut);

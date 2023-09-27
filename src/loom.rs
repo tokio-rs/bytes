@@ -1,5 +1,6 @@
 #[cfg(not(all(test, loom)))]
 pub(crate) mod sync {
+    #[cfg(feature = "alloc")]
     pub(crate) mod atomic {
         pub(crate) use core::sync::atomic::{AtomicPtr, AtomicUsize, Ordering};
 
