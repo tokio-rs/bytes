@@ -119,3 +119,37 @@ fn copy_to_bytes_overflow() {
 
     let _bytes = buf.copy_to_bytes(12);
 }
+
+#[cfg(feature = "std")]
+#[test]
+fn fmt_write_bytesmut_test() {
+    use bytes::BytesMut;
+    use std::fmt::Write;
+    let mut buf = BytesMut::with_capacity(64);
+    write!(&mut buf, "hello").ok();
+    assert_eq!(&buf[..], b"hello");
+}
+
+#[cfg(feature = "std")]
+#[test]
+fn io_write_bytesmut_test() {
+    use bytes::ext::BytesMutExt;
+    use bytes::BytesMut;
+    use std::io::Write;
+    let mut buf = BytesMut::with_capacity(64);
+    write!(&mut buf as &mut dyn BytesMutExt, "hello").ok();
+    assert_eq!(&buf[..], b"hello");
+}
+
+#[cfg(feature = "std")]
+#[test]
+fn fmt_write_bytesmut_with_both_write_in_scope_test() {
+    use bytes::ext::BytesMutExt;
+    use bytes::BytesMut;
+    #[allow(unused_imports)]
+    use std::fmt::Write as FmtWrite;
+    use std::io::Write as IoWrite;
+    let mut buf = BytesMut::with_capacity(64);
+    write!(&mut buf as &mut dyn BytesMutExt, "hello").ok();
+    assert_eq!(&buf[..], b"hello");
+}
