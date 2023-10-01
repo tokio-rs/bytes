@@ -178,7 +178,6 @@ pub trait Buf {
     /// [`writev`]: http://man7.org/linux/man-pages/man2/readv.2.html
     #[cfg(feature = "std")]
     #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
-    #[track_caller]
     fn chunks_vectored<'a>(&'a self, dst: &mut [IoSlice<'a>]) -> usize {
         if dst.is_empty() {
             return 0;
@@ -266,7 +265,6 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if `self.remaining() < dst.len()`.
-    #[track_caller]
     fn copy_to_slice(&mut self, mut dst: &mut [u8]) {
         if self.remaining() < dst.len() {
             panic_advance(dst.len(), self.remaining());
@@ -299,7 +297,6 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is no more remaining data in `self`.
-    #[track_caller]
     fn get_u8(&mut self) -> u8 {
         if self.remaining() < 1 {
             panic_advance(1, 0);
@@ -325,7 +322,6 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is no more remaining data in `self`.
-    #[track_caller]
     fn get_i8(&mut self) -> i8 {
         if self.remaining() < 1 {
             panic_advance(1, 0);
@@ -351,7 +347,6 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
-    #[track_caller]
     fn get_u16(&mut self) -> u16 {
         buf_get_impl!(self, u16::from_be_bytes);
     }
@@ -372,7 +367,6 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
-    #[track_caller]
     fn get_u16_le(&mut self) -> u16 {
         buf_get_impl!(self, u16::from_le_bytes);
     }
@@ -396,7 +390,6 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
-    #[track_caller]
     fn get_u16_ne(&mut self) -> u16 {
         buf_get_impl!(self, u16::from_ne_bytes);
     }
@@ -417,7 +410,6 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
-    #[track_caller]
     fn get_i16(&mut self) -> i16 {
         buf_get_impl!(self, i16::from_be_bytes);
     }
@@ -438,7 +430,6 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
-    #[track_caller]
     fn get_i16_le(&mut self) -> i16 {
         buf_get_impl!(self, i16::from_le_bytes);
     }
@@ -462,7 +453,6 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
-    #[track_caller]
     fn get_i16_ne(&mut self) -> i16 {
         buf_get_impl!(self, i16::from_ne_bytes);
     }
@@ -483,7 +473,6 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
-    #[track_caller]
     fn get_u32(&mut self) -> u32 {
         buf_get_impl!(self, u32::from_be_bytes);
     }
@@ -504,7 +493,6 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
-    #[track_caller]
     fn get_u32_le(&mut self) -> u32 {
         buf_get_impl!(self, u32::from_le_bytes);
     }
@@ -528,7 +516,6 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
-    #[track_caller]
     fn get_u32_ne(&mut self) -> u32 {
         buf_get_impl!(self, u32::from_ne_bytes);
     }
@@ -549,7 +536,6 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
-    #[track_caller]
     fn get_i32(&mut self) -> i32 {
         buf_get_impl!(self, i32::from_be_bytes);
     }
@@ -570,7 +556,6 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
-    #[track_caller]
     fn get_i32_le(&mut self) -> i32 {
         buf_get_impl!(self, i32::from_le_bytes);
     }
@@ -594,7 +579,6 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
-    #[track_caller]
     fn get_i32_ne(&mut self) -> i32 {
         buf_get_impl!(self, i32::from_ne_bytes);
     }
@@ -615,7 +599,6 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
-    #[track_caller]
     fn get_u64(&mut self) -> u64 {
         buf_get_impl!(self, u64::from_be_bytes);
     }
@@ -636,7 +619,6 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
-    #[track_caller]
     fn get_u64_le(&mut self) -> u64 {
         buf_get_impl!(self, u64::from_le_bytes);
     }
@@ -660,7 +642,6 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
-    #[track_caller]
     fn get_u64_ne(&mut self) -> u64 {
         buf_get_impl!(self, u64::from_ne_bytes);
     }
@@ -681,7 +662,6 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
-    #[track_caller]
     fn get_i64(&mut self) -> i64 {
         buf_get_impl!(self, i64::from_be_bytes);
     }
@@ -702,7 +682,6 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
-    #[track_caller]
     fn get_i64_le(&mut self) -> i64 {
         buf_get_impl!(self, i64::from_le_bytes);
     }
@@ -726,7 +705,6 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
-    #[track_caller]
     fn get_i64_ne(&mut self) -> i64 {
         buf_get_impl!(self, i64::from_ne_bytes);
     }
@@ -747,7 +725,6 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
-    #[track_caller]
     fn get_u128(&mut self) -> u128 {
         buf_get_impl!(self, u128::from_be_bytes);
     }
@@ -768,7 +745,6 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
-    #[track_caller]
     fn get_u128_le(&mut self) -> u128 {
         buf_get_impl!(self, u128::from_le_bytes);
     }
@@ -792,7 +768,6 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
-    #[track_caller]
     fn get_u128_ne(&mut self) -> u128 {
         buf_get_impl!(self, u128::from_ne_bytes);
     }
@@ -813,7 +788,6 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
-    #[track_caller]
     fn get_i128(&mut self) -> i128 {
         buf_get_impl!(self, i128::from_be_bytes);
     }
@@ -834,7 +808,6 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
-    #[track_caller]
     fn get_i128_le(&mut self) -> i128 {
         buf_get_impl!(self, i128::from_le_bytes);
     }
@@ -858,7 +831,6 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
-    #[track_caller]
     fn get_i128_ne(&mut self) -> i128 {
         buf_get_impl!(self, i128::from_ne_bytes);
     }
@@ -879,7 +851,6 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
-    #[track_caller]
     fn get_uint(&mut self, nbytes: usize) -> u64 {
         buf_get_impl!(be => self, u64, nbytes);
     }
@@ -900,7 +871,6 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
-    #[track_caller]
     fn get_uint_le(&mut self, nbytes: usize) -> u64 {
         buf_get_impl!(le => self, u64, nbytes);
     }
@@ -925,7 +895,6 @@ pub trait Buf {
     ///
     /// This function panics if there is not enough remaining data in `self`, or
     /// if `nbytes` is greater than 8.
-    #[track_caller]
     fn get_uint_ne(&mut self, nbytes: usize) -> u64 {
         if cfg!(target_endian = "big") {
             self.get_uint(nbytes)
@@ -951,7 +920,6 @@ pub trait Buf {
     ///
     /// This function panics if there is not enough remaining data in `self`, or
     /// if `nbytes` is greater than 8.
-    #[track_caller]
     fn get_int(&mut self, nbytes: usize) -> i64 {
         buf_get_impl!(be => self, i64, nbytes);
     }
@@ -973,7 +941,6 @@ pub trait Buf {
     ///
     /// This function panics if there is not enough remaining data in `self`, or
     /// if `nbytes` is greater than 8.
-    #[track_caller]
     fn get_int_le(&mut self, nbytes: usize) -> i64 {
         buf_get_impl!(le => self, i64, nbytes);
     }
@@ -998,7 +965,6 @@ pub trait Buf {
     ///
     /// This function panics if there is not enough remaining data in `self`, or
     /// if `nbytes` is greater than 8.
-    #[track_caller]
     fn get_int_ne(&mut self, nbytes: usize) -> i64 {
         if cfg!(target_endian = "big") {
             self.get_int(nbytes)
@@ -1024,7 +990,6 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
-    #[track_caller]
     fn get_f32(&mut self) -> f32 {
         f32::from_bits(Self::get_u32(self))
     }
@@ -1046,7 +1011,6 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
-    #[track_caller]
     fn get_f32_le(&mut self) -> f32 {
         f32::from_bits(Self::get_u32_le(self))
     }
@@ -1071,7 +1035,6 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
-    #[track_caller]
     fn get_f32_ne(&mut self) -> f32 {
         f32::from_bits(Self::get_u32_ne(self))
     }
@@ -1093,7 +1056,6 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
-    #[track_caller]
     fn get_f64(&mut self) -> f64 {
         f64::from_bits(Self::get_u64(self))
     }
@@ -1115,7 +1077,6 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
-    #[track_caller]
     fn get_f64_le(&mut self) -> f64 {
         f64::from_bits(Self::get_u64_le(self))
     }
@@ -1140,7 +1101,6 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
-    #[track_caller]
     fn get_f64_ne(&mut self) -> f64 {
         f64::from_bits(Self::get_u64_ne(self))
     }
@@ -1160,7 +1120,6 @@ pub trait Buf {
     /// let bytes = (&b"hello world"[..]).copy_to_bytes(5);
     /// assert_eq!(&bytes[..], &b"hello"[..]);
     /// ```
-    #[track_caller]
     fn copy_to_bytes(&mut self, len: usize) -> crate::Bytes {
         use super::BufMut;
 
@@ -1258,200 +1217,167 @@ pub trait Buf {
 
 macro_rules! deref_forward_buf {
     () => {
-        #[track_caller]
         #[inline]
         fn remaining(&self) -> usize {
             (**self).remaining()
         }
 
-        #[track_caller]
         #[inline]
         fn chunk(&self) -> &[u8] {
             (**self).chunk()
         }
 
         #[cfg(feature = "std")]
-        #[track_caller]
         #[inline]
         fn chunks_vectored<'b>(&'b self, dst: &mut [IoSlice<'b>]) -> usize {
             (**self).chunks_vectored(dst)
         }
 
-        #[track_caller]
         #[inline]
         fn advance(&mut self, cnt: usize) {
             (**self).advance(cnt)
         }
 
-        #[track_caller]
         #[inline]
         fn has_remaining(&self) -> bool {
             (**self).has_remaining()
         }
 
-        #[track_caller]
         #[inline]
         fn copy_to_slice(&mut self, dst: &mut [u8]) {
             (**self).copy_to_slice(dst)
         }
 
-        #[track_caller]
         #[inline]
         fn get_u8(&mut self) -> u8 {
             (**self).get_u8()
         }
 
-        #[track_caller]
         #[inline]
         fn get_i8(&mut self) -> i8 {
             (**self).get_i8()
         }
 
-        #[track_caller]
         #[inline]
         fn get_u16(&mut self) -> u16 {
             (**self).get_u16()
         }
 
-        #[track_caller]
         #[inline]
         fn get_u16_le(&mut self) -> u16 {
             (**self).get_u16_le()
         }
 
-        #[track_caller]
         #[inline]
         fn get_u16_ne(&mut self) -> u16 {
             (**self).get_u16_ne()
         }
 
-        #[track_caller]
         #[inline]
         fn get_i16(&mut self) -> i16 {
             (**self).get_i16()
         }
 
-        #[track_caller]
         #[inline]
         fn get_i16_le(&mut self) -> i16 {
             (**self).get_i16_le()
         }
 
-        #[track_caller]
         #[inline]
         fn get_i16_ne(&mut self) -> i16 {
             (**self).get_i16_ne()
         }
 
-        #[track_caller]
         #[inline]
         fn get_u32(&mut self) -> u32 {
             (**self).get_u32()
         }
 
-        #[track_caller]
         #[inline]
         fn get_u32_le(&mut self) -> u32 {
             (**self).get_u32_le()
         }
 
-        #[track_caller]
         #[inline]
         fn get_u32_ne(&mut self) -> u32 {
             (**self).get_u32_ne()
         }
 
-        #[track_caller]
         #[inline]
         fn get_i32(&mut self) -> i32 {
             (**self).get_i32()
         }
 
-        #[track_caller]
         #[inline]
         fn get_i32_le(&mut self) -> i32 {
             (**self).get_i32_le()
         }
 
-        #[track_caller]
         #[inline]
         fn get_i32_ne(&mut self) -> i32 {
             (**self).get_i32_ne()
         }
 
-        #[track_caller]
         #[inline]
         fn get_u64(&mut self) -> u64 {
             (**self).get_u64()
         }
 
-        #[track_caller]
         #[inline]
         fn get_u64_le(&mut self) -> u64 {
             (**self).get_u64_le()
         }
 
-        #[track_caller]
         #[inline]
         fn get_u64_ne(&mut self) -> u64 {
             (**self).get_u64_ne()
         }
 
-        #[track_caller]
         #[inline]
         fn get_i64(&mut self) -> i64 {
             (**self).get_i64()
         }
 
-        #[track_caller]
         #[inline]
         fn get_i64_le(&mut self) -> i64 {
             (**self).get_i64_le()
         }
 
-        #[track_caller]
         #[inline]
         fn get_i64_ne(&mut self) -> i64 {
             (**self).get_i64_ne()
         }
 
-        #[track_caller]
         #[inline]
         fn get_uint(&mut self, nbytes: usize) -> u64 {
             (**self).get_uint(nbytes)
         }
 
-        #[track_caller]
         #[inline]
         fn get_uint_le(&mut self, nbytes: usize) -> u64 {
             (**self).get_uint_le(nbytes)
         }
 
-        #[track_caller]
         #[inline]
         fn get_uint_ne(&mut self, nbytes: usize) -> u64 {
             (**self).get_uint_ne(nbytes)
         }
 
-        #[track_caller]
         #[inline]
         fn get_int(&mut self, nbytes: usize) -> i64 {
             (**self).get_int(nbytes)
         }
 
-        #[track_caller]
         #[inline]
         fn get_int_le(&mut self, nbytes: usize) -> i64 {
             (**self).get_int_le(nbytes)
         }
 
-        #[track_caller]
         #[inline]
         fn get_int_ne(&mut self, nbytes: usize) -> i64 {
             (**self).get_int_ne(nbytes)
         }
 
-        #[track_caller]
         #[inline]
         fn copy_to_bytes(&mut self, len: usize) -> crate::Bytes {
             (**self).copy_to_bytes(len)
@@ -1479,7 +1405,6 @@ impl Buf for &[u8] {
     }
 
     #[inline]
-    #[track_caller]
     fn advance(&mut self, cnt: usize) {
         if self.len() < cnt {
             panic_advance(cnt, self.len());
@@ -1489,7 +1414,6 @@ impl Buf for &[u8] {
     }
 
     #[inline]
-    #[track_caller]
     fn copy_to_slice(&mut self, dst: &mut [u8]) {
         if self.len() < dst.len() {
             panic_advance(dst.len(), self.len());
@@ -1508,7 +1432,6 @@ impl<T: AsRef<[u8]>> Buf for std::io::Cursor<T> {
     }
 
     #[inline]
-    #[track_caller]
     fn chunk(&self) -> &[u8] {
         let slice = self.get_ref().as_ref();
         let pos = min_u64_usize(self.position(), slice.len());
@@ -1516,7 +1439,6 @@ impl<T: AsRef<[u8]>> Buf for std::io::Cursor<T> {
     }
 
     #[inline]
-    #[track_caller]
     fn advance(&mut self, cnt: usize) {
         let len = self.get_ref().as_ref().len();
         let pos = self.position();

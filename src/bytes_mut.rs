@@ -1086,7 +1086,6 @@ unsafe impl BufMut for BytesMut {
     }
 
     #[inline]
-    #[track_caller]
     unsafe fn advance_mut(&mut self, cnt: usize) {
         let remaining = self.cap - self.len();
         if cnt > remaining {

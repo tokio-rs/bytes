@@ -138,7 +138,6 @@ fn min_u64_usize(a: u64, b: usize) -> usize {
 
 /// Panic with a nice error message.
 #[cold]
-#[track_caller]
 fn panic_advance(idx: usize, len: usize) -> ! {
     panic!(
         "advance out of bounds: the len is {} but advancing by {}",
@@ -147,7 +146,6 @@ fn panic_advance(idx: usize, len: usize) -> ! {
 }
 
 #[cold]
-#[track_caller]
 fn panic_does_not_fit(size: usize, nbytes: usize) -> ! {
     panic!(
         "size too large: the integer type can fit {} bytes, but nbytes is {}",
