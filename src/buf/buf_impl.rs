@@ -1,8 +1,7 @@
 #[cfg(feature = "std")]
 use crate::buf::{reader, Reader};
 use crate::buf::{take, Chain, Take};
-
-use core::{cmp, mem, ptr};
+use crate::{panic_advance, panic_does_not_fit, saturating_sub_usize_u64, min_u64_usize};
 
 #[cfg(feature = "std")]
 use std::io::IoSlice;
@@ -11,7 +10,12 @@ use alloc::boxed::Box;
 
 macro_rules! buf_get_impl {
     ($this:ident, $typ:tt::$conv:tt) => {{
-        const SIZE: usize = mem::size_of::<$typ>();
+        const SIZE: usize = core::mem::size_of::<$typ>();
+
+        if $this.remaining() < SIZE {
+            panic_advance(SIZE, $this.remaining());
+        }
+
         // try to convert directly from the bytes
         // this Option<ret> trick is to avoid keeping a borrow on self
         // when advance() is called (mut borrow) and to call bytes() only once
@@ -32,19 +36,30 @@ macro_rules! buf_get_impl {
         }
     }};
     (le => $this:ident, $typ:tt, $len_to_read:expr) => {{
-        debug_assert!(mem::size_of::<$typ>() >= $len_to_read);
+        const SIZE: usize = core::mem::size_of::<$typ>();
 
         // The same trick as above does not improve the best case speed.
         // It seems to be linked to the way the method is optimised by the compiler
-        let mut buf = [0; (mem::size_of::<$typ>())];
-        $this.copy_to_slice(&mut buf[..($len_to_read)]);
+        let mut buf = [0; SIZE];
+
+        let subslice = match buf.get_mut(..$len_to_read) {
+            Some(subslice) => subslice,
+            None => panic_does_not_fit(SIZE, $len_to_read),
+        };
+
+        $this.copy_to_slice(subslice);
         return $typ::from_le_bytes(buf);
     }};
     (be => $this:ident, $typ:tt, $len_to_read:expr) => {{
-        debug_assert!(mem::size_of::<$typ>() >= $len_to_read);
+        const SIZE: usize = core::mem::size_of::<$typ>();
 
-        let mut buf = [0; (mem::size_of::<$typ>())];
-        $this.copy_to_slice(&mut buf[mem::size_of::<$typ>() - ($len_to_read)..]);
+        let slice_at = match SIZE.checked_sub($len_to_read) {
+            Some(slice_at) => slice_at,
+            None => panic_does_not_fit(SIZE, $len_to_read),
+        };
+
+        let mut buf = [0; SIZE];
+        $this.copy_to_slice(&mut buf[slice_at..]);
         return $typ::from_be_bytes(buf);
     }};
 }
@@ -161,6 +176,7 @@ pub trait Buf {
     /// [`writev`]: http://man7.org/linux/man-pages/man2/readv.2.html
     #[cfg(feature = "std")]
     #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
+    #[track_caller]
     fn chunks_vectored<'a>(&'a self, dst: &mut [IoSlice<'a>]) -> usize {
         if dst.is_empty() {
             return 0;
@@ -247,23 +263,19 @@ pub trait Buf {
     ///
     /// # Panics
     ///
-    /// This function panics if `self.remaining() < dst.len()`
-    fn copy_to_slice(&mut self, dst: &mut [u8]) {
-        let mut off = 0;
+    /// This function panics if `self.remaining() < dst.len()`.
+    #[track_caller]
+    fn copy_to_slice(&mut self, mut dst: &mut [u8]) {
+        if self.remaining() < dst.len() {
+            panic_advance(dst.len(), self.remaining());
+        }
 
-        assert!(self.remaining() >= dst.len());
+        while !dst.is_empty() {
+            let src = self.chunk();
+            let cnt = usize::min(src.len(), dst.len());
 
-        while off < dst.len() {
-            let cnt;
-
-            unsafe {
-                let src = self.chunk();
-                cnt = cmp::min(src.len(), dst.len() - off);
-
-                ptr::copy_nonoverlapping(src.as_ptr(), dst[off..].as_mut_ptr(), cnt);
-
-                off += cnt;
-            }
+            dst[..cnt].copy_from_slice(&src[..cnt]);
+            dst = &mut dst[cnt..];
 
             self.advance(cnt);
         }
@@ -285,8 +297,11 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is no more remaining data in `self`.
+    #[track_caller]
     fn get_u8(&mut self) -> u8 {
-        assert!(self.remaining() >= 1);
+        if self.remaining() < 1 {
+            panic_advance(1, 0);
+        }
         let ret = self.chunk()[0];
         self.advance(1);
         ret
@@ -308,8 +323,11 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is no more remaining data in `self`.
+    #[track_caller]
     fn get_i8(&mut self) -> i8 {
-        assert!(self.remaining() >= 1);
+        if self.remaining() < 1 {
+            panic_advance(1, 0);
+        }
         let ret = self.chunk()[0] as i8;
         self.advance(1);
         ret
@@ -331,6 +349,7 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
+    #[track_caller]
     fn get_u16(&mut self) -> u16 {
         buf_get_impl!(self, u16::from_be_bytes);
     }
@@ -351,6 +370,7 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
+    #[track_caller]
     fn get_u16_le(&mut self) -> u16 {
         buf_get_impl!(self, u16::from_le_bytes);
     }
@@ -374,6 +394,7 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
+    #[track_caller]
     fn get_u16_ne(&mut self) -> u16 {
         buf_get_impl!(self, u16::from_ne_bytes);
     }
@@ -394,6 +415,7 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
+    #[track_caller]
     fn get_i16(&mut self) -> i16 {
         buf_get_impl!(self, i16::from_be_bytes);
     }
@@ -414,6 +436,7 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
+    #[track_caller]
     fn get_i16_le(&mut self) -> i16 {
         buf_get_impl!(self, i16::from_le_bytes);
     }
@@ -437,6 +460,7 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
+    #[track_caller]
     fn get_i16_ne(&mut self) -> i16 {
         buf_get_impl!(self, i16::from_ne_bytes);
     }
@@ -457,6 +481,7 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
+    #[track_caller]
     fn get_u32(&mut self) -> u32 {
         buf_get_impl!(self, u32::from_be_bytes);
     }
@@ -477,6 +502,7 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
+    #[track_caller]
     fn get_u32_le(&mut self) -> u32 {
         buf_get_impl!(self, u32::from_le_bytes);
     }
@@ -500,6 +526,7 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
+    #[track_caller]
     fn get_u32_ne(&mut self) -> u32 {
         buf_get_impl!(self, u32::from_ne_bytes);
     }
@@ -520,6 +547,7 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
+    #[track_caller]
     fn get_i32(&mut self) -> i32 {
         buf_get_impl!(self, i32::from_be_bytes);
     }
@@ -540,6 +568,7 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
+    #[track_caller]
     fn get_i32_le(&mut self) -> i32 {
         buf_get_impl!(self, i32::from_le_bytes);
     }
@@ -563,6 +592,7 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
+    #[track_caller]
     fn get_i32_ne(&mut self) -> i32 {
         buf_get_impl!(self, i32::from_ne_bytes);
     }
@@ -583,6 +613,7 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
+    #[track_caller]
     fn get_u64(&mut self) -> u64 {
         buf_get_impl!(self, u64::from_be_bytes);
     }
@@ -603,6 +634,7 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
+    #[track_caller]
     fn get_u64_le(&mut self) -> u64 {
         buf_get_impl!(self, u64::from_le_bytes);
     }
@@ -626,6 +658,7 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
+    #[track_caller]
     fn get_u64_ne(&mut self) -> u64 {
         buf_get_impl!(self, u64::from_ne_bytes);
     }
@@ -646,6 +679,7 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
+    #[track_caller]
     fn get_i64(&mut self) -> i64 {
         buf_get_impl!(self, i64::from_be_bytes);
     }
@@ -666,6 +700,7 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
+    #[track_caller]
     fn get_i64_le(&mut self) -> i64 {
         buf_get_impl!(self, i64::from_le_bytes);
     }
@@ -689,6 +724,7 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
+    #[track_caller]
     fn get_i64_ne(&mut self) -> i64 {
         buf_get_impl!(self, i64::from_ne_bytes);
     }
@@ -709,6 +745,7 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
+    #[track_caller]
     fn get_u128(&mut self) -> u128 {
         buf_get_impl!(self, u128::from_be_bytes);
     }
@@ -729,6 +766,7 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
+    #[track_caller]
     fn get_u128_le(&mut self) -> u128 {
         buf_get_impl!(self, u128::from_le_bytes);
     }
@@ -752,6 +790,7 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
+    #[track_caller]
     fn get_u128_ne(&mut self) -> u128 {
         buf_get_impl!(self, u128::from_ne_bytes);
     }
@@ -772,6 +811,7 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
+    #[track_caller]
     fn get_i128(&mut self) -> i128 {
         buf_get_impl!(self, i128::from_be_bytes);
     }
@@ -792,6 +832,7 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
+    #[track_caller]
     fn get_i128_le(&mut self) -> i128 {
         buf_get_impl!(self, i128::from_le_bytes);
     }
@@ -815,6 +856,7 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
+    #[track_caller]
     fn get_i128_ne(&mut self) -> i128 {
         buf_get_impl!(self, i128::from_ne_bytes);
     }
@@ -835,6 +877,7 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
+    #[track_caller]
     fn get_uint(&mut self, nbytes: usize) -> u64 {
         buf_get_impl!(be => self, u64, nbytes);
     }
@@ -855,6 +898,7 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
+    #[track_caller]
     fn get_uint_le(&mut self, nbytes: usize) -> u64 {
         buf_get_impl!(le => self, u64, nbytes);
     }
@@ -877,7 +921,9 @@ pub trait Buf {
     ///
     /// # Panics
     ///
-    /// This function panics if there is not enough remaining data in `self`.
+    /// This function panics if there is not enough remaining data in `self`, or
+    /// if `nbytes` is greater than 8.
+    #[track_caller]
     fn get_uint_ne(&mut self, nbytes: usize) -> u64 {
         if cfg!(target_endian = "big") {
             self.get_uint(nbytes)
@@ -901,7 +947,9 @@ pub trait Buf {
     ///
     /// # Panics
     ///
-    /// This function panics if there is not enough remaining data in `self`.
+    /// This function panics if there is not enough remaining data in `self`, or
+    /// if `nbytes` is greater than 8.
+    #[track_caller]
     fn get_int(&mut self, nbytes: usize) -> i64 {
         buf_get_impl!(be => self, i64, nbytes);
     }
@@ -921,7 +969,9 @@ pub trait Buf {
     ///
     /// # Panics
     ///
-    /// This function panics if there is not enough remaining data in `self`.
+    /// This function panics if there is not enough remaining data in `self`, or
+    /// if `nbytes` is greater than 8.
+    #[track_caller]
     fn get_int_le(&mut self, nbytes: usize) -> i64 {
         buf_get_impl!(le => self, i64, nbytes);
     }
@@ -944,7 +994,9 @@ pub trait Buf {
     ///
     /// # Panics
     ///
-    /// This function panics if there is not enough remaining data in `self`.
+    /// This function panics if there is not enough remaining data in `self`, or
+    /// if `nbytes` is greater than 8.
+    #[track_caller]
     fn get_int_ne(&mut self, nbytes: usize) -> i64 {
         if cfg!(target_endian = "big") {
             self.get_int(nbytes)
@@ -970,6 +1022,7 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
+    #[track_caller]
     fn get_f32(&mut self) -> f32 {
         f32::from_bits(Self::get_u32(self))
     }
@@ -991,6 +1044,7 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
+    #[track_caller]
     fn get_f32_le(&mut self) -> f32 {
         f32::from_bits(Self::get_u32_le(self))
     }
@@ -1015,6 +1069,7 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
+    #[track_caller]
     fn get_f32_ne(&mut self) -> f32 {
         f32::from_bits(Self::get_u32_ne(self))
     }
@@ -1036,6 +1091,7 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
+    #[track_caller]
     fn get_f64(&mut self) -> f64 {
         f64::from_bits(Self::get_u64(self))
     }
@@ -1057,6 +1113,7 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
+    #[track_caller]
     fn get_f64_le(&mut self) -> f64 {
         f64::from_bits(Self::get_u64_le(self))
     }
@@ -1081,6 +1138,7 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if there is not enough remaining data in `self`.
+    #[track_caller]
     fn get_f64_ne(&mut self) -> f64 {
         f64::from_bits(Self::get_u64_ne(self))
     }
@@ -1100,10 +1158,13 @@ pub trait Buf {
     /// let bytes = (&b"hello world"[..]).copy_to_bytes(5);
     /// assert_eq!(&bytes[..], &b"hello"[..]);
     /// ```
+    #[track_caller]
     fn copy_to_bytes(&mut self, len: usize) -> crate::Bytes {
         use super::BufMut;
 
-        assert!(len <= self.remaining(), "`len` greater than remaining");
+        if self.remaining() < len {
+            panic_advance(len, self.remaining());
+        }
 
         let mut ret = crate::BytesMut::with_capacity(len);
         ret.put(self.take(len));
@@ -1195,135 +1256,201 @@ pub trait Buf {
 
 macro_rules! deref_forward_buf {
     () => {
+        #[track_caller]
+        #[inline]
         fn remaining(&self) -> usize {
             (**self).remaining()
         }
 
+        #[track_caller]
+        #[inline]
         fn chunk(&self) -> &[u8] {
             (**self).chunk()
         }
 
         #[cfg(feature = "std")]
+        #[track_caller]
+        #[inline]
         fn chunks_vectored<'b>(&'b self, dst: &mut [IoSlice<'b>]) -> usize {
             (**self).chunks_vectored(dst)
         }
 
+        #[track_caller]
+        #[inline]
         fn advance(&mut self, cnt: usize) {
             (**self).advance(cnt)
         }
 
+        #[track_caller]
+        #[inline]
         fn has_remaining(&self) -> bool {
             (**self).has_remaining()
         }
 
+        #[track_caller]
+        #[inline]
         fn copy_to_slice(&mut self, dst: &mut [u8]) {
             (**self).copy_to_slice(dst)
         }
 
+        #[track_caller]
+        #[inline]
         fn get_u8(&mut self) -> u8 {
             (**self).get_u8()
         }
 
+        #[track_caller]
+        #[inline]
         fn get_i8(&mut self) -> i8 {
             (**self).get_i8()
         }
 
+        #[track_caller]
+        #[inline]
         fn get_u16(&mut self) -> u16 {
             (**self).get_u16()
         }
 
+        #[track_caller]
+        #[inline]
         fn get_u16_le(&mut self) -> u16 {
             (**self).get_u16_le()
         }
 
+        #[track_caller]
+        #[inline]
         fn get_u16_ne(&mut self) -> u16 {
             (**self).get_u16_ne()
         }
 
+        #[track_caller]
+        #[inline]
         fn get_i16(&mut self) -> i16 {
             (**self).get_i16()
         }
 
+        #[track_caller]
+        #[inline]
         fn get_i16_le(&mut self) -> i16 {
             (**self).get_i16_le()
         }
 
+        #[track_caller]
+        #[inline]
         fn get_i16_ne(&mut self) -> i16 {
             (**self).get_i16_ne()
         }
 
+        #[track_caller]
+        #[inline]
         fn get_u32(&mut self) -> u32 {
             (**self).get_u32()
         }
 
+        #[track_caller]
+        #[inline]
         fn get_u32_le(&mut self) -> u32 {
             (**self).get_u32_le()
         }
 
+        #[track_caller]
+        #[inline]
         fn get_u32_ne(&mut self) -> u32 {
             (**self).get_u32_ne()
         }
 
+        #[track_caller]
+        #[inline]
         fn get_i32(&mut self) -> i32 {
             (**self).get_i32()
         }
 
+        #[track_caller]
+        #[inline]
         fn get_i32_le(&mut self) -> i32 {
             (**self).get_i32_le()
         }
 
+        #[track_caller]
+        #[inline]
         fn get_i32_ne(&mut self) -> i32 {
             (**self).get_i32_ne()
         }
 
+        #[track_caller]
+        #[inline]
         fn get_u64(&mut self) -> u64 {
             (**self).get_u64()
         }
 
+        #[track_caller]
+        #[inline]
         fn get_u64_le(&mut self) -> u64 {
             (**self).get_u64_le()
         }
 
+        #[track_caller]
+        #[inline]
         fn get_u64_ne(&mut self) -> u64 {
             (**self).get_u64_ne()
         }
 
+        #[track_caller]
+        #[inline]
         fn get_i64(&mut self) -> i64 {
             (**self).get_i64()
         }
 
+        #[track_caller]
+        #[inline]
         fn get_i64_le(&mut self) -> i64 {
             (**self).get_i64_le()
         }
 
+        #[track_caller]
+        #[inline]
         fn get_i64_ne(&mut self) -> i64 {
             (**self).get_i64_ne()
         }
 
+        #[track_caller]
+        #[inline]
         fn get_uint(&mut self, nbytes: usize) -> u64 {
             (**self).get_uint(nbytes)
         }
 
+        #[track_caller]
+        #[inline]
         fn get_uint_le(&mut self, nbytes: usize) -> u64 {
             (**self).get_uint_le(nbytes)
         }
 
+        #[track_caller]
+        #[inline]
         fn get_uint_ne(&mut self, nbytes: usize) -> u64 {
             (**self).get_uint_ne(nbytes)
         }
 
+        #[track_caller]
+        #[inline]
         fn get_int(&mut self, nbytes: usize) -> i64 {
             (**self).get_int(nbytes)
         }
 
+        #[track_caller]
+        #[inline]
         fn get_int_le(&mut self, nbytes: usize) -> i64 {
             (**self).get_int_le(nbytes)
         }
 
+        #[track_caller]
+        #[inline]
         fn get_int_ne(&mut self, nbytes: usize) -> i64 {
             (**self).get_int_ne(nbytes)
         }
 
+        #[track_caller]
+        #[inline]
         fn copy_to_bytes(&mut self, len: usize) -> crate::Bytes {
             (**self).copy_to_bytes(len)
         }
@@ -1350,42 +1477,57 @@ impl Buf for &[u8] {
     }
 
     #[inline]
+    #[track_caller]
     fn advance(&mut self, cnt: usize) {
+        if self.len() < cnt {
+            panic_advance(cnt, self.len());
+        }
+
         *self = &self[cnt..];
+    }
+
+    #[inline]
+    #[track_caller]
+    fn copy_to_slice(&mut self, dst: &mut [u8]) {
+        if self.len() < dst.len() {
+            panic_advance(dst.len(), self.len());
+        }
+
+        dst.copy_from_slice(&self[..dst.len()]);
+        self.advance(dst.len());
     }
 }
 
 #[cfg(feature = "std")]
 impl<T: AsRef<[u8]>> Buf for std::io::Cursor<T> {
+    #[inline]
     fn remaining(&self) -> usize {
-        let len = self.get_ref().as_ref().len();
-        let pos = self.position();
-
-        if pos >= len as u64 {
-            return 0;
-        }
-
-        len - pos as usize
+        saturating_sub_usize_u64(self.get_ref().as_ref().len(), self.position())
     }
 
+    #[inline]
+    #[track_caller]
     fn chunk(&self) -> &[u8] {
+        let slice = self.get_ref().as_ref();
+        let pos = min_u64_usize(self.position(), slice.len());
+        &slice[pos..]
+    }
+
+    #[inline]
+    #[track_caller]
+    fn advance(&mut self, cnt: usize) {
         let len = self.get_ref().as_ref().len();
         let pos = self.position();
 
-        if pos >= len as u64 {
-            return &[];
+        // We intentionally allow `cnt == 0` here even if `pos > len`.
+        let max_cnt = saturating_sub_usize_u64(len, pos);
+        if cnt > max_cnt {
+            panic_advance(cnt, max_cnt);
         }
 
-        &self.get_ref().as_ref()[pos as usize..]
-    }
-
-    fn advance(&mut self, cnt: usize) {
-        let pos = (self.position() as usize)
-            .checked_add(cnt)
-            .expect("overflow");
-
-        assert!(pos <= self.get_ref().as_ref().len());
-        self.set_position(pos as u64);
+        // This will not overflow because either `cnt == 0` or the sum is not
+        // greater than `len`.
+        self.set_position(pos + cnt as u64);
     }
 }
 
