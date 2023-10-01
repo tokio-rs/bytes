@@ -1086,15 +1086,14 @@ unsafe impl BufMut for BytesMut {
     }
 
     #[inline]
+    #[track_caller]
     unsafe fn advance_mut(&mut self, cnt: usize) {
-        let new_len = self.len() + cnt;
-        assert!(
-            new_len <= self.cap,
-            "new_len = {}; capacity = {}",
-            new_len,
-            self.cap
-        );
-        self.len = new_len;
+        let remaining = self.cap - self.len();
+        if cnt > remaining {
+            panic_advance(cnt, remaining);
+        }
+        // Addition won't overflow since it is at most `self.cap`.
+        self.len = self.len() + cnt;
     }
 
     #[inline]
