@@ -1,7 +1,7 @@
 #[cfg(feature = "std")]
 use crate::buf::{reader, Reader};
 use crate::buf::{take, Chain, Take};
-use crate::{panic_advance, panic_does_not_fit, saturating_sub_usize_u64, min_u64_usize};
+use crate::{min_u64_usize, panic_advance, panic_does_not_fit, saturating_sub_usize_u64};
 
 #[cfg(feature = "std")]
 use std::io::IoSlice;
