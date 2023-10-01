@@ -117,6 +117,7 @@ fn abort() -> ! {
 }
 
 #[inline(always)]
+#[cfg(feature = "std")]
 fn saturating_sub_usize_u64(a: usize, b: u64) -> usize {
     use core::convert::TryFrom;
     match usize::try_from(b) {
@@ -126,6 +127,7 @@ fn saturating_sub_usize_u64(a: usize, b: u64) -> usize {
 }
 
 #[inline(always)]
+#[cfg(feature = "std")]
 fn min_u64_usize(a: u64, b: usize) -> usize {
     use core::convert::TryFrom;
     match usize::try_from(a) {
