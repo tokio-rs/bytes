@@ -242,7 +242,7 @@ impl Bytes {
 
         let begin = match range.start_bound() {
             Bound::Included(&n) => n,
-            Bound::Excluded(&n) => n + 1,
+            Bound::Excluded(&n) => n.checked_add(1).expect("out of range"),
             Bound::Unbounded => 0,
         };
 
