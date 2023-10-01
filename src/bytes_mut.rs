@@ -1090,7 +1090,7 @@ unsafe impl BufMut for BytesMut {
     unsafe fn advance_mut(&mut self, cnt: usize) {
         let remaining = self.cap - self.len();
         if cnt > remaining {
-            panic_advance(cnt, remaining);
+            super::panic_advance(cnt, remaining);
         }
         // Addition won't overflow since it is at most `self.cap`.
         self.len = self.len() + cnt;
