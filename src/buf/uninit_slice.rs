@@ -184,7 +184,7 @@ impl UninitSlice {
     /// };
     /// ```
     #[inline]
-    pub unsafe fn as_uninit_slice_mut<'a>(&'a mut self) -> &'a mut [MaybeUninit<u8>] {
+    pub unsafe fn as_uninit_slice_mut(&mut self) -> &mut [MaybeUninit<u8>] {
         &mut *(self as *mut _ as *mut [MaybeUninit<u8>])
     }
 

@@ -115,3 +115,40 @@ fn abort() -> ! {
         panic!("abort");
     }
 }
+
+#[inline(always)]
+#[cfg(feature = "std")]
+fn saturating_sub_usize_u64(a: usize, b: u64) -> usize {
+    use core::convert::TryFrom;
+    match usize::try_from(b) {
+        Ok(b) => a.saturating_sub(b),
+        Err(_) => 0,
+    }
+}
+
+#[inline(always)]
+#[cfg(feature = "std")]
+fn min_u64_usize(a: u64, b: usize) -> usize {
+    use core::convert::TryFrom;
+    match usize::try_from(a) {
+        Ok(a) => usize::min(a, b),
+        Err(_) => b,
+    }
+}
+
+/// Panic with a nice error message.
+#[cold]
+fn panic_advance(idx: usize, len: usize) -> ! {
+    panic!(
+        "advance out of bounds: the len is {} but advancing by {}",
+        len, idx
+    );
+}
+
+#[cold]
+fn panic_does_not_fit(size: usize, nbytes: usize) -> ! {
+    panic!(
+        "size too large: the integer type can fit {} bytes, but nbytes is {}",
+        size, nbytes
+    );
+}

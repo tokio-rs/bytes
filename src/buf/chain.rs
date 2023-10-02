@@ -135,7 +135,7 @@ where
     U: Buf,
 {
     fn remaining(&self) -> usize {
-        self.a.remaining().checked_add(self.b.remaining()).unwrap()
+        self.a.remaining().saturating_add(self.b.remaining())
     }
 
     fn chunk(&self) -> &[u8] {
