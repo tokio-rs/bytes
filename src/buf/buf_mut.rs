@@ -3,7 +3,7 @@ use crate::buf::{limit, Chain, Limit, UninitSlice};
 use crate::buf::{writer, Writer};
 use crate::{panic_advance, panic_does_not_fit};
 
-use core::{mem, ptr, usize};
+use core::{mem, ptr};
 
 use alloc::{boxed::Box, vec::Vec};
 
@@ -1573,7 +1573,7 @@ unsafe impl BufMut for Vec<u8> {
     #[inline]
     fn remaining_mut(&self) -> usize {
         // A vector can never have more than isize::MAX bytes
-        core::isize::MAX as usize - self.len()
+       isize::MAX as usize - self.len()
     }
 
     #[inline]

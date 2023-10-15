@@ -4,7 +4,6 @@ use bytes::buf::UninitSlice;
 use bytes::{BufMut, BytesMut};
 use core::fmt::Write;
 use core::mem::MaybeUninit;
-use core::usize;
 
 #[test]
 fn test_vec_as_mut_buf() {

@@ -2,7 +2,7 @@ use core::iter::{FromIterator, Iterator};
 use core::mem::{self, ManuallyDrop, MaybeUninit};
 use core::ops::{Deref, DerefMut};
 use core::ptr::{self, NonNull};
-use core::{cmp, fmt, hash, isize, slice, usize};
+use core::{cmp, fmt, hash, slice};
 
 use alloc::{
     borrow::{Borrow, BorrowMut},

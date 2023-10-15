@@ -1,6 +1,6 @@
 use core::iter::FromIterator;
 use core::ops::{Deref, RangeBounds};
-use core::{cmp, fmt, hash, mem, ptr, slice, usize};
+use core::{cmp, fmt, hash, mem, ptr, slice};
 
 use alloc::{
     alloc::{dealloc, Layout},

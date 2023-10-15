@@ -2,8 +2,6 @@
 
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 
-use std::usize;
-
 const LONG: &[u8] = b"mary had a little lamb, little lamb, little lamb";
 const SHORT: &[u8] = b"hello world";
 
