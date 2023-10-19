@@ -63,8 +63,8 @@ use crate::Buf;
 /// `Bytes` contains a vtable, which allows implementations of `Bytes` to define
 /// how sharing/cloning is implemented in detail.
 /// When `Bytes::clone()` is called, `Bytes` will call the vtable function for
-/// cloning the backing storage in order to share it behind between multiple
-/// `Bytes` instances.
+/// cloning the backing storage in order to share it behind multiple `Bytes`
+/// instances.
 ///
 /// For `Bytes` implementations which refer to constant memory (e.g. created
 /// via `Bytes::from_static()`) the cloning implementation will be a no-op.
