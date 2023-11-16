@@ -399,7 +399,7 @@ impl BytesMut {
     ///
     /// Existing underlying capacity is preserved.
     ///
-    /// The [`split_off`] method can emulate `truncate`, but this causes the
+    /// The [split_off](`Self::split_off()`) method can emulate `truncate`, but this causes the
     /// excess bytes to be returned instead of dropped.
     ///
     /// # Examples
@@ -411,8 +411,6 @@ impl BytesMut {
     /// buf.truncate(5);
     /// assert_eq!(buf, b"hello"[..]);
     /// ```
-    ///
-    /// [`split_off`]: #method.split_off
     pub fn truncate(&mut self, len: usize) {
         if len <= self.len() {
             unsafe {

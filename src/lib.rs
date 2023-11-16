@@ -9,11 +9,8 @@
 //! Provides abstractions for working with bytes.
 //!
 //! The `bytes` crate provides an efficient byte buffer structure
-//! ([`Bytes`](struct.Bytes.html)) and traits for working with buffer
+//! ([`Bytes`]) and traits for working with buffer
 //! implementations ([`Buf`], [`BufMut`]).
-//!
-//! [`Buf`]: trait.Buf.html
-//! [`BufMut`]: trait.BufMut.html
 //!
 //! # `Bytes`
 //!
@@ -52,9 +49,7 @@
 //! `a` and `b` will share the underlying buffer and maintain indices tracking
 //! the view into the buffer represented by the handle.
 //!
-//! See the [struct docs] for more details.
-//!
-//! [struct docs]: struct.Bytes.html
+//! See the [struct docs](`Bytes`) for more details.
 //!
 //! # `Buf`, `BufMut`
 //!
@@ -70,7 +65,7 @@
 //! ## Relation with `Read` and `Write`
 //!
 //! At first glance, it may seem that `Buf` and `BufMut` overlap in
-//! functionality with `std::io::Read` and `std::io::Write`. However, they
+//! functionality with [`std::io::Read`] and [`std::io::Write`]. However, they
 //! serve different purposes. A buffer is the value that is provided as an
 //! argument to `Read::read` and `Write::write`. `Read` and `Write` may then
 //! perform a syscall, which has the potential of failing. Operations on `Buf`

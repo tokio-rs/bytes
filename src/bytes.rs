@@ -438,7 +438,7 @@ impl Bytes {
     /// If `len` is greater than the buffer's current length, this has no
     /// effect.
     ///
-    /// The [`split_off`] method can emulate `truncate`, but this causes the
+    /// The [split_off](`Self::split_off()`) method can emulate `truncate`, but this causes the
     /// excess bytes to be returned instead of dropped.
     ///
     /// # Examples
@@ -450,8 +450,6 @@ impl Bytes {
     /// buf.truncate(5);
     /// assert_eq!(buf, b"hello"[..]);
     /// ```
-    ///
-    /// [`split_off`]: #method.split_off
     #[inline]
     pub fn truncate(&mut self, len: usize) {
         if len < self.len {
