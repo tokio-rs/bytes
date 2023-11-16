@@ -25,9 +25,7 @@ use std::io::IoSlice;
 /// assert_eq!(full[..], b"hello world"[..]);
 /// ```
 ///
-/// [`Buf::chain`]: trait.Buf.html#method.chain
-/// [`Buf`]: trait.Buf.html
-/// [`BufMut`]: trait.BufMut.html
+/// [`Buf::chain`]: Buf::chain
 #[derive(Debug)]
 pub struct Chain<T, U> {
     a: T,
