@@ -1223,3 +1223,20 @@ fn test_get_u16_buffer_underflow() {
     let mut buf = Bytes::from(&b"\x21"[..]);
     buf.get_u16();
 }
+
+#[test]
+#[should_panic]
+fn test_bytes_overread() {
+    let mut b = Bytes::from_static(&[0, 1, 2]);
+    let _ = b.get_u32();
+}
+
+// running this test would result in a panic without `.read_unaligned()`
+// on x86 read_unaligned compiles down to a single `mov`, on platforms with no unaligned access,
+// it uses rust's `copy_nonoverlapping`
+#[test]
+fn test_bytes_misaligned() {
+    let mut b = Bytes::from_static(&[0, 1, 2, 3, 4, 5, 6, 7, 8]);
+    b.advance(2);
+    let _ = b.get_u32();
+}
