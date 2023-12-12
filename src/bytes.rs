@@ -63,8 +63,8 @@ use crate::Buf;
 /// `Bytes` contains a vtable, which allows implementations of `Bytes` to define
 /// how sharing/cloning is implemented in detail.
 /// When `Bytes::clone()` is called, `Bytes` will call the vtable function for
-/// cloning the backing storage in order to share it behind between multiple
-/// `Bytes` instances.
+/// cloning the backing storage in order to share it behind multiple `Bytes`
+/// instances.
 ///
 /// For `Bytes` implementations which refer to constant memory (e.g. created
 /// via `Bytes::from_static()`) the cloning implementation will be a no-op.
@@ -242,7 +242,7 @@ impl Bytes {
 
         let begin = match range.start_bound() {
             Bound::Included(&n) => n,
-            Bound::Excluded(&n) => n + 1,
+            Bound::Excluded(&n) => n.checked_add(1).expect("out of range"),
             Bound::Unbounded => 0,
         };
 
@@ -438,7 +438,7 @@ impl Bytes {
     /// If `len` is greater than the buffer's current length, this has no
     /// effect.
     ///
-    /// The [`split_off`] method can emulate `truncate`, but this causes the
+    /// The [split_off](`Self::split_off()`) method can emulate `truncate`, but this causes the
     /// excess bytes to be returned instead of dropped.
     ///
     /// # Examples
@@ -450,8 +450,6 @@ impl Bytes {
     /// buf.truncate(5);
     /// assert_eq!(buf, b"hello"[..]);
     /// ```
-    ///
-    /// [`split_off`]: #method.split_off
     #[inline]
     pub fn truncate(&mut self, len: usize) {
         if len < self.len {

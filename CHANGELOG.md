@@ -1,3 +1,14 @@
+# 1.5.0 (September 7, 2023)
+
+### Added
+
+- Add `UninitSlice::{new,uninit}` (#598, #599)
+- Implement `BufMut` for `&mut [MaybeUninit<u8>]` (#597)
+
+### Changed
+
+- Mark `BytesMut::extend_from_slice` as inline (#595)
+
 # 1.4.0 (January 31, 2023)
 
 ### Added

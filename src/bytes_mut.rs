@@ -96,11 +96,11 @@ const MIN_ORIGINAL_CAPACITY_WIDTH: usize = 10;
 const ORIGINAL_CAPACITY_MASK: usize = 0b11100;
 const ORIGINAL_CAPACITY_OFFSET: usize = 2;
 
+const VEC_POS_OFFSET: usize = 5;
 // When the storage is in the `Vec` representation, the pointer can be advanced
 // at most this value. This is due to the amount of storage available to track
 // the offset is usize - number of KIND bits and number of ORIGINAL_CAPACITY
 // bits.
-const VEC_POS_OFFSET: usize = 5;
 const MAX_VEC_POS: usize = usize::MAX >> VEC_POS_OFFSET;
 const NOT_VEC_POS_MASK: usize = 0b11111;
 
@@ -399,7 +399,7 @@ impl BytesMut {
     ///
     /// Existing underlying capacity is preserved.
     ///
-    /// The [`split_off`] method can emulate `truncate`, but this causes the
+    /// The [split_off](`Self::split_off()`) method can emulate `truncate`, but this causes the
     /// excess bytes to be returned instead of dropped.
     ///
     /// # Examples
@@ -411,8 +411,6 @@ impl BytesMut {
     /// buf.truncate(5);
     /// assert_eq!(buf, b"hello"[..]);
     /// ```
-    ///
-    /// [`split_off`]: #method.split_off
     pub fn truncate(&mut self, len: usize) {
         if len <= self.len() {
             unsafe {
@@ -1087,14 +1085,12 @@ unsafe impl BufMut for BytesMut {
 
     #[inline]
     unsafe fn advance_mut(&mut self, cnt: usize) {
-        let new_len = self.len() + cnt;
-        assert!(
-            new_len <= self.cap,
-            "new_len = {}; capacity = {}",
-            new_len,
-            self.cap
-        );
-        self.len = new_len;
+        let remaining = self.cap - self.len();
+        if cnt > remaining {
+            super::panic_advance(cnt, remaining);
+        }
+        // Addition won't overflow since it is at most `self.cap`.
+        self.len = self.len() + cnt;
     }
 
     #[inline]
@@ -1684,7 +1680,7 @@ fn invalid_ptr<T>(addr: usize) -> *mut T {
 /// self.ptr.as_ptr().offset_from(ptr) as usize;
 /// ```
 ///
-/// But due to min rust is 1.39 and it is only stablised
+/// But due to min rust is 1.39 and it is only stabilized
 /// in 1.47, we cannot use it.
 #[inline]
 fn offset_from(dst: *mut u8, original: *mut u8) -> usize {
