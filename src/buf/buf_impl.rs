@@ -44,9 +44,8 @@ macro_rules! buf_get_impl {
         // It seems to be linked to the way the method is optimised by the compiler
         let mut buf = [0; SIZE];
 
-        let subslice = match buf.get_mut(..$len_to_read) {
-            Some(subslice) => subslice,
-            None => panic_does_not_fit(SIZE, $len_to_read),
+        let Some(subslice) = buf.get_mut(..$len_to_read) else {
+            panic_does_not_fit(SIZE, $len_to_read);
         };
 
         $this.copy_to_slice(subslice);
@@ -55,9 +54,8 @@ macro_rules! buf_get_impl {
     (be => $this:ident, $typ:tt, $len_to_read:expr) => {{
         const SIZE: usize = core::mem::size_of::<$typ>();
 
-        let slice_at = match SIZE.checked_sub($len_to_read) {
-            Some(slice_at) => slice_at,
-            None => panic_does_not_fit(SIZE, $len_to_read),
+        let Some(slice_at) = SIZE.checked_sub($len_to_read) else {
+            panic_does_not_fit(SIZE, $len_to_read);
         };
 
         let mut buf = [0; SIZE];
