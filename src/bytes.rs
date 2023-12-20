@@ -208,6 +208,42 @@ impl Bytes {
         self.len == 0
     }
 
+    /// Returns true if this is the only reference to the data.
+    ///
+    /// Always returns false if the data is backed by a static slice.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Bytes;
+    ///
+    /// let a = Bytes::from(vec![1, 2, 3]);
+    /// assert!(a.is_unique());
+    /// let b = a.clone();
+    /// assert!(!a.is_unique());
+    /// ```
+    pub fn is_unique(&self) -> bool {
+        if core::ptr::eq(self.vtable, &PROMOTABLE_EVEN_VTABLE)
+            || core::ptr::eq(self.vtable, &PROMOTABLE_ODD_VTABLE)
+        {
+            let shared = self.data.load(Ordering::Acquire);
+            let kind = shared as usize & KIND_MASK;
+
+            if kind == KIND_ARC {
+                let ref_cnt = unsafe { (*shared.cast::<Shared>()).ref_cnt.load(Ordering::Relaxed) };
+                ref_cnt == 1
+            } else {
+                true
+            }
+        } else if core::ptr::eq(self.vtable, &SHARED_VTABLE) {
+            let shared = self.data.load(Ordering::Acquire);
+            let ref_cnt = unsafe { (*shared.cast::<Shared>()).ref_cnt.load(Ordering::Relaxed) };
+            ref_cnt == 1
+        } else {
+            false
+        }
+    }
+
     /// Creates `Bytes` instance from slice, by copying it.
     pub fn copy_from_slice(data: &[u8]) -> Self {
         data.to_vec().into()
