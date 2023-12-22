@@ -185,7 +185,7 @@ impl UninitSlice {
     /// ```
     #[inline]
     pub unsafe fn as_uninit_slice_mut(&mut self) -> &mut [MaybeUninit<u8>] {
-        &mut *(self as *mut _ as *mut [MaybeUninit<u8>])
+        &mut self.0
     }
 
     /// Returns the number of bytes in the slice.
