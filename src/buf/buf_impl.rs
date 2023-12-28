@@ -991,7 +991,7 @@ pub trait Buf {
     ///
     /// This function panics if there is not enough remaining data in `self`.
     fn get_f32(&mut self) -> f32 {
-        f32::from_bits(Self::get_u32(self))
+        f32::from_bits(self.get_u32())
     }
 
     /// Gets an IEEE754 single-precision (4 bytes) floating point number from
@@ -1012,7 +1012,7 @@ pub trait Buf {
     ///
     /// This function panics if there is not enough remaining data in `self`.
     fn get_f32_le(&mut self) -> f32 {
-        f32::from_bits(Self::get_u32_le(self))
+        f32::from_bits(self.get_u32_le())
     }
 
     /// Gets an IEEE754 single-precision (4 bytes) floating point number from
@@ -1036,7 +1036,7 @@ pub trait Buf {
     ///
     /// This function panics if there is not enough remaining data in `self`.
     fn get_f32_ne(&mut self) -> f32 {
-        f32::from_bits(Self::get_u32_ne(self))
+        f32::from_bits(self.get_u32_ne())
     }
 
     /// Gets an IEEE754 double-precision (8 bytes) floating point number from
@@ -1057,7 +1057,7 @@ pub trait Buf {
     ///
     /// This function panics if there is not enough remaining data in `self`.
     fn get_f64(&mut self) -> f64 {
-        f64::from_bits(Self::get_u64(self))
+        f64::from_bits(self.get_u64())
     }
 
     /// Gets an IEEE754 double-precision (8 bytes) floating point number from
@@ -1078,7 +1078,7 @@ pub trait Buf {
     ///
     /// This function panics if there is not enough remaining data in `self`.
     fn get_f64_le(&mut self) -> f64 {
-        f64::from_bits(Self::get_u64_le(self))
+        f64::from_bits(self.get_u64_le())
     }
 
     /// Gets an IEEE754 double-precision (8 bytes) floating point number from
@@ -1102,7 +1102,7 @@ pub trait Buf {
     ///
     /// This function panics if there is not enough remaining data in `self`.
     fn get_f64_ne(&mut self) -> f64 {
-        f64::from_bits(Self::get_u64_ne(self))
+        f64::from_bits(self.get_u64_ne())
     }
 
     /// Consumes `len` bytes inside self and returns new instance of `Bytes`
