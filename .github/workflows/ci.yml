@@ -29,7 +29,7 @@ jobs:
     - name: Install Rust
       run: rustup update stable && rustup default stable
     - name: Check formatting
-      run: cargo fmt --all -- --check
+      run: cargo fmt --all --check
 
   # TODO
   # # Apply clippy lints
