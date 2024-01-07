@@ -56,7 +56,7 @@ jobs:
       - name: Install cargo-hack
         uses: taiki-e/install-action@cargo-hack
       - name: Check
-        run: . ci/test-stable.sh check
+        run: ci/test-stable.sh check
 
   # Stable
   stable:
@@ -76,7 +76,7 @@ jobs:
       - name: Install cargo-hack
         uses: taiki-e/install-action@cargo-hack
       - name: Test
-        run: . ci/test-stable.sh test
+        run: ci/test-stable.sh test
 
   # Nightly
   nightly:
@@ -89,7 +89,7 @@ jobs:
       - name: Install cargo-hack
         uses: taiki-e/install-action@cargo-hack
       - name: Test
-        run: . ci/test-stable.sh test
+        run: ci/test-stable.sh test
 
   # Run tests on some extra platforms
   cross:
@@ -131,7 +131,8 @@ jobs:
       - name: Install rust-src
         run: rustup component add rust-src
       - name: ASAN / TSAN
-        run: . ci/tsan.sh
+        run: ci/tsan.sh
+
   miri:
     name: miri
     runs-on: ubuntu-latest
