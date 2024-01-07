@@ -53,6 +53,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install Rust
         run: rustup update 1.39.0 && rustup default 1.39.0
+      - name: Install cargo-hack
+        uses: taiki-e/install-action@cargo-hack
       - name: Check
         run: . ci/test-stable.sh check
 
@@ -71,6 +73,8 @@ jobs:
       - name: Install Rust
         # --no-self-update is necessary because the windows environment cannot self-update rustup.exe.
         run: rustup update stable --no-self-update && rustup default stable
+      - name: Install cargo-hack
+        uses: taiki-e/install-action@cargo-hack
       - name: Test
         run: . ci/test-stable.sh test
 
@@ -82,6 +86,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install Rust
         run: rustup update $nightly && rustup default $nightly
+      - name: Install cargo-hack
+        uses: taiki-e/install-action@cargo-hack
       - name: Test
         run: . ci/test-stable.sh test
 
@@ -101,10 +107,11 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install Rust
         run: rustup update stable && rustup default stable
+      - name: Install cross
+        uses: taiki-e/install-action@cross
+        if: matrix.target != 'wasm32-unknown-unknown'
       - name: cross build --target ${{ matrix.target }}
-        run: |
-          cargo install cross
-          cross build --target ${{ matrix.target }}
+        run: cross build --target ${{ matrix.target }}
         if: matrix.target != 'wasm32-unknown-unknown'
       # WASM support
       - name: cargo build --target ${{ matrix.target }}
