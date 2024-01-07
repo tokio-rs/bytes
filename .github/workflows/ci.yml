@@ -51,12 +51,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install Rust
-        run: rustup update 1.39.0 && rustup default 1.39.0
       - name: Install cargo-hack
         uses: taiki-e/install-action@cargo-hack
       - name: Check
-        run: ci/test-stable.sh check
+        run: cargo hack check --feature-powerset --optional-deps --rust-version
 
   # Stable
   stable:

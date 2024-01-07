@@ -5,6 +5,8 @@ name = "bytes"
 # - Update CHANGELOG.md.
 # - Create "v1.x.y" git tag.
 version = "1.5.0"
+edition = "2018"
+rust-version = "1.39"
 license = "MIT"
 authors = [
     "Carl Lerche <me@carllerche.com>",
@@ -15,7 +17,6 @@ repository = "https://github.com/tokio-rs/bytes"
 readme = "README.md"
 keywords = ["buffers", "zero-copy", "io"]
 categories = ["network-programming", "data-structures"]
-edition = "2018"
 
 [features]
 default = ["std"]
