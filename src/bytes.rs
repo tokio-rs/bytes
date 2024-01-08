@@ -217,12 +217,12 @@ impl Bytes {
     /// ```
     /// use bytes::Bytes;
     ///
-    /// let a = Bytes::from(vec![1, 2, 3]);
+    /// let mut a = Bytes::from(vec![1, 2, 3]);
     /// assert!(a.is_unique());
     /// let b = a.clone();
     /// assert!(!a.is_unique());
     /// ```
-    pub fn is_unique(&self) -> bool {
+    pub fn is_unique(&mut self) -> bool {
         if core::ptr::eq(self.vtable, &PROMOTABLE_EVEN_VTABLE)
             || core::ptr::eq(self.vtable, &PROMOTABLE_ODD_VTABLE)
         {
