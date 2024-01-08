@@ -1,19 +1,16 @@
+use core::any::TypeId;
 use core::iter::FromIterator;
 use core::ops::{Deref, RangeBounds};
 use core::{cmp, fmt, hash, mem, ptr, slice, usize};
 
-use alloc::{
-    alloc::{dealloc, Layout},
-    borrow::Borrow,
-    boxed::Box,
-    string::String,
-    vec::Vec,
-};
+use alloc::{borrow::Borrow, boxed::Box, string::String, vec::Vec};
 
 use crate::buf::IntoIter;
+use crate::impls::*;
 #[allow(unused)]
 use crate::loom::sync::atomic::AtomicMut;
-use crate::loom::sync::atomic::{AtomicPtr, AtomicUsize, Ordering};
+use crate::loom::sync::atomic::{AtomicPtr, AtomicUsize};
+use crate::shared_buf::{BufferParts, SharedBuf};
 use crate::Buf;
 
 /// A cheaply cloneable and sliceable chunk of contiguous memory.
@@ -105,15 +102,18 @@ pub struct Bytes {
     vtable: &'static Vtable,
 }
 
-pub(crate) struct Vtable {
+struct Vtable {
+    type_id: fn() -> TypeId,
     /// fn(data, ptr, len)
-    pub clone: unsafe fn(&AtomicPtr<()>, *const u8, usize) -> Bytes,
+    clone: unsafe fn(&AtomicPtr<()>, *const u8, usize) -> BufferParts,
+    /// Called during `Bytes::try_resize` and `Bytes::truncate`
+    try_resize: unsafe fn(&mut AtomicPtr<()>, *const u8, usize),
     /// fn(data, ptr, len)
     ///
-    /// takes `Bytes` to value
-    pub to_vec: unsafe fn(&AtomicPtr<()>, *const u8, usize) -> Vec<u8>,
+    /// Consumes `Bytes` and return `Vec<u8>`
+    into_vec: unsafe fn(&mut AtomicPtr<()>, *const u8, usize) -> Vec<u8>,
     /// fn(data, ptr, len)
-    pub drop: unsafe fn(&mut AtomicPtr<()>, *const u8, usize),
+    drop: unsafe fn(&mut AtomicPtr<()>, *const u8, usize),
 }
 
 impl Bytes {
@@ -159,7 +159,15 @@ impl Bytes {
     /// ```
     #[inline]
     #[cfg(not(all(loom, test)))]
-    pub const fn from_static(bytes: &'static [u8]) -> Self {
+    pub const fn from_static(bytes: &'static [u8]) -> Bytes {
+        const STATIC_VTABLE: Vtable = Vtable {
+            type_id: TypeId::of::<static_buf::StaticImpl>,
+            clone: <static_buf::StaticImpl as SharedBuf>::clone,
+            try_resize: <static_buf::StaticImpl as SharedBuf>::try_resize,
+            into_vec: <static_buf::StaticImpl as SharedBuf>::into_vec,
+            drop: <static_buf::StaticImpl as SharedBuf>::drop,
+        };
+
         Bytes {
             ptr: bytes.as_ptr(),
             len: bytes.len(),
@@ -169,12 +177,42 @@ impl Bytes {
     }
 
     #[cfg(all(loom, test))]
-    pub fn from_static(bytes: &'static [u8]) -> Self {
+    pub fn from_static(bytes: &'static [u8]) -> Bytes {
+        const STATIC_VTABLE: Vtable = Vtable {
+            type_id: TypeId::of::<static_buf::StaticImpl>,
+            clone: <static_buf::StaticImpl as SharedBuf>::clone,
+            try_resize: <static_buf::StaticImpl as SharedBuf>::try_resize,
+            into_vec: <static_buf::StaticImpl as SharedBuf>::into_vec,
+            drop: <static_buf::StaticImpl as SharedBuf>::drop,
+        };
+
         Bytes {
             ptr: bytes.as_ptr(),
             len: bytes.len(),
             data: AtomicPtr::new(ptr::null_mut()),
             vtable: &STATIC_VTABLE,
+        }
+    }
+
+    /// Creates a new `Bytes` instance using an impl of [`SharedBuf`] as the internal buffer.
+    ///
+    /// This takes an impl of `SharedBuf`, and wraps it in a `Bytes` instance.
+    /// This can be reversed with the [`into_shared_buf`] method.
+    #[inline]
+    pub fn from_shared_buf<T: SharedBuf>(buf_impl: T) -> Bytes {
+        let (data, ptr, len) = SharedBuf::into_parts(buf_impl);
+
+        Bytes {
+            ptr,
+            len,
+            data,
+            vtable: &Vtable {
+                type_id: TypeId::of::<T>,
+                clone: T::clone,
+                try_resize: T::try_resize,
+                into_vec: T::into_vec,
+                drop: T::drop,
+            },
         }
     }
 
@@ -453,16 +491,10 @@ impl Bytes {
     #[inline]
     pub fn truncate(&mut self, len: usize) {
         if len < self.len {
-            // The Vec "promotable" vtables do not store the capacity,
-            // so we cannot truncate while using this repr. We *have* to
-            // promote using `split_off` so the capacity can be stored.
-            if self.vtable as *const Vtable == &PROMOTABLE_EVEN_VTABLE
-                || self.vtable as *const Vtable == &PROMOTABLE_ODD_VTABLE
-            {
-                drop(self.split_off(len));
-            } else {
-                self.len = len;
+            unsafe {
+                (self.vtable.try_resize)(&mut self.data, self.ptr, self.len);
             }
+            self.len = len;
         }
     }
 
@@ -482,18 +514,24 @@ impl Bytes {
         self.truncate(0);
     }
 
+    /// Downcast this `Bytes` into its underlying implementation.
+    ///
+    /// The target type, T, must match the type that was originally used
+    /// to construct this `Bytes` instance. A runtime check is used
+    /// to validate this.
+    ///
+    /// On success, T is returned.
+    ///
+    /// On failure, self is returned as an `Err`
     #[inline]
-    pub(crate) unsafe fn with_vtable(
-        ptr: *const u8,
-        len: usize,
-        data: AtomicPtr<()>,
-        vtable: &'static Vtable,
-    ) -> Bytes {
-        Bytes {
-            ptr,
-            len,
-            data,
-            vtable,
+    pub fn into_shared_buf<T: SharedBuf>(self) -> Result<T, Bytes> {
+        if TypeId::of::<T>() == (self.vtable.type_id)() {
+            Ok(unsafe {
+                let this = &mut *mem::ManuallyDrop::new(self);
+                T::from_parts(&mut this.data, this.ptr, this.len)
+            })
+        } else {
+            Err(self)
         }
     }
 
@@ -527,7 +565,13 @@ impl Drop for Bytes {
 impl Clone for Bytes {
     #[inline]
     fn clone(&self) -> Bytes {
-        unsafe { (self.vtable.clone)(&self.data, self.ptr, self.len) }
+        let (data, ptr, len) = unsafe { (self.vtable.clone)(&self.data, self.ptr, self.len) };
+        Bytes {
+            ptr,
+            len,
+            data,
+            vtable: self.vtable,
+        }
     }
 }
 
@@ -815,26 +859,14 @@ impl From<Vec<u8>> for Bytes {
             return Bytes::from(vec.into_boxed_slice());
         }
 
-        let shared = Box::new(Shared {
+        let shared = Box::new(crate::impls::shared::Shared {
             buf: ptr,
             cap,
             ref_cnt: AtomicUsize::new(1),
         });
         mem::forget(vec);
-
-        let shared = Box::into_raw(shared);
-        // The pointer should be aligned, so this assert should
-        // always succeed.
-        debug_assert!(
-            0 == (shared as usize & KIND_MASK),
-            "internal: Box<Shared> should have an aligned pointer",
-        );
-        Bytes {
-            ptr,
-            len,
-            data: AtomicPtr::new(shared as _),
-            vtable: &SHARED_VTABLE,
-        }
+        let imp = crate::impls::shared::SharedImpl::new(Box::into_raw(shared), ptr, len);
+        Bytes::from_shared_buf(imp)
     }
 }
 
@@ -847,24 +879,14 @@ impl From<Box<[u8]>> for Bytes {
             return Bytes::new();
         }
 
-        let len = slice.len();
-        let ptr = Box::into_raw(slice) as *mut u8;
-
-        if ptr as usize & 0x1 == 0 {
-            let data = ptr_map(ptr, |addr| addr | KIND_VEC);
-            Bytes {
-                ptr,
-                len,
-                data: AtomicPtr::new(data.cast()),
-                vtable: &PROMOTABLE_EVEN_VTABLE,
-            }
+        if slice.as_ptr() as usize & 0x1 == 0 {
+            Bytes::from_shared_buf(promotable::PromotableEvenImpl(
+                promotable::Promotable::Owned(slice),
+            ))
         } else {
-            Bytes {
-                ptr,
-                len,
-                data: AtomicPtr::new(ptr.cast()),
-                vtable: &PROMOTABLE_ODD_VTABLE,
-            }
+            Bytes::from_shared_buf(promotable::PromotableOddImpl(
+                promotable::Promotable::Owned(slice),
+            ))
         }
     }
 }
@@ -877,8 +899,8 @@ impl From<String> for Bytes {
 
 impl From<Bytes> for Vec<u8> {
     fn from(bytes: Bytes) -> Vec<u8> {
-        let bytes = mem::ManuallyDrop::new(bytes);
-        unsafe { (bytes.vtable.to_vec)(&bytes.data, bytes.ptr, bytes.len) }
+        let bytes = &mut *mem::ManuallyDrop::new(bytes);
+        unsafe { (bytes.vtable.into_vec)(&mut bytes.data, bytes.ptr, bytes.len) }
     }
 }
 
@@ -887,363 +909,13 @@ impl From<Bytes> for Vec<u8> {
 impl fmt::Debug for Vtable {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Vtable")
+            .field("type_id", &self.type_id)
             .field("clone", &(self.clone as *const ()))
+            .field("try_resize", &(self.try_resize as *const ()))
+            .field("into_vec", &(self.into_vec as *const ()))
             .field("drop", &(self.drop as *const ()))
             .finish()
     }
-}
-
-// ===== impl StaticVtable =====
-
-const STATIC_VTABLE: Vtable = Vtable {
-    clone: static_clone,
-    to_vec: static_to_vec,
-    drop: static_drop,
-};
-
-unsafe fn static_clone(_: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Bytes {
-    let slice = slice::from_raw_parts(ptr, len);
-    Bytes::from_static(slice)
-}
-
-unsafe fn static_to_vec(_: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Vec<u8> {
-    let slice = slice::from_raw_parts(ptr, len);
-    slice.to_vec()
-}
-
-unsafe fn static_drop(_: &mut AtomicPtr<()>, _: *const u8, _: usize) {
-    // nothing to drop for &'static [u8]
-}
-
-// ===== impl PromotableVtable =====
-
-static PROMOTABLE_EVEN_VTABLE: Vtable = Vtable {
-    clone: promotable_even_clone,
-    to_vec: promotable_even_to_vec,
-    drop: promotable_even_drop,
-};
-
-static PROMOTABLE_ODD_VTABLE: Vtable = Vtable {
-    clone: promotable_odd_clone,
-    to_vec: promotable_odd_to_vec,
-    drop: promotable_odd_drop,
-};
-
-unsafe fn promotable_even_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Bytes {
-    let shared = data.load(Ordering::Acquire);
-    let kind = shared as usize & KIND_MASK;
-
-    if kind == KIND_ARC {
-        shallow_clone_arc(shared.cast(), ptr, len)
-    } else {
-        debug_assert_eq!(kind, KIND_VEC);
-        let buf = ptr_map(shared.cast(), |addr| addr & !KIND_MASK);
-        shallow_clone_vec(data, shared, buf, ptr, len)
-    }
-}
-
-unsafe fn promotable_to_vec(
-    data: &AtomicPtr<()>,
-    ptr: *const u8,
-    len: usize,
-    f: fn(*mut ()) -> *mut u8,
-) -> Vec<u8> {
-    let shared = data.load(Ordering::Acquire);
-    let kind = shared as usize & KIND_MASK;
-
-    if kind == KIND_ARC {
-        shared_to_vec_impl(shared.cast(), ptr, len)
-    } else {
-        // If Bytes holds a Vec, then the offset must be 0.
-        debug_assert_eq!(kind, KIND_VEC);
-
-        let buf = f(shared);
-
-        let cap = (ptr as usize - buf as usize) + len;
-
-        // Copy back buffer
-        ptr::copy(ptr, buf, len);
-
-        Vec::from_raw_parts(buf, len, cap)
-    }
-}
-
-unsafe fn promotable_even_to_vec(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Vec<u8> {
-    promotable_to_vec(data, ptr, len, |shared| {
-        ptr_map(shared.cast(), |addr| addr & !KIND_MASK)
-    })
-}
-
-unsafe fn promotable_even_drop(data: &mut AtomicPtr<()>, ptr: *const u8, len: usize) {
-    data.with_mut(|shared| {
-        let shared = *shared;
-        let kind = shared as usize & KIND_MASK;
-
-        if kind == KIND_ARC {
-            release_shared(shared.cast());
-        } else {
-            debug_assert_eq!(kind, KIND_VEC);
-            let buf = ptr_map(shared.cast(), |addr| addr & !KIND_MASK);
-            free_boxed_slice(buf, ptr, len);
-        }
-    });
-}
-
-unsafe fn promotable_odd_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Bytes {
-    let shared = data.load(Ordering::Acquire);
-    let kind = shared as usize & KIND_MASK;
-
-    if kind == KIND_ARC {
-        shallow_clone_arc(shared as _, ptr, len)
-    } else {
-        debug_assert_eq!(kind, KIND_VEC);
-        shallow_clone_vec(data, shared, shared.cast(), ptr, len)
-    }
-}
-
-unsafe fn promotable_odd_to_vec(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Vec<u8> {
-    promotable_to_vec(data, ptr, len, |shared| shared.cast())
-}
-
-unsafe fn promotable_odd_drop(data: &mut AtomicPtr<()>, ptr: *const u8, len: usize) {
-    data.with_mut(|shared| {
-        let shared = *shared;
-        let kind = shared as usize & KIND_MASK;
-
-        if kind == KIND_ARC {
-            release_shared(shared.cast());
-        } else {
-            debug_assert_eq!(kind, KIND_VEC);
-
-            free_boxed_slice(shared.cast(), ptr, len);
-        }
-    });
-}
-
-unsafe fn free_boxed_slice(buf: *mut u8, offset: *const u8, len: usize) {
-    let cap = (offset as usize - buf as usize) + len;
-    dealloc(buf, Layout::from_size_align(cap, 1).unwrap())
-}
-
-// ===== impl SharedVtable =====
-
-struct Shared {
-    // Holds arguments to dealloc upon Drop, but otherwise doesn't use them
-    buf: *mut u8,
-    cap: usize,
-    ref_cnt: AtomicUsize,
-}
-
-impl Drop for Shared {
-    fn drop(&mut self) {
-        unsafe { dealloc(self.buf, Layout::from_size_align(self.cap, 1).unwrap()) }
-    }
-}
-
-// Assert that the alignment of `Shared` is divisible by 2.
-// This is a necessary invariant since we depend on allocating `Shared` a
-// shared object to implicitly carry the `KIND_ARC` flag in its pointer.
-// This flag is set when the LSB is 0.
-const _: [(); 0 - mem::align_of::<Shared>() % 2] = []; // Assert that the alignment of `Shared` is divisible by 2.
-
-static SHARED_VTABLE: Vtable = Vtable {
-    clone: shared_clone,
-    to_vec: shared_to_vec,
-    drop: shared_drop,
-};
-
-const KIND_ARC: usize = 0b0;
-const KIND_VEC: usize = 0b1;
-const KIND_MASK: usize = 0b1;
-
-unsafe fn shared_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Bytes {
-    let shared = data.load(Ordering::Relaxed);
-    shallow_clone_arc(shared as _, ptr, len)
-}
-
-unsafe fn shared_to_vec_impl(shared: *mut Shared, ptr: *const u8, len: usize) -> Vec<u8> {
-    // Check that the ref_cnt is 1 (unique).
-    //
-    // If it is unique, then it is set to 0 with AcqRel fence for the same
-    // reason in release_shared.
-    //
-    // Otherwise, we take the other branch and call release_shared.
-    if (*shared)
-        .ref_cnt
-        .compare_exchange(1, 0, Ordering::AcqRel, Ordering::Relaxed)
-        .is_ok()
-    {
-        let buf = (*shared).buf;
-        let cap = (*shared).cap;
-
-        // Deallocate Shared
-        drop(Box::from_raw(shared as *mut mem::ManuallyDrop<Shared>));
-
-        // Copy back buffer
-        ptr::copy(ptr, buf, len);
-
-        Vec::from_raw_parts(buf, len, cap)
-    } else {
-        let v = slice::from_raw_parts(ptr, len).to_vec();
-        release_shared(shared);
-        v
-    }
-}
-
-unsafe fn shared_to_vec(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Vec<u8> {
-    shared_to_vec_impl(data.load(Ordering::Relaxed).cast(), ptr, len)
-}
-
-unsafe fn shared_drop(data: &mut AtomicPtr<()>, _ptr: *const u8, _len: usize) {
-    data.with_mut(|shared| {
-        release_shared(shared.cast());
-    });
-}
-
-unsafe fn shallow_clone_arc(shared: *mut Shared, ptr: *const u8, len: usize) -> Bytes {
-    let old_size = (*shared).ref_cnt.fetch_add(1, Ordering::Relaxed);
-
-    if old_size > usize::MAX >> 1 {
-        crate::abort();
-    }
-
-    Bytes {
-        ptr,
-        len,
-        data: AtomicPtr::new(shared as _),
-        vtable: &SHARED_VTABLE,
-    }
-}
-
-#[cold]
-unsafe fn shallow_clone_vec(
-    atom: &AtomicPtr<()>,
-    ptr: *const (),
-    buf: *mut u8,
-    offset: *const u8,
-    len: usize,
-) -> Bytes {
-    // If  the buffer is still tracked in a `Vec<u8>`. It is time to
-    // promote the vec to an `Arc`. This could potentially be called
-    // concurrently, so some care must be taken.
-
-    // First, allocate a new `Shared` instance containing the
-    // `Vec` fields. It's important to note that `ptr`, `len`,
-    // and `cap` cannot be mutated without having `&mut self`.
-    // This means that these fields will not be concurrently
-    // updated and since the buffer hasn't been promoted to an
-    // `Arc`, those three fields still are the components of the
-    // vector.
-    let shared = Box::new(Shared {
-        buf,
-        cap: (offset as usize - buf as usize) + len,
-        // Initialize refcount to 2. One for this reference, and one
-        // for the new clone that will be returned from
-        // `shallow_clone`.
-        ref_cnt: AtomicUsize::new(2),
-    });
-
-    let shared = Box::into_raw(shared);
-
-    // The pointer should be aligned, so this assert should
-    // always succeed.
-    debug_assert!(
-        0 == (shared as usize & KIND_MASK),
-        "internal: Box<Shared> should have an aligned pointer",
-    );
-
-    // Try compare & swapping the pointer into the `arc` field.
-    // `Release` is used synchronize with other threads that
-    // will load the `arc` field.
-    //
-    // If the `compare_exchange` fails, then the thread lost the
-    // race to promote the buffer to shared. The `Acquire`
-    // ordering will synchronize with the `compare_exchange`
-    // that happened in the other thread and the `Shared`
-    // pointed to by `actual` will be visible.
-    match atom.compare_exchange(ptr as _, shared as _, Ordering::AcqRel, Ordering::Acquire) {
-        Ok(actual) => {
-            debug_assert!(actual as usize == ptr as usize);
-            // The upgrade was successful, the new handle can be
-            // returned.
-            Bytes {
-                ptr: offset,
-                len,
-                data: AtomicPtr::new(shared as _),
-                vtable: &SHARED_VTABLE,
-            }
-        }
-        Err(actual) => {
-            // The upgrade failed, a concurrent clone happened. Release
-            // the allocation that was made in this thread, it will not
-            // be needed.
-            let shared = Box::from_raw(shared);
-            mem::forget(*shared);
-
-            // Buffer already promoted to shared storage, so increment ref
-            // count.
-            shallow_clone_arc(actual as _, offset, len)
-        }
-    }
-}
-
-unsafe fn release_shared(ptr: *mut Shared) {
-    // `Shared` storage... follow the drop steps from Arc.
-    if (*ptr).ref_cnt.fetch_sub(1, Ordering::Release) != 1 {
-        return;
-    }
-
-    // This fence is needed to prevent reordering of use of the data and
-    // deletion of the data.  Because it is marked `Release`, the decreasing
-    // of the reference count synchronizes with this `Acquire` fence. This
-    // means that use of the data happens before decreasing the reference
-    // count, which happens before this fence, which happens before the
-    // deletion of the data.
-    //
-    // As explained in the [Boost documentation][1],
-    //
-    // > It is important to enforce any possible access to the object in one
-    // > thread (through an existing reference) to *happen before* deleting
-    // > the object in a different thread. This is achieved by a "release"
-    // > operation after dropping a reference (any access to the object
-    // > through this reference must obviously happened before), and an
-    // > "acquire" operation before deleting the object.
-    //
-    // [1]: (www.boost.org/doc/libs/1_55_0/doc/html/atomic/usage_examples.html)
-    //
-    // Thread sanitizer does not support atomic fences. Use an atomic load
-    // instead.
-    (*ptr).ref_cnt.load(Ordering::Acquire);
-
-    // Drop the data
-    drop(Box::from_raw(ptr));
-}
-
-// Ideally we would always use this version of `ptr_map` since it is strict
-// provenance compatible, but it results in worse codegen. We will however still
-// use it on miri because it gives better diagnostics for people who test bytes
-// code with miri.
-//
-// See https://github.com/tokio-rs/bytes/pull/545 for more info.
-#[cfg(miri)]
-fn ptr_map<F>(ptr: *mut u8, f: F) -> *mut u8
-where
-    F: FnOnce(usize) -> usize,
-{
-    let old_addr = ptr as usize;
-    let new_addr = f(old_addr);
-    let diff = new_addr.wrapping_sub(old_addr);
-    ptr.wrapping_add(diff)
-}
-
-#[cfg(not(miri))]
-fn ptr_map<F>(ptr: *mut u8, f: F) -> *mut u8
-where
-    F: FnOnce(usize) -> usize,
-{
-    let old_addr = ptr as usize;
-    let new_addr = f(old_addr);
-    new_addr as *mut u8
 }
 
 // compile-fails
