@@ -214,17 +214,21 @@ impl Bytes {
     ///
     /// Always returns false if the data is backed by a static slice.
     ///
+    /// The result of this method may be invalidated immediately if another
+    /// thread clones this value while this is being called. Ensure you have
+    /// unique access to this value (`&mut Bytes`) first if you need to be
+    /// certain the result is valid (i.e. for safety reasons)
     /// # Examples
     ///
     /// ```
     /// use bytes::Bytes;
     ///
-    /// let mut a = Bytes::from(vec![1, 2, 3]);
+    /// let a = Bytes::from(vec![1, 2, 3]);
     /// assert!(a.is_unique());
     /// let b = a.clone();
     /// assert!(!a.is_unique());
     /// ```
-    pub fn is_unique(&mut self) -> bool {
+    pub fn is_unique(&self) -> bool {
         unsafe { (self.vtable.is_unique)(&self.data) }
     }
 
