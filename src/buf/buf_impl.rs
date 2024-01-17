@@ -5,6 +5,9 @@ use crate::buf::{take, Chain, Take};
 use crate::{min_u64_usize, saturating_sub_usize_u64};
 use crate::{panic_advance, panic_does_not_fit};
 
+use core::ops::DerefMut;
+use core::pin::Pin;
+
 #[cfg(feature = "std")]
 use std::io::IoSlice;
 
@@ -1391,6 +1394,27 @@ impl<T: Buf + ?Sized> Buf for &mut T {
 
 impl<T: Buf + ?Sized> Buf for Box<T> {
     deref_forward_buf!();
+}
+
+impl<P: Buf> Buf for Pin<P>
+    where
+        P: DerefMut + Unpin,
+        P::Target: Buf + Unpin,
+{
+    #[inline]
+    fn remaining(&self) -> usize {
+        self.as_ref().get_ref().remaining()
+    }
+
+    #[inline]
+    fn chunk(&self) -> &[u8] {
+        self.as_ref().get_ref().chunk()
+    }
+
+    #[inline]
+    fn advance(&mut self, cnt: usize) {
+        self.as_mut().get_mut().advance(cnt)
+    }
 }
 
 impl Buf for &[u8] {

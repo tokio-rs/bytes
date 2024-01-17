@@ -4,6 +4,8 @@ use crate::buf::{writer, Writer};
 use crate::{panic_advance, panic_does_not_fit};
 
 use core::{mem, ptr, usize};
+use core::ops::DerefMut;
+use core::pin::Pin;
 
 use alloc::{boxed::Box, vec::Vec};
 
@@ -1471,6 +1473,27 @@ unsafe impl<T: BufMut + ?Sized> BufMut for &mut T {
 
 unsafe impl<T: BufMut + ?Sized> BufMut for Box<T> {
     deref_forward_bufmut!();
+}
+
+unsafe impl<P: BufMut> BufMut for Pin<P>
+    where
+        P: DerefMut + Unpin,
+        P::Target: BufMut + Unpin,
+{
+    #[inline]
+    fn remaining_mut(&self) -> usize {
+        self.as_ref().get_ref().remaining_mut()
+    }
+
+    #[inline]
+    unsafe fn advance_mut(&mut self, cnt: usize) {
+        self.as_mut().get_mut().advance_mut(cnt)
+    }
+
+    #[inline]
+    fn chunk_mut(&mut self) -> &mut UninitSlice {
+        self.as_mut().get_mut().chunk_mut()
+    }
 }
 
 unsafe impl BufMut for &mut [u8] {
