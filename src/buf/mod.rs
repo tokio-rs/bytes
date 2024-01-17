@@ -19,6 +19,7 @@ mod buf_mut;
 mod chain;
 mod iter;
 mod limit;
+mod macros;
 #[cfg(feature = "std")]
 mod reader;
 mod take;

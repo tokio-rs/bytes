@@ -1389,7 +1389,13 @@ impl<T: Buf + ?Sized> Buf for &mut T {
     deref_forward_buf!();
 }
 
+#[cfg(not(feature = "allocator_api"))]
 impl<T: Buf + ?Sized> Buf for Box<T> {
+    deref_forward_buf!();
+}
+
+#[cfg(feature = "allocator_api")]
+impl<T: Buf + ?Sized, A: core::alloc::Allocator> Buf for Box<T, A> {
     deref_forward_buf!();
 }
 

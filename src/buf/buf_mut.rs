@@ -1,7 +1,7 @@
 use crate::buf::{limit, Chain, Limit, UninitSlice};
 #[cfg(feature = "std")]
 use crate::buf::{writer, Writer};
-use crate::{panic_advance, panic_does_not_fit};
+use crate::{impl_with_allocator, panic_advance, panic_does_not_fit};
 
 use core::{mem, ptr, usize};
 
@@ -1469,7 +1469,13 @@ unsafe impl<T: BufMut + ?Sized> BufMut for &mut T {
     deref_forward_bufmut!();
 }
 
+#[cfg(not(feature = "allocator_api"))]
 unsafe impl<T: BufMut + ?Sized> BufMut for Box<T> {
+    deref_forward_bufmut!();
+}
+
+#[cfg(feature = "allocator_api")]
+unsafe impl<T: BufMut + ?Sized, A: core::alloc::Allocator> BufMut for Box<T, A> {
     deref_forward_bufmut!();
 }
 
@@ -1569,70 +1575,72 @@ unsafe impl BufMut for &mut [core::mem::MaybeUninit<u8>] {
     }
 }
 
-unsafe impl BufMut for Vec<u8> {
-    #[inline]
-    fn remaining_mut(&self) -> usize {
-        // A vector can never have more than isize::MAX bytes
-        core::isize::MAX as usize - self.len()
-    }
-
-    #[inline]
-    unsafe fn advance_mut(&mut self, cnt: usize) {
-        let len = self.len();
-        let remaining = self.capacity() - len;
-
-        if remaining < cnt {
-            panic_advance(cnt, remaining);
+impl_with_allocator! {
+    unsafe impl BufMut for Vec<u8> {
+        #[inline]
+        fn remaining_mut(&self) -> usize {
+            // A vector can never have more than isize::MAX bytes
+            core::isize::MAX as usize - self.len()
         }
 
-        // Addition will not overflow since the sum is at most the capacity.
-        self.set_len(len + cnt);
-    }
+        #[inline]
+        unsafe fn advance_mut(&mut self, cnt: usize) {
+            let len = self.len();
+            let remaining = self.capacity() - len;
 
-    #[inline]
-    fn chunk_mut(&mut self) -> &mut UninitSlice {
-        if self.capacity() == self.len() {
-            self.reserve(64); // Grow the vec
+            if remaining < cnt {
+                panic_advance(cnt, remaining);
+            }
+
+            // Addition will not overflow since the sum is at most the capacity.
+            self.set_len(len + cnt);
         }
 
-        let cap = self.capacity();
-        let len = self.len();
+        #[inline]
+        fn chunk_mut(&mut self) -> &mut UninitSlice {
+            if self.capacity() == self.len() {
+                self.reserve(64); // Grow the vec
+            }
 
-        let ptr = self.as_mut_ptr();
-        // SAFETY: Since `ptr` is valid for `cap` bytes, `ptr.add(len)` must be
-        // valid for `cap - len` bytes. The subtraction will not underflow since
-        // `len <= cap`.
-        unsafe { UninitSlice::from_raw_parts_mut(ptr.add(len), cap - len) }
-    }
+            let cap = self.capacity();
+            let len = self.len();
 
-    // Specialize these methods so they can skip checking `remaining_mut`
-    // and `advance_mut`.
-    #[inline]
-    fn put<T: super::Buf>(&mut self, mut src: T)
-    where
-        Self: Sized,
-    {
-        // In case the src isn't contiguous, reserve upfront.
-        self.reserve(src.remaining());
-
-        while src.has_remaining() {
-            let s = src.chunk();
-            let l = s.len();
-            self.extend_from_slice(s);
-            src.advance(l);
+            let ptr = self.as_mut_ptr();
+            // SAFETY: Since `ptr` is valid for `cap` bytes, `ptr.add(len)` must be
+            // valid for `cap - len` bytes. The subtraction will not underflow since
+            // `len <= cap`.
+            unsafe { UninitSlice::from_raw_parts_mut(ptr.add(len), cap - len) }
         }
-    }
 
-    #[inline]
-    fn put_slice(&mut self, src: &[u8]) {
-        self.extend_from_slice(src);
-    }
+        // Specialize these methods so they can skip checking `remaining_mut`
+        // and `advance_mut`.
+        #[inline]
+        fn put<T: super::Buf>(&mut self, mut src: T)
+        where
+            Self: Sized,
+        {
+            // In case the src isn't contiguous, reserve upfront.
+            self.reserve(src.remaining());
 
-    #[inline]
-    fn put_bytes(&mut self, val: u8, cnt: usize) {
-        // If the addition overflows, then the `resize` will fail.
-        let new_len = self.len().saturating_add(cnt);
-        self.resize(new_len, val);
+            while src.has_remaining() {
+                let s = src.chunk();
+                let l = s.len();
+                self.extend_from_slice(s);
+                src.advance(l);
+            }
+        }
+
+        #[inline]
+        fn put_slice(&mut self, src: &[u8]) {
+            self.extend_from_slice(src);
+        }
+
+        #[inline]
+        fn put_bytes(&mut self, val: u8, cnt: usize) {
+            // If the addition overflows, then the `resize` will fail.
+            let new_len = self.len().saturating_add(cnt);
+            self.resize(new_len, val);
+        }
     }
 }
 
