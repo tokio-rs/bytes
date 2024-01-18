@@ -80,6 +80,12 @@ struct Shared {
     ref_count: AtomicUsize,
 }
 
+// Assert that the alignment of `Shared` is divisible by 2.
+// This is a necessary invariant since we depend on allocating `Shared` a
+// shared object to implicitly carry the `KIND_ARC` flag in its pointer.
+// This flag is set when the LSB is 0.
+const _: [(); 0 - mem::align_of::<Shared>() % 2] = []; // Assert that the alignment of `Shared` is divisible by 2.
+
 // Buffer storage strategy flags.
 const KIND_ARC: usize = 0b0;
 const KIND_VEC: usize = 0b1;
