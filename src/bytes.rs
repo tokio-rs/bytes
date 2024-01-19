@@ -112,6 +112,8 @@ pub(crate) struct Vtable {
     ///
     /// takes `Bytes` to value
     pub to_vec: unsafe fn(&AtomicPtr<()>, *const u8, usize) -> Vec<u8>,
+    /// fn(data)
+    pub is_unique: unsafe fn(&AtomicPtr<()>) -> bool,
     /// fn(data, ptr, len)
     pub drop: unsafe fn(&mut AtomicPtr<()>, *const u8, usize),
 }
@@ -206,6 +208,28 @@ impl Bytes {
     #[inline]
     pub const fn is_empty(&self) -> bool {
         self.len == 0
+    }
+
+    /// Returns true if this is the only reference to the data.
+    ///
+    /// Always returns false if the data is backed by a static slice.
+    ///
+    /// The result of this method may be invalidated immediately if another
+    /// thread clones this value while this is being called. Ensure you have
+    /// unique access to this value (`&mut Bytes`) first if you need to be
+    /// certain the result is valid (i.e. for safety reasons)
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Bytes;
+    ///
+    /// let a = Bytes::from(vec![1, 2, 3]);
+    /// assert!(a.is_unique());
+    /// let b = a.clone();
+    /// assert!(!a.is_unique());
+    /// ```
+    pub fn is_unique(&self) -> bool {
+        unsafe { (self.vtable.is_unique)(&self.data) }
     }
 
     /// Creates `Bytes` instance from slice, by copying it.
@@ -898,6 +922,7 @@ impl fmt::Debug for Vtable {
 const STATIC_VTABLE: Vtable = Vtable {
     clone: static_clone,
     to_vec: static_to_vec,
+    is_unique: static_is_unique,
     drop: static_drop,
 };
 
@@ -911,6 +936,10 @@ unsafe fn static_to_vec(_: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Vec<u8
     slice.to_vec()
 }
 
+fn static_is_unique(_: &AtomicPtr<()>) -> bool {
+    false
+}
+
 unsafe fn static_drop(_: &mut AtomicPtr<()>, _: *const u8, _: usize) {
     // nothing to drop for &'static [u8]
 }
@@ -920,12 +949,14 @@ unsafe fn static_drop(_: &mut AtomicPtr<()>, _: *const u8, _: usize) {
 static PROMOTABLE_EVEN_VTABLE: Vtable = Vtable {
     clone: promotable_even_clone,
     to_vec: promotable_even_to_vec,
+    is_unique: promotable_is_unique,
     drop: promotable_even_drop,
 };
 
 static PROMOTABLE_ODD_VTABLE: Vtable = Vtable {
     clone: promotable_odd_clone,
     to_vec: promotable_odd_to_vec,
+    is_unique: promotable_is_unique,
     drop: promotable_odd_drop,
 };
 
@@ -1020,6 +1051,18 @@ unsafe fn promotable_odd_drop(data: &mut AtomicPtr<()>, ptr: *const u8, len: usi
     });
 }
 
+unsafe fn promotable_is_unique(data: &AtomicPtr<()>) -> bool {
+    let shared = data.load(Ordering::Acquire);
+    let kind = shared as usize & KIND_MASK;
+
+    if kind == KIND_ARC {
+        let ref_cnt = (*shared.cast::<Shared>()).ref_cnt.load(Ordering::Relaxed);
+        ref_cnt == 1
+    } else {
+        true
+    }
+}
+
 unsafe fn free_boxed_slice(buf: *mut u8, offset: *const u8, len: usize) {
     let cap = (offset as usize - buf as usize) + len;
     dealloc(buf, Layout::from_size_align(cap, 1).unwrap())
@@ -1049,6 +1092,7 @@ const _: [(); 0 - mem::align_of::<Shared>() % 2] = []; // Assert that the alignm
 static SHARED_VTABLE: Vtable = Vtable {
     clone: shared_clone,
     to_vec: shared_to_vec,
+    is_unique: shared_is_unique,
     drop: shared_drop,
 };
 
@@ -1092,6 +1136,12 @@ unsafe fn shared_to_vec_impl(shared: *mut Shared, ptr: *const u8, len: usize) ->
 
 unsafe fn shared_to_vec(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Vec<u8> {
     shared_to_vec_impl(data.load(Ordering::Relaxed).cast(), ptr, len)
+}
+
+pub(crate) unsafe fn shared_is_unique(data: &AtomicPtr<()>) -> bool {
+    let shared = data.load(Ordering::Acquire);
+    let ref_cnt = (*shared.cast::<Shared>()).ref_cnt.load(Ordering::Relaxed);
+    ref_cnt == 1
 }
 
 unsafe fn shared_drop(data: &mut AtomicPtr<()>, _ptr: *const u8, _len: usize) {
