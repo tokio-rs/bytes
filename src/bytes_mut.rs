@@ -248,7 +248,7 @@ impl BytesMut {
             // Just re-use `Bytes` internal Vec vtable
             unsafe {
                 let (off, _) = self.get_vec_pos();
-                let vec = rebuild_vec(self.ptr.as_ptr(), self.len, self.cap, off);
+                let vec = self.rebuild_vec(off);
                 mem::forget(self);
                 let mut b: Bytes = vec.into();
                 b.advance(off);
@@ -629,8 +629,7 @@ impl BytesMut {
                 } else {
                     // Not enough space, or reusing might be too much overhead:
                     // allocate more space!
-                    let mut v =
-                        ManuallyDrop::new(rebuild_vec(self.ptr.as_ptr(), self.len, self.cap, off));
+                    let mut v = ManuallyDrop::new(self.rebuild_vec(off));
                     v.reserve(additional);
 
                     // Update the info
@@ -950,7 +949,7 @@ impl BytesMut {
         // `Arc`, those three fields still are the components of the
         // vector.
         let shared = Box::new(Shared {
-            vec: rebuild_vec(self.ptr.as_ptr(), self.len, self.cap, off),
+            vec: self.rebuild_vec(off),
             original_capacity_repr,
             ref_count: AtomicUsize::new(ref_cnt),
         });
@@ -1035,6 +1034,16 @@ impl BytesMut {
             slice::from_raw_parts_mut(ptr.cast(), len)
         }
     }
+
+    /// Rebuild a vec from `offset` with the existing pointer, length, and capacity.
+    #[inline]
+    unsafe fn rebuild_vec(&self, offset: usize) -> Vec<u8> {
+        let ptr = self.ptr.as_ptr().offset(-(offset as isize));
+        let len = self.len + offset;
+        let cap = self.cap + offset;
+
+        Vec::from_raw_parts(ptr, len, cap)
+    }
 }
 
 impl Drop for BytesMut {
@@ -1046,7 +1055,7 @@ impl Drop for BytesMut {
                 let (off, _) = self.get_vec_pos();
 
                 // Vector storage, free the vector
-                let _ = rebuild_vec(self.ptr.as_ptr(), self.len, self.cap, off);
+                let _ = self.rebuild_vec(off);
             }
         } else if kind == KIND_ARC {
             unsafe { release_shared(self.data) };
@@ -1626,7 +1635,7 @@ impl From<BytesMut> for Vec<u8> {
         let mut vec = if kind == KIND_VEC {
             unsafe {
                 let (off, _) = bytes.get_vec_pos();
-                rebuild_vec(bytes.ptr.as_ptr(), bytes.len, bytes.cap, off)
+                bytes.rebuild_vec(off)
             }
         } else if kind == KIND_ARC {
             let shared = bytes.data as *mut Shared;
@@ -1693,14 +1702,6 @@ fn offset_from(dst: *mut u8, original: *mut u8) -> usize {
     debug_assert!(dst >= original);
 
     dst as usize - original as usize
-}
-
-unsafe fn rebuild_vec(ptr: *mut u8, mut len: usize, mut cap: usize, off: usize) -> Vec<u8> {
-    let ptr = ptr.offset(-(off as isize));
-    len += off;
-    cap += off;
-
-    Vec::from_raw_parts(ptr, len, cap)
 }
 
 // ===== impl SharedVtable =====
