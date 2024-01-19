@@ -1078,7 +1078,7 @@ impl Buf for BytesMut {
         }
     }
 
-    fn copy_to_bytes(&mut self, len: usize) -> crate::Bytes {
+    fn copy_to_bytes(&mut self, len: usize) -> Bytes {
         self.split_to(len).freeze()
     }
 }
@@ -1110,7 +1110,7 @@ unsafe impl BufMut for BytesMut {
     // Specialize these methods so they can skip checking `remaining_mut`
     // and `advance_mut`.
 
-    fn put<T: crate::Buf>(&mut self, mut src: T)
+    fn put<T: Buf>(&mut self, mut src: T)
     where
         Self: Sized,
     {
