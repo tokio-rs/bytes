@@ -1036,6 +1036,16 @@ impl BytesMut {
     }
 
     /// Rebuild a vec from `offset` with the existing pointer, length, and capacity.
+    ///
+    /// # Safety
+    ///
+    /// After calling this method, ownership of the allocation for this instance is transferred to
+    /// the returned `Vec` but `self.ptr` will still point into it.
+    ///
+    /// The caller must ensure all of the following:
+    ///
+    /// * `offset` is the number of bytes from the start of the original allocation to `self.ptr`
+    /// * `self.ptr` will not be dereferenced again
     #[inline]
     unsafe fn rebuild_vec(&self, offset: usize) -> Vec<u8> {
         let ptr = self.ptr.as_ptr().offset(-(offset as isize));
