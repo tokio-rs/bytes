@@ -4,6 +4,7 @@
     attr(deny(warnings, rust_2018_idioms), allow(dead_code, unused_variables))
 ))]
 #![no_std]
+#![cfg_attr(feature = "iter_advance_by", feature(iter_advance_by))]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
 //! Provides abstractions for working with bytes.
@@ -77,7 +78,7 @@ extern crate alloc;
 extern crate std;
 
 pub mod buf;
-pub use crate::buf::{Buf, BufMut};
+pub use crate::buf::{Buf, BufMut, SeekBuf};
 
 mod bytes;
 mod bytes_mut;
