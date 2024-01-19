@@ -1208,3 +1208,36 @@ fn test_bytes_capacity_len() {
         }
     }
 }
+
+#[test]
+fn static_is_unique() {
+    let b = Bytes::from_static(LONG);
+    assert!(!b.is_unique());
+}
+
+#[test]
+fn vec_is_unique() {
+    let v: Vec<u8> = LONG.to_vec();
+    let b = Bytes::from(v);
+    assert!(b.is_unique());
+}
+
+#[test]
+fn arc_is_unique() {
+    let v: Vec<u8> = LONG.to_vec();
+    let b = Bytes::from(v);
+    let c = b.clone();
+    assert!(!b.is_unique());
+    drop(c);
+    assert!(b.is_unique());
+}
+
+#[test]
+fn shared_is_unique() {
+    let v: Vec<u8> = LONG.to_vec();
+    let b = Bytes::from(v);
+    let c = b.clone();
+    assert!(!c.is_unique());
+    drop(b);
+    assert!(c.is_unique());
+}
