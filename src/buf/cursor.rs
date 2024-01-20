@@ -418,25 +418,31 @@ impl<'b, B: SeekBuf + ?Sized> Buf for BufCursor<'b, B> {
 
 impl<'b, B: SeekBuf + ?Sized> SeekBuf for BufCursor<'b, B> {
     fn chunk_from(&self, start: usize) -> Option<&[u8]> {
-        let remaining = self.remaining();
-        if start >= remaining {
+        let start_offset = self.front_offset() + start;
+
+        if start_offset >= self.back_offset() {
             return None;
         }
 
-        let chunk = self.buf.chunk_from(self.front_offset() + start)?;
+        let chunk = self.buf.chunk_from(start_offset)?;
 
-        Some(&chunk[..chunk.len().min(remaining - start)])
+        let included_len = chunk.len().min(self.back_offset() - start_offset);
+
+        Some(&chunk[..included_len])
     }
 
     fn chunk_to(&self, end: usize) -> Option<&[u8]> {
-        let remaining = self.remaining();
-        if end > remaining {
+        let end_offset = self.front_offset() + end;
+
+        if end_offset > self.back_offset() {
             return None;
         }
 
-        let chunk = self.buf.chunk_to(self.back_offset() - end)?;
+        let chunk = self.buf.chunk_to(end_offset)?;
 
-        Some(&chunk[(remaining - end).min(chunk.len())..])
+        let excluded_len = chunk.len().saturating_sub(end);
+
+        Some(&chunk[excluded_len..])
     }
 }
 

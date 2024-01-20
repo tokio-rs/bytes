@@ -37,22 +37,33 @@ fn test_chunk_to() {
 
 #[test]
 fn test_vec_deque() {
-    let mut buf = VecDeque::with_capacity(4);
+    let mut buf = VecDeque::with_capacity(32);
 
-    while buf.len() < buf.capacity() {
-        buf.push_back(b'0')
+    for i in 0..buf.capacity() {
+        buf.push_back((i % 256) as u8);
     }
 
-    assert_eq!(&buf.chunk()[..4], [b'0', b'0', b'0', b'0'].as_slice());
-    assert_eq!(buf.chunk_to(2), Some([b'0', b'0'].as_slice()));
-    assert_eq!(buf.chunk_from(buf.len() - 2), Some([b'0', b'0'].as_slice()));
+    assert_eq!(&buf.chunk()[..4], [0, 1, 2, 3].as_slice());
+    assert_eq!(buf.chunk_to(2), Some([0, 1].as_slice()));
+    assert_eq!(
+        &buf.chunk_from(28).unwrap()[..4],
+        [28, 29, 30, 31].as_slice()
+    );
 
-    buf.pop_front();
-    buf.pop_front();
+    for _ in 0..16 {
+        buf.pop_front();
+    }
 
-    buf.push_back(b'3');
-    buf.push_back(b'4');
+    for _ in 0..15 {
+        buf.push_back(0);
+    }
 
-    assert_eq!(&buf.chunk_from(0).unwrap()[..2], [b'0', b'0'].as_slice());
-    assert_eq!(buf.chunk_to(buf.len()), Some([b'3', b'4'].as_slice()));
+    assert_eq!(&buf.chunk_from(0).unwrap()[..2], [16, 17].as_slice());
+
+    buf.push_back(255);
+
+    {
+        let last_chunk = buf.chunk_to(buf.remaining()).unwrap();
+        assert_eq!(&last_chunk[last_chunk.len() - 1..], [255].as_slice());
+    }
 }

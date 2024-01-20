@@ -151,3 +151,99 @@ fn test_vec_deque_cursor() {
         assert_eq!(cursor.remaining(), 0);
     }
 }
+
+/// PRNG implements a basic LCG random number generator with sane defaults.
+struct PRNG {
+    state: u32,
+    multiplier: u32,
+    increment: u32,
+}
+
+impl PRNG {
+    pub fn new(seed: u32) -> Self {
+        Self {
+            state: seed,
+            multiplier: 32310901,
+            increment: 12345,
+        }
+    }
+
+    pub fn random(&mut self) -> u32 {
+        self.state = self
+            .multiplier
+            .overflowing_mul(self.state)
+            .0
+            .overflowing_add(self.increment)
+            .0;
+        self.state
+    }
+}
+
+#[test]
+fn test_vec_deque_cursor_random_insert_and_drain() {
+    let mut prng = PRNG::new(7877 /* not important */);
+
+    let mut buf = VecDeque::with_capacity(4096);
+
+    for _ in 0..1000 {
+        let remaining_mut = buf.capacity() - buf.len();
+
+        buf.resize(buf.len() + (prng.random() as usize % remaining_mut), 0);
+        let _ = buf.drain(..prng.random() as usize & buf.len());
+
+        let cursor = buf.cursor();
+
+        assert_eq!(
+            cursor
+                .cursor()
+                .seek(..4.min(buf.len()))
+                .unwrap()
+                .copied()
+                .collect::<Vec<u8>>()
+                .as_slice(),
+            &[0, 0, 0, 0][..4.min(buf.len())],
+        );
+
+        if buf.len() > 16 {
+            let mut cursor = cursor.cursor().seek(4..12).unwrap();
+
+            cursor.advance_by(0).unwrap();
+            cursor.advance_back_by(0).unwrap();
+
+            assert_eq!(
+                cursor
+                    .seek(2..6)
+                    .unwrap()
+                    .copied()
+                    .collect::<Vec<u8>>()
+                    .as_slice(),
+                &[0, 0, 0, 0],
+            );
+        }
+
+        assert_eq!(
+            cursor
+                .cursor()
+                .rev()
+                .take(4)
+                .copied()
+                .collect::<Vec<u8>>()
+                .as_slice(),
+            &[0, 0, 0, 0][..4.min(buf.len())],
+        );
+
+        {
+            // Advance forward through all remaining bytes in the cursor.
+            let mut cursor = cursor.cursor();
+            cursor.advance_by(cursor.remaining()).unwrap();
+            assert_eq!(cursor.remaining(), 0);
+        }
+
+        {
+            // Advance backward through all remaining bytes in the cursor.
+            let mut cursor = cursor.cursor();
+            cursor.advance_back_by(cursor.remaining()).unwrap();
+            assert_eq!(cursor.remaining(), 0);
+        }
+    }
+}
