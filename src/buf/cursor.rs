@@ -1,8 +1,8 @@
-use crate::Buf;
 use crate::buf::SeekBuf;
+use crate::Buf;
 
-use core::iter::FusedIterator;
 use core::cell::Cell;
+use core::iter::FusedIterator;
 use core::num::NonZeroUsize;
 use core::ops::{Bound, Range, RangeBounds};
 
@@ -226,7 +226,10 @@ impl<'b, B: SeekBuf + ?Sized> BufCursor<'b, B> {
         // Invariant: Front chunk offset is always greater than or equal to the
         // current chunk's length, since it is a sum of the lengths of all
         // preceding chunks (including the current chunk).
-        debug_assert!(self.front_chunk_offset.get() >= chunk_len, "internal exception");
+        debug_assert!(
+            self.front_chunk_offset.get() >= chunk_len,
+            "internal exception"
+        );
 
         if n < remaining {
             self.front_chunk_offset
@@ -298,7 +301,10 @@ impl<'b, B: SeekBuf + ?Sized> BufCursor<'b, B> {
 
         // Invariant: The back chunk offset + chunk_len is always more than the
         // difference between the back offset and the front offset (remaining).
-        debug_assert!(self.back_chunk_offset.get() + chunk_len >= remaining, "internal exception");
+        debug_assert!(
+            self.back_chunk_offset.get() + chunk_len >= remaining,
+            "internal exception"
+        );
 
         if n < remaining {
             self.back_chunk_offset
@@ -379,7 +385,10 @@ impl<'b, B: SeekBuf + ?Sized> BufCursor<'b, B> {
                 // A chunk should never exceed the back chunk offset, unless
                 // the buf's `remaining` method mismatched the total number of
                 // bytes available in the buffer when returned by `chunk` calls.
-                assert!(self.back_chunk_offset.get() >= chunk.len(), "chunk length overflow");
+                assert!(
+                    self.back_chunk_offset.get() >= chunk.len(),
+                    "chunk length overflow"
+                );
 
                 self.back_chunk_offset
                     .set(self.back_chunk_offset.get() - chunk.len());

@@ -1,5 +1,5 @@
-use std::collections::VecDeque;
 use bytes::{Buf, SeekBuf};
+use std::collections::VecDeque;
 
 #[test]
 fn test_seek_buf_cursor() {

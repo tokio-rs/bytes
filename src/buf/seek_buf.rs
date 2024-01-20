@@ -1,7 +1,7 @@
 use crate::Buf;
 
-use alloc::boxed::Box;
 use crate::buf::cursor::BufCursor;
+use alloc::boxed::Box;
 
 /// Read bytes from an arbitrary position within a buffer.
 ///

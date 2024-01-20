@@ -1,5 +1,5 @@
-use std::collections::VecDeque;
 use bytes::{Buf, SeekBuf};
+use std::collections::VecDeque;
 
 #[test]
 fn test_iterator() {
@@ -32,15 +32,24 @@ fn test_seek() {
 
     let cursor = buf.cursor().seek(..).unwrap();
 
-    assert_eq!(cursor.cursor().copied().collect::<Vec<u8>>().as_slice(), b"<<< TEXT >>>".as_slice());
+    assert_eq!(
+        cursor.cursor().copied().collect::<Vec<u8>>().as_slice(),
+        b"<<< TEXT >>>".as_slice()
+    );
 
     let cursor = buf.cursor().seek(4..8).unwrap();
 
-    assert_eq!(cursor.cursor().copied().collect::<Vec<u8>>().as_slice(), b"TEXT".as_slice());
+    assert_eq!(
+        cursor.cursor().copied().collect::<Vec<u8>>().as_slice(),
+        b"TEXT".as_slice()
+    );
 
     let cursor = cursor.seek(0..=1).unwrap();
 
-    assert_eq!(cursor.cursor().copied().collect::<Vec<u8>>().as_slice(), b"TE".as_slice());
+    assert_eq!(
+        cursor.cursor().copied().collect::<Vec<u8>>().as_slice(),
+        b"TE".as_slice()
+    );
 }
 
 #[test]
@@ -71,11 +80,17 @@ fn test_advance_by() {
 
     cursor.advance_by(4).unwrap();
 
-    assert_eq!(cursor.cursor().copied().collect::<Vec<u8>>().as_slice(), b"56789".as_slice());
+    assert_eq!(
+        cursor.cursor().copied().collect::<Vec<u8>>().as_slice(),
+        b"56789".as_slice()
+    );
 
     cursor.advance_back_by(4).unwrap();
 
-    assert_eq!(cursor.cursor().copied().collect::<Vec<u8>>().as_slice(), b"5".as_slice());
+    assert_eq!(
+        cursor.cursor().copied().collect::<Vec<u8>>().as_slice(),
+        b"5".as_slice()
+    );
 }
 
 #[test]
@@ -86,11 +101,11 @@ fn test_vec_deque_cursor() {
         buf.push_back(b'0')
     }
 
-    for _  in 0..4 {
+    for _ in 0..4 {
         buf.pop_front();
     }
 
-    for _  in 0..4 {
+    for _ in 0..4 {
         buf.push_back(b'1')
     }
 
@@ -99,17 +114,40 @@ fn test_vec_deque_cursor() {
     cursor.advance_by(1).unwrap();
 
     assert_eq!(
-        cursor.cursor().seek(..3).unwrap().copied().collect::<Vec<u8>>().as_slice(),
+        cursor
+            .cursor()
+            .seek(..3)
+            .unwrap()
+            .copied()
+            .collect::<Vec<u8>>()
+            .as_slice(),
         &[b'0', b'0', b'0'],
     );
 
     cursor.advance_back_by(1).unwrap();
 
     assert_eq!(
-        cursor.cursor().seek(buf.len() - 8..).unwrap().copied().collect::<Vec<u8>>().as_slice(),
+        cursor
+            .cursor()
+            .seek(buf.len() - 8..)
+            .unwrap()
+            .copied()
+            .collect::<Vec<u8>>()
+            .as_slice(),
         &[b'0', b'0', b'0', b'1', b'1', b'1'],
     );
 
-    cursor.advance_back_by(cursor.remaining()).unwrap();
-    assert_eq!(cursor.remaining(), 0);
+    {
+        // Advance forward through all remaining bytes in the cursor.
+        let mut cursor = cursor.cursor();
+        cursor.advance_by(cursor.remaining()).unwrap();
+        assert_eq!(cursor.remaining(), 0);
+    }
+
+    {
+        // Advance backward through all remaining bytes in the cursor.
+        let mut cursor = cursor.cursor();
+        cursor.advance_back_by(cursor.remaining()).unwrap();
+        assert_eq!(cursor.remaining(), 0);
+    }
 }
