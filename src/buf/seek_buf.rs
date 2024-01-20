@@ -20,7 +20,7 @@ use alloc::boxed::Box;
 /// # Examples
 ///
 /// ```
-/// use bytes::{Buf, SeekBuf};
+/// use bytes::{Buf, SeekBufExt};
 ///
 /// let buf = b"try to find the T in the haystack".as_slice();
 ///
@@ -95,12 +95,19 @@ pub trait SeekBuf: Buf {
     /// assert_eq!([].as_slice().chunk_to(0), Some([].as_slice()));
     /// ```
     fn chunk_to(&self, end: usize) -> Option<&[u8]>;
+}
 
+/// SeekBufExt provides additional functionality for any type that implements
+/// the [SeekBuf] trait.
+///
+/// Methods within this trait are not implemented directly on the [SeekBuf]
+/// trait in order to ensure that [SeekBuf] remains object-safe.
+pub trait SeekBufExt: SeekBuf {
     /// Returns a new [BufCursor] that can iterate over the current buffer.
     /// [Self] is borrowed immutably while the cursor is active.
     ///
     /// ```
-    /// use bytes::SeekBuf;
+    /// use bytes::SeekBufExt;
     ///
     /// let buf = b"hello world".as_slice();
     ///
@@ -122,6 +129,8 @@ pub trait SeekBuf: Buf {
     }
 }
 
+impl<T: SeekBuf + ?Sized> SeekBufExt for T {}
+
 macro_rules! deref_forward_seek_buf {
     () => {
         #[inline]
@@ -132,11 +141,6 @@ macro_rules! deref_forward_seek_buf {
         #[inline]
         fn chunk_to(&self, end: usize) -> Option<&[u8]> {
             (**self).chunk_to(end)
-        }
-
-        #[inline]
-        fn cursor(&self) -> BufCursor<'_, Self> {
-            BufCursor::new(self)
         }
     };
 }
@@ -160,3 +164,7 @@ impl SeekBuf for &[u8] {
         self.get(..end)
     }
 }
+
+// The existence of this function makes the compiler catch if the SeekBuf
+// trait is "object-safe" or not.
+fn _assert_trait_object(_b: &dyn SeekBuf) {}

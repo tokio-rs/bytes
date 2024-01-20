@@ -77,7 +77,7 @@ extern crate alloc;
 extern crate std;
 
 pub mod buf;
-pub use crate::buf::{Buf, BufMut, SeekBuf};
+pub use crate::buf::{Buf, BufMut, SeekBuf, SeekBufExt};
 
 mod bytes;
 mod bytes_mut;

@@ -76,7 +76,7 @@ impl<'b, B: SeekBuf + ?Sized> BufCursor<'b, B> {
     /// # Examples
     ///
     /// ```
-    /// use bytes::SeekBuf;
+    /// use bytes::SeekBufExt;
     ///
     /// let buf = b"Hello World!".as_slice();
     ///
@@ -106,7 +106,7 @@ impl<'b, B: SeekBuf + ?Sized> BufCursor<'b, B> {
     /// # Examples
     ///
     /// ```
-    /// use bytes::SeekBuf;
+    /// use bytes::SeekBufExt;
     ///
     /// let buf = b"<<< TEXT >>>".as_slice();
     ///
@@ -191,7 +191,7 @@ impl<'b, B: SeekBuf + ?Sized> BufCursor<'b, B> {
     /// # Examples
     ///
     /// ```
-    /// use bytes::SeekBuf;
+    /// use bytes::SeekBufExt;
     ///
     /// let buf = b"123456789".as_slice();
     ///
@@ -267,7 +267,7 @@ impl<'b, B: SeekBuf + ?Sized> BufCursor<'b, B> {
     /// # Examples
     ///
     /// ```
-    /// use bytes::SeekBuf;
+    /// use bytes::SeekBufExt;
     ///
     /// let buf = b"123456789".as_slice();
     ///

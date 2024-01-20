@@ -1,4 +1,4 @@
-use bytes::{Buf, SeekBuf};
+use bytes::{Buf, SeekBufExt};
 use std::collections::VecDeque;
 
 #[test]
