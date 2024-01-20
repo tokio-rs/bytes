@@ -1,8 +1,5 @@
 use crate::Buf;
 
-use core::ops::DerefMut;
-use core::pin::Pin;
-
 use alloc::boxed::Box;
 use crate::buf::cursor::BufCursor;
 
@@ -148,35 +145,8 @@ impl<T: SeekBuf + ?Sized> SeekBuf for &mut T {
     deref_forward_seek_buf!();
 }
 
-#[cfg(not(feature = "allocator_api"))]
 impl<T: SeekBuf + ?Sized> SeekBuf for Box<T> {
     deref_forward_seek_buf!();
-}
-
-#[cfg(feature = "allocator_api")]
-impl<T: SeekBuf + ?Sized, A: core::alloc::Allocator> SeekBuf for Box<T, A> {
-    deref_forward_seek_buf!();
-}
-
-impl<P: SeekBuf> SeekBuf for Pin<P>
-where
-    P: DerefMut + Unpin,
-    P::Target: SeekBuf + Unpin,
-{
-    #[inline]
-    fn chunk_from(&self, start: usize) -> Option<&[u8]> {
-        self.as_ref().get_ref().chunk_from(start)
-    }
-
-    #[inline]
-    fn chunk_to(&self, end: usize) -> Option<&[u8]> {
-        self.as_ref().get_ref().chunk_to(end)
-    }
-
-    #[inline]
-    fn cursor(&self) -> BufCursor<'_, Self> {
-        BufCursor::new(self)
-    }
 }
 
 impl SeekBuf for &[u8] {

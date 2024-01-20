@@ -21,7 +21,6 @@ categories = ["network-programming", "data-structures"]
 [features]
 default = ["std"]
 std = []
-iter_advance_by = []
 
 [dependencies]
 serde = { version = "1.0.60", optional = true, default-features = false, features = ["alloc"] }

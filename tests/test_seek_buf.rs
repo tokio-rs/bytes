@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use bytes::{Buf, SeekBuf};
 
 #[test]
@@ -32,4 +33,26 @@ fn test_chunk_to() {
     // passed an `end` of zero, it will always return an empty slice instead
     // of `None`.
     assert_eq!([].as_slice().chunk_to(0), Some([].as_slice()));
+}
+
+#[test]
+fn test_vec_deque() {
+    let mut buf = VecDeque::with_capacity(4);
+
+    while buf.len() < buf.capacity() {
+        buf.push_back(b'0')
+    }
+
+    assert_eq!(&buf.chunk()[..4], [b'0', b'0', b'0', b'0'].as_slice());
+    assert_eq!(buf.chunk_to(2), Some([b'0', b'0'].as_slice()));
+    assert_eq!(buf.chunk_from(buf.len() - 2), Some([b'0', b'0'].as_slice()));
+
+    buf.pop_front();
+    buf.pop_front();
+
+    buf.push_back(b'3');
+    buf.push_back(b'4');
+
+    assert_eq!(&buf.chunk_from(0).unwrap()[..2], [b'0', b'0'].as_slice());
+    assert_eq!(buf.chunk_to(buf.len()), Some([b'3', b'4'].as_slice()));
 }
