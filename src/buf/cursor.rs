@@ -21,7 +21,7 @@ use core::ops::{Bound, Range, RangeBounds};
 /// introduce latency for retrieving chunks (such as `dyn SeekBuf` buffers). It
 /// stores the most recently retrieved chunk for subsequent access up to the
 /// length of that chunk, amortizing the cost of any buffer retrieval calls
-/// across the size of all returned chunks.
+/// during iteration across the size of returned chunks.
 #[derive(Debug)]
 pub struct BufCursor<'b, B: SeekBuf + ?Sized> {
     buf: &'b B,
@@ -254,15 +254,15 @@ impl<'b, B: SeekBuf + ?Sized> BufCursor<'b, B> {
 
     /// Advances the cursor backwards in the buffer by a set number of bytes.
     ///
-    /// `advance_by(n)` will always return `Ok(())` if the cursor successfully
-    /// moves backward by `n` bytes. If the cursor back would exceed the cursor
-    /// front (or the buffer start), then `Err(NonZeroUsize)` with value `k` is
-    /// returned, where `k` is the number of bytes that were in excess of the
-    /// limit and were not advanced.
+    /// `advance_back_by(n)` will always return `Ok(())` if the cursor
+    /// successfully moves backward by `n` bytes. If the cursor back would
+    /// exceed the cursor front (or the buffer start), then `Err(NonZeroUsize)`
+    /// with value `k` is returned, where `k` is the number of bytes that were
+    /// in excess of the limit and were not advanced.
     ///
-    /// Calling `advance_by(0)` can be used to opportunistically preload the
-    /// next back chunk from the buffer (if not already loaded) without moving
-    /// the cursor backward.
+    /// Calling `advance_back_by(0)` can be used to opportunistically preload
+    /// the next back chunk from the buffer (if not already loaded) without
+    /// moving the cursor backward.
     ///
     /// # Examples
     ///
@@ -329,8 +329,9 @@ impl<'b, B: SeekBuf + ?Sized> BufCursor<'b, B> {
 }
 
 impl<'b, B: SeekBuf + ?Sized> BufCursor<'b, B> {
-    /// Returns the (inclusive) absolute offset from the beginning of the buffer
-    /// to the cursor's current front position.
+    /// Returns the absolute offset from the beginning of the buffer
+    /// to the cursor's current front position (inclusive).
+    /// It can be thought of as `buf[front_offset..]`.
     #[inline]
     fn front_offset(&self) -> usize {
         // Invariant: The front chunk size is always less than or equal to the
@@ -340,23 +341,32 @@ impl<'b, B: SeekBuf + ?Sized> BufCursor<'b, B> {
         self.front_chunk_offset.get() - self.front_chunk_len()
     }
 
-    /// Returns the (exclusive) absolute offset from the beginning of the buffer
-    /// to the cursor's current back position.
+    /// Returns the absolute offset from the beginning of the buffer
+    /// to the cursor's current back position (exclusive).
+    /// It can be thought of as `buf[..back_offset]`.
     #[inline]
     fn back_offset(&self) -> usize {
         self.back_chunk_offset.get() + self.back_chunk_len()
     }
 
+    /// Current length of the active front chunk. It is not guaranteed that the
+    /// entire length of the chunk is valid for the current cursor, and must be
+    /// compared to the current back offset as well.
     #[inline]
     fn front_chunk_len(&self) -> usize {
         self.front_chunk.get().map_or(0, |chunk| chunk.len())
     }
 
+    /// Current length of the active back chunk. It is not guaranteed that the
+    /// entire length of the chunk is valid for the current cursor, and must be
+    /// compared to the current front offset as well.
     #[inline]
     fn back_chunk_len(&self) -> usize {
         self.back_chunk.get().map_or(0, |chunk| chunk.len())
     }
 
+    /// Returns the currently active front chunk, or retrieves a new front
+    /// chunk from the buffer if one is not active.
     fn next_front_chunk(&self) -> Option<&'b [u8]> {
         match self.front_chunk.get() {
             Some(chunk) if !chunk.is_empty() => Some(chunk),
@@ -373,6 +383,8 @@ impl<'b, B: SeekBuf + ?Sized> BufCursor<'b, B> {
         }
     }
 
+    /// Returns the currently active back chunk, or retrieves a new back
+    /// chunk from the buffer if one is not active.
     fn next_back_chunk(&self) -> Option<&'b [u8]> {
         match self.back_chunk.get() {
             Some(chunk) if !chunk.is_empty() => Some(chunk),
