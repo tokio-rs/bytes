@@ -318,7 +318,6 @@ impl BytesMut {
         unsafe {
             let mut other = self.shallow_clone();
             other.set_start(at);
-            debug_assert_eq!(self.kind(), KIND_ARC);
             assert!(at <= self.cap, "set_end out of bounds");
 
             self.cap = at;
@@ -395,7 +394,6 @@ impl BytesMut {
 
         unsafe {
             let mut other = self.shallow_clone();
-            debug_assert_eq!(other.kind(), KIND_ARC);
             assert!(at <= other.cap, "set_end out of bounds");
 
             other.cap = at;
