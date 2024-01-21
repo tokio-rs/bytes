@@ -317,7 +317,8 @@ impl BytesMut {
         );
         unsafe {
             let mut other = self.shallow_clone();
-            other.set_start(at);
+            // SAFETY: We've checked that `at` <= `self.capacity()` above.
+            other.advance_unchecked(at);
             self.cap = at;
             self.len = cmp::min(self.len, at);
             other
@@ -394,7 +395,9 @@ impl BytesMut {
             let mut other = self.shallow_clone();
             other.cap = at;
             other.len = at;
-            self.set_start(at);
+            // SAFETY: We've checked that `at` <= `self.len()` and we know that `self.len()` <=
+            // `self.capacity()`.
+            self.advance_unchecked(at);
             other
         }
     }
@@ -856,14 +859,19 @@ impl BytesMut {
         unsafe { slice::from_raw_parts_mut(self.ptr.as_ptr(), self.len) }
     }
 
-    unsafe fn set_start(&mut self, start: usize) {
+    /// Advance the buffer without bounds checking.
+    ///
+    /// # SAFETY
+    ///
+    /// The caller must ensure that `count` <= `self.cap`.
+    unsafe fn advance_unchecked(&mut self, count: usize) {
         // Setting the start to 0 is a no-op, so return early if this is the
         // case.
-        if start == 0 {
+        if count == 0 {
             return;
         }
 
-        debug_assert!(start <= self.cap, "internal: set_start out of bounds");
+        debug_assert!(count <= self.cap, "internal: set_start out of bounds");
 
         let kind = self.kind();
 
@@ -873,7 +881,7 @@ impl BytesMut {
             // "start" of the byte buffer from the beginning of the vec. We
             // also have to ensure that we don't exceed the maximum shift.
             let (mut pos, prev) = self.get_vec_pos();
-            pos += start;
+            pos += count;
 
             if pos <= MAX_VEC_POS {
                 self.set_vec_pos(pos, prev);
@@ -889,9 +897,9 @@ impl BytesMut {
         // Updating the start of the view is setting `ptr` to point to the
         // new start and updating the `len` field to reflect the new length
         // of the view.
-        self.ptr = vptr(self.ptr.as_ptr().add(start));
-        self.len = self.len.checked_sub(start).unwrap_or(0);
-        self.cap -= start;
+        self.ptr = vptr(self.ptr.as_ptr().add(count));
+        self.len = self.len.checked_sub(count).unwrap_or(0);
+        self.cap -= count;
     }
 
     fn try_unsplit(&mut self, other: BytesMut) -> Result<(), BytesMut> {
@@ -1062,7 +1070,9 @@ impl Buf for BytesMut {
             self.remaining(),
         );
         unsafe {
-            self.set_start(cnt);
+            // SAFETY: We've checked that `cnt` <= `self.remaining()` and we know that
+            // `self.remaining()` <= `self.cap`.
+            self.advance_unchecked(cnt);
         }
     }
 
