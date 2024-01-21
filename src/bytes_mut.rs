@@ -318,7 +318,11 @@ impl BytesMut {
         unsafe {
             let mut other = self.shallow_clone();
             other.set_start(at);
-            self.set_end(at);
+            debug_assert_eq!(self.kind(), KIND_ARC);
+            assert!(at <= self.cap, "set_end out of bounds");
+
+            self.cap = at;
+            self.len = cmp::min(self.len, at);
             other
         }
     }
@@ -391,7 +395,11 @@ impl BytesMut {
 
         unsafe {
             let mut other = self.shallow_clone();
-            other.set_end(at);
+            debug_assert_eq!(other.kind(), KIND_ARC);
+            assert!(at <= other.cap, "set_end out of bounds");
+
+            other.cap = at;
+            other.len = cmp::min(other.len, at);
             self.set_start(at);
             other
         }
@@ -890,14 +898,6 @@ impl BytesMut {
         self.ptr = vptr(self.ptr.as_ptr().add(start));
         self.len = self.len.checked_sub(start).unwrap_or(0);
         self.cap -= start;
-    }
-
-    unsafe fn set_end(&mut self, end: usize) {
-        debug_assert_eq!(self.kind(), KIND_ARC);
-        assert!(end <= self.cap, "set_end out of bounds");
-
-        self.cap = end;
-        self.len = cmp::min(self.len, end);
     }
 
     fn try_unsplit(&mut self, other: BytesMut) -> Result<(), BytesMut> {
