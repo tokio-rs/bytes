@@ -888,13 +888,7 @@ impl BytesMut {
         // new start and updating the `len` field to reflect the new length
         // of the view.
         self.ptr = vptr(self.ptr.as_ptr().add(start));
-
-        if self.len >= start {
-            self.len -= start;
-        } else {
-            self.len = 0;
-        }
-
+        self.len = self.len.checked_sub(start).unwrap_or(0);
         self.cap -= start;
     }
 
