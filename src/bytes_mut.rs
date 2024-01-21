@@ -318,8 +318,6 @@ impl BytesMut {
         unsafe {
             let mut other = self.shallow_clone();
             other.set_start(at);
-            assert!(at <= self.cap, "set_end out of bounds");
-
             self.cap = at;
             self.len = cmp::min(self.len, at);
             other
