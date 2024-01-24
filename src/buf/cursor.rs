@@ -367,47 +367,61 @@ impl<'b, B: SeekBuf + ?Sized> BufCursor<'b, B> {
 
     /// Returns the currently active front chunk, or retrieves a new front
     /// chunk from the buffer if one is not active.
+    #[inline]
     fn next_front_chunk(&self) -> Option<&'b [u8]> {
         match self.front_chunk.get() {
+            // likely branch.
             Some(chunk) if !chunk.is_empty() => Some(chunk),
             _ => {
-                let chunk = self.buf.chunk_from(self.front_chunk_offset.get())?;
-
-                self.front_chunk.set(Some(chunk));
-
-                self.front_chunk_offset
-                    .set(self.front_chunk_offset.get() + chunk.len());
-
-                Some(chunk)
+                // unlikely branch.
+                self.load_next_front_chunk();
+                self.front_chunk.get()
             }
         }
     }
 
     /// Returns the currently active back chunk, or retrieves a new back
     /// chunk from the buffer if one is not active.
+    #[inline]
     fn next_back_chunk(&self) -> Option<&'b [u8]> {
         match self.back_chunk.get() {
+            // likely branch.
             Some(chunk) if !chunk.is_empty() => Some(chunk),
             _ => {
-                let chunk = self.buf.chunk_to(self.back_chunk_offset.get())?;
-
-                self.back_chunk.set(Some(chunk));
-
-                // This assertion checks that the buf is implemented correctly.
-                // A chunk should never exceed the back chunk offset, unless
-                // the buf's `remaining` method mismatched the total number of
-                // bytes available in the buffer when returned by `chunk` calls.
-                assert!(
-                    self.back_chunk_offset.get() >= chunk.len(),
-                    "chunk length overflow"
-                );
-
-                self.back_chunk_offset
-                    .set(self.back_chunk_offset.get() - chunk.len());
-
-                Some(chunk)
+                // unlikely branch.
+                self.load_next_back_chunk();
+                self.back_chunk.get()
             }
         }
+    }
+
+    fn load_next_front_chunk(&self) {
+        let chunk = self.buf.chunk_from(self.front_chunk_offset.get());
+        let chunk_len = chunk.map_or(0, |chunk| chunk.len());
+
+        self.front_chunk_offset
+            .set(self.front_chunk_offset.get() + chunk_len);
+
+        self.front_chunk.set(chunk);
+    }
+
+    fn load_next_back_chunk(&self) {
+        let chunk = self.buf.chunk_to(self.back_chunk_offset.get());
+        let chunk_len = chunk.map_or(0, |chunk| chunk.len());
+
+        // This assertion checks that the buf is implemented correctly.
+        // A chunk should never exceed the back chunk offset, unless
+        // the buf's `remaining` method mismatched the total number of
+        // bytes available in the buffer when returned by `chunk` calls.
+        assert!(
+            self.back_chunk_offset.get() >= chunk_len,
+            "chunk length overflow"
+        );
+
+        self.back_chunk_offset
+            .set(self.back_chunk_offset.get() - chunk_len);
+
+        self.back_chunk.set(chunk);
     }
 }
 
@@ -429,6 +443,7 @@ impl<'b, B: SeekBuf + ?Sized> Buf for BufCursor<'b, B> {
 }
 
 impl<'b, B: SeekBuf + ?Sized> SeekBuf for BufCursor<'b, B> {
+    #[inline]
     fn chunk_from(&self, start: usize) -> Option<&[u8]> {
         let start_offset = self.front_offset() + start;
 
@@ -443,6 +458,7 @@ impl<'b, B: SeekBuf + ?Sized> SeekBuf for BufCursor<'b, B> {
         Some(&chunk[..included_len])
     }
 
+    #[inline]
     fn chunk_to(&self, end: usize) -> Option<&[u8]> {
         let end_offset = self.front_offset() + end;
 
@@ -461,6 +477,7 @@ impl<'b, B: SeekBuf + ?Sized> SeekBuf for BufCursor<'b, B> {
 impl<'b, B: SeekBuf + ?Sized> Iterator for BufCursor<'b, B> {
     type Item = &'b u8;
 
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         let remaining = self.remaining();
 
@@ -484,12 +501,14 @@ impl<'b, B: SeekBuf + ?Sized> Iterator for BufCursor<'b, B> {
         next
     }
 
+    #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
         (self.remaining(), Some(self.remaining()))
     }
 }
 
 impl<'b, B: SeekBuf + ?Sized> DoubleEndedIterator for BufCursor<'b, B> {
+    #[inline]
     fn next_back(&mut self) -> Option<Self::Item> {
         if self.remaining() == 0 {
             return None;
