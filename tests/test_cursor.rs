@@ -27,6 +27,24 @@ fn test_iterator() {
 }
 
 #[test]
+fn test_clone() {
+    let buf = b"Hello World!".as_slice();
+
+    let mut cursor = buf.cursor();
+
+    assert_eq!(cursor.next(), Some(&b'H'));
+    assert_eq!(cursor.next_back(), Some(&b'!'));
+
+    let mut cursor_clone = cursor.clone();
+
+    assert_eq!(cursor.next(), Some(&b'e'));
+    assert_eq!(cursor.next_back(), Some(&b'd'));
+
+    assert_eq!(cursor_clone.next(), Some(&b'e'));
+    assert_eq!(cursor_clone.next_back(), Some(&b'd'));
+}
+
+#[test]
 fn test_seek() {
     let buf = b"<<< TEXT >>>".as_slice();
 

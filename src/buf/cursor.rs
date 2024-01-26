@@ -534,3 +534,15 @@ impl<'b, B: SeekBuf + ?Sized> DoubleEndedIterator for BufCursor<'b, B> {
 impl<'b, B: SeekBuf + ?Sized> FusedIterator for BufCursor<'b, B> {}
 
 impl<'b, B: SeekBuf + ?Sized> ExactSizeIterator for BufCursor<'b, B> {}
+
+impl<'b, B: SeekBuf + ?Sized> Clone for BufCursor<'b, B> {
+    fn clone(&self) -> Self {
+        Self {
+            buf: self.buf,
+            front_chunk_offset: Cell::new(self.front_chunk_offset.get()),
+            back_chunk_offset: Cell::new(self.back_chunk_offset.get()),
+            front_chunk: Cell::new(self.front_chunk.get()),
+            back_chunk: Cell::new(self.back_chunk.get()),
+        }
+    }
+}
