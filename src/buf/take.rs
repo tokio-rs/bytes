@@ -1,4 +1,4 @@
-use crate::{Buf, Bytes};
+use crate::{Buf, Bytes, SeekBuf};
 
 use core::cmp;
 
@@ -151,5 +151,25 @@ impl<T: Buf> Buf for Take<T> {
         let r = self.inner.copy_to_bytes(len);
         self.limit -= len;
         r
+    }
+}
+
+impl<T: SeekBuf> SeekBuf for Take<T> {
+    fn chunk_from(&self, start: usize) -> Option<&[u8]> {
+        if start < self.limit {
+            let remaining = self.limit - start;
+            let chunk = self.inner.chunk_from(start)?;
+            Some(&chunk[..chunk.len().min(remaining)])
+        } else {
+            None
+        }
+    }
+
+    fn chunk_to(&self, end: usize) -> Option<&[u8]> {
+        if end <= self.limit {
+            self.inner.chunk_to(end)
+        } else {
+            None
+        }
     }
 }
