@@ -1628,7 +1628,7 @@ impl From<BytesMut> for Vec<u8> {
                 let (off, _) = bytes.get_vec_pos();
                 rebuild_vec(bytes.ptr.as_ptr(), bytes.len, bytes.cap, off)
             }
-        } else if kind == KIND_ARC {
+        } else {
             let shared = bytes.data as *mut Shared;
 
             if unsafe { (*shared).is_unique() } {
@@ -1640,8 +1640,6 @@ impl From<BytesMut> for Vec<u8> {
             } else {
                 return bytes.deref().to_vec();
             }
-        } else {
-            return bytes.deref().to_vec();
         };
 
         let len = bytes.len;
