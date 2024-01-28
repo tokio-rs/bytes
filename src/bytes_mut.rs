@@ -726,10 +726,10 @@ impl BytesMut {
                 }
 
                 return;
-            } else {
-                new_cap = cmp::max(new_cap, original_capacity);
             }
         }
+
+        new_cap = cmp::max(new_cap, original_capacity);
 
         // Create a new vector to store the data
         let mut v = ManuallyDrop::new(Vec::with_capacity(new_cap));
