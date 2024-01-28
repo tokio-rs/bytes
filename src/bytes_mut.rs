@@ -1409,7 +1409,6 @@ fn original_capacity_from_repr(repr: usize) -> usize {
     1 << (repr + (MIN_ORIGINAL_CAPACITY_WIDTH - 1))
 }
 
-/*
 #[test]
 fn test_original_capacity_to_repr() {
     assert_eq!(original_capacity_to_repr(0), 0);
@@ -1458,7 +1457,6 @@ fn test_original_capacity_from_repr() {
     assert_eq!(min_cap * 32, original_capacity_from_repr(6));
     assert_eq!(min_cap * 64, original_capacity_from_repr(7));
 }
-*/
 
 unsafe impl Send for BytesMut {}
 unsafe impl Sync for BytesMut {}
