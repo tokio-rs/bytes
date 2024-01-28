@@ -652,13 +652,7 @@ impl BytesMut {
         // Compute the new capacity
         let mut new_cap = len.checked_add(additional).expect("overflow");
 
-        let original_capacity;
-        let original_capacity_repr;
-
         unsafe {
-            original_capacity_repr = (*shared).original_capacity_repr;
-            original_capacity = original_capacity_from_repr(original_capacity_repr);
-
             // First, try to reclaim the buffer. This is possible if the current
             // handle is the only outstanding handle pointing to the buffer.
             if (*shared).is_unique() {
@@ -728,6 +722,9 @@ impl BytesMut {
                 return;
             }
         }
+
+        let original_capacity_repr = unsafe { (*shared).original_capacity_repr };
+        let original_capacity = original_capacity_from_repr(original_capacity_repr);
 
         new_cap = cmp::max(new_cap, original_capacity);
 
