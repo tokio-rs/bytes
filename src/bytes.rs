@@ -580,7 +580,7 @@ impl Buf for Bytes {
         }
     }
 
-    fn copy_to_bytes(&mut self, len: usize) -> crate::Bytes {
+    fn copy_to_bytes(&mut self, len: usize) -> Self {
         if len == self.remaining() {
             core::mem::replace(self, Bytes::new())
         } else {
