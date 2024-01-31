@@ -243,7 +243,7 @@ impl BytesMut {
     /// th.join().unwrap();
     /// ```
     #[inline]
-    pub fn freeze(mut self) -> Bytes {
+    pub fn freeze(self) -> Bytes {
         if self.kind() == KIND_VEC {
             // Just re-use `Bytes` internal Vec vtable
             unsafe {
@@ -982,7 +982,7 @@ impl BytesMut {
     }
 
     #[inline]
-    unsafe fn get_vec_pos(&mut self) -> (usize, usize) {
+    unsafe fn get_vec_pos(&self) -> (usize, usize) {
         debug_assert_eq!(self.kind(), KIND_VEC);
 
         let prev = self.data as usize;
@@ -1620,7 +1620,7 @@ impl PartialEq<Bytes> for BytesMut {
 }
 
 impl From<BytesMut> for Vec<u8> {
-    fn from(mut bytes: BytesMut) -> Self {
+    fn from(bytes: BytesMut) -> Self {
         let kind = bytes.kind();
 
         let mut vec = if kind == KIND_VEC {
