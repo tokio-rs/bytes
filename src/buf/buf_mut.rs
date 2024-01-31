@@ -319,8 +319,11 @@ pub unsafe trait BufMut {
     /// `self`.
     #[inline]
     fn put_u8(&mut self, n: u8) {
-        let src = [n];
-        self.put_slice(&src);
+        let dst = self.chunk_mut();
+        unsafe {
+            dst.as_mut_ptr().write(n);
+            self.advance_mut(1)
+        };
     }
 
     /// Writes a signed 8 bit integer to `self`.
@@ -343,8 +346,7 @@ pub unsafe trait BufMut {
     /// `self`.
     #[inline]
     fn put_i8(&mut self, n: i8) {
-        let src = [n as u8];
-        self.put_slice(&src)
+        self.put_u8(n as u8)
     }
 
     /// Writes an unsigned 16 bit integer to `self` in big-endian byte order.
