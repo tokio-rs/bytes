@@ -319,6 +319,10 @@ pub unsafe trait BufMut {
     /// `self`.
     #[inline]
     fn put_u8(&mut self, n: u8) {
+        if self.remaining_mut() < 1 {
+            panic_advance(1, self.remaining_mut());
+        }
+
         let dst = self.chunk_mut();
         unsafe {
             dst.as_mut_ptr().write(n);
