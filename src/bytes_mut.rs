@@ -629,14 +629,21 @@ impl BytesMut {
                 } else {
                     // Not enough space, or reusing might be too much overhead:
                     // allocate more space!
-                    let mut v =
-                        ManuallyDrop::new(rebuild_vec(self.ptr.as_ptr(), self.len, self.cap, off));
-                    v.reserve(additional);
+                    let request = len.checked_add(additional).expect("overflow");
 
-                    // Update the info
-                    self.ptr = vptr(v.as_mut_ptr().add(off));
-                    self.len = v.len() - off;
-                    self.cap = v.capacity() - off;
+                    // New capacity should be at least double the buffer size
+                    let new_cap = (self.cap + off)
+                        .checked_shl(1)
+                        .map(|x| cmp::max(x, request))
+                        .unwrap_or(request);
+
+                    // Copy the current buffer into a new Vec with the desired capacity.
+                    let mut new = ManuallyDrop::new(Vec::with_capacity(new_cap));
+                    ptr::copy_nonoverlapping(self.ptr.as_ptr(), new.as_mut_ptr(), self.len);
+                    drop(rebuild_vec(self.ptr.as_ptr(), self.len, self.cap, off));
+                    self.ptr = vptr(new.as_mut_ptr());
+                    self.cap = new.capacity();
+                    self.set_vec_pos(0, prev);
                 }
 
                 return;
