@@ -247,7 +247,7 @@ impl BytesMut {
         if self.kind() == KIND_VEC {
             // Just re-use `Bytes` internal Vec vtable
             unsafe {
-                let (off, _) = self.get_vec_pos();
+                let off = self.get_vec_pos();
                 let vec = rebuild_vec(self.ptr.as_ptr(), self.len, self.cap, off);
                 mem::forget(self);
                 let mut b: Bytes = vec.into();
@@ -596,7 +596,7 @@ impl BytesMut {
             // We need to make sure that this optimization does not kill the
             // amortized runtimes of BytesMut's operations.
             unsafe {
-                let (off, prev) = self.get_vec_pos();
+                let off = self.get_vec_pos();
 
                 // Only reuse space if we can satisfy the requested additional space.
                 //
@@ -617,11 +617,11 @@ impl BytesMut {
                     //
                     // Just move the pointer back to the start after copying
                     // data back.
-                    let base_ptr = self.ptr.as_ptr().offset(-(off as isize));
+                    let base_ptr = self.ptr.as_ptr().sub(off);
                     // Since `off >= self.len()`, the two regions don't overlap.
                     ptr::copy_nonoverlapping(self.ptr.as_ptr(), base_ptr, self.len);
                     self.ptr = vptr(base_ptr);
-                    self.set_vec_pos(0, prev);
+                    self.set_vec_pos(0);
 
                     // Length stays constant, but since we moved backwards we
                     // can gain capacity back.
@@ -652,13 +652,7 @@ impl BytesMut {
         // Compute the new capacity
         let mut new_cap = len.checked_add(additional).expect("overflow");
 
-        let original_capacity;
-        let original_capacity_repr;
-
         unsafe {
-            original_capacity_repr = (*shared).original_capacity_repr;
-            original_capacity = original_capacity_from_repr(original_capacity_repr);
-
             // First, try to reclaim the buffer. This is possible if the current
             // handle is the only outstanding handle pointing to the buffer.
             if (*shared).is_unique() {
@@ -728,6 +722,9 @@ impl BytesMut {
                 return;
             }
         }
+
+        let original_capacity_repr = unsafe { (*shared).original_capacity_repr };
+        let original_capacity = original_capacity_from_repr(original_capacity_repr);
 
         new_cap = cmp::max(new_cap, original_capacity);
 
@@ -870,11 +867,10 @@ impl BytesMut {
             // complicated. First, we have to track how far ahead the
             // "start" of the byte buffer from the beginning of the vec. We
             // also have to ensure that we don't exceed the maximum shift.
-            let (mut pos, prev) = self.get_vec_pos();
-            pos += start;
+            let pos = self.get_vec_pos() + start;
 
             if pos <= MAX_VEC_POS {
-                self.set_vec_pos(pos, prev);
+                self.set_vec_pos(pos);
             } else {
                 // The repr must be upgraded to ARC. This will never happen
                 // on 64 bit systems and will only happen on 32 bit systems
@@ -982,19 +978,18 @@ impl BytesMut {
     }
 
     #[inline]
-    unsafe fn get_vec_pos(&self) -> (usize, usize) {
+    unsafe fn get_vec_pos(&self) -> usize {
         debug_assert_eq!(self.kind(), KIND_VEC);
 
-        let prev = self.data as usize;
-        (prev >> VEC_POS_OFFSET, prev)
+        self.data as usize >> VEC_POS_OFFSET
     }
 
     #[inline]
-    unsafe fn set_vec_pos(&mut self, pos: usize, prev: usize) {
+    unsafe fn set_vec_pos(&mut self, pos: usize) {
         debug_assert_eq!(self.kind(), KIND_VEC);
         debug_assert!(pos <= MAX_VEC_POS);
 
-        self.data = invalid_ptr((pos << VEC_POS_OFFSET) | (prev & NOT_VEC_POS_MASK));
+        self.data = invalid_ptr((pos << VEC_POS_OFFSET) | (self.data as usize & NOT_VEC_POS_MASK));
     }
 
     /// Returns the remaining spare capacity of the buffer as a slice of `MaybeUninit<u8>`.
@@ -1043,7 +1038,7 @@ impl Drop for BytesMut {
 
         if kind == KIND_VEC {
             unsafe {
-                let (off, _) = self.get_vec_pos();
+                let off = self.get_vec_pos();
 
                 // Vector storage, free the vector
                 let _ = rebuild_vec(self.ptr.as_ptr(), self.len, self.cap, off);
@@ -1409,56 +1404,59 @@ fn original_capacity_from_repr(repr: usize) -> usize {
     1 << (repr + (MIN_ORIGINAL_CAPACITY_WIDTH - 1))
 }
 
-/*
-#[test]
-fn test_original_capacity_to_repr() {
-    assert_eq!(original_capacity_to_repr(0), 0);
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-    let max_width = 32;
+    #[test]
+    fn test_original_capacity_to_repr() {
+        assert_eq!(original_capacity_to_repr(0), 0);
 
-    for width in 1..(max_width + 1) {
-        let cap = 1 << width - 1;
+        let max_width = 32;
 
-        let expected = if width < MIN_ORIGINAL_CAPACITY_WIDTH {
-            0
-        } else if width < MAX_ORIGINAL_CAPACITY_WIDTH {
-            width - MIN_ORIGINAL_CAPACITY_WIDTH
-        } else {
-            MAX_ORIGINAL_CAPACITY_WIDTH - MIN_ORIGINAL_CAPACITY_WIDTH
-        };
+        for width in 1..(max_width + 1) {
+            let cap = 1 << width - 1;
 
-        assert_eq!(original_capacity_to_repr(cap), expected);
+            let expected = if width < MIN_ORIGINAL_CAPACITY_WIDTH {
+                0
+            } else if width < MAX_ORIGINAL_CAPACITY_WIDTH {
+                width - MIN_ORIGINAL_CAPACITY_WIDTH
+            } else {
+                MAX_ORIGINAL_CAPACITY_WIDTH - MIN_ORIGINAL_CAPACITY_WIDTH
+            };
 
-        if width > 1 {
-            assert_eq!(original_capacity_to_repr(cap + 1), expected);
-        }
+            assert_eq!(original_capacity_to_repr(cap), expected);
 
-        //  MIN_ORIGINAL_CAPACITY_WIDTH must be bigger than 7 to pass tests below
-        if width == MIN_ORIGINAL_CAPACITY_WIDTH + 1 {
-            assert_eq!(original_capacity_to_repr(cap - 24), expected - 1);
-            assert_eq!(original_capacity_to_repr(cap + 76), expected);
-        } else if width == MIN_ORIGINAL_CAPACITY_WIDTH + 2 {
-            assert_eq!(original_capacity_to_repr(cap - 1), expected - 1);
-            assert_eq!(original_capacity_to_repr(cap - 48), expected - 1);
+            if width > 1 {
+                assert_eq!(original_capacity_to_repr(cap + 1), expected);
+            }
+
+            //  MIN_ORIGINAL_CAPACITY_WIDTH must be bigger than 7 to pass tests below
+            if width == MIN_ORIGINAL_CAPACITY_WIDTH + 1 {
+                assert_eq!(original_capacity_to_repr(cap - 24), expected - 1);
+                assert_eq!(original_capacity_to_repr(cap + 76), expected);
+            } else if width == MIN_ORIGINAL_CAPACITY_WIDTH + 2 {
+                assert_eq!(original_capacity_to_repr(cap - 1), expected - 1);
+                assert_eq!(original_capacity_to_repr(cap - 48), expected - 1);
+            }
         }
     }
+
+    #[test]
+    fn test_original_capacity_from_repr() {
+        assert_eq!(0, original_capacity_from_repr(0));
+
+        let min_cap = 1 << MIN_ORIGINAL_CAPACITY_WIDTH;
+
+        assert_eq!(min_cap, original_capacity_from_repr(1));
+        assert_eq!(min_cap * 2, original_capacity_from_repr(2));
+        assert_eq!(min_cap * 4, original_capacity_from_repr(3));
+        assert_eq!(min_cap * 8, original_capacity_from_repr(4));
+        assert_eq!(min_cap * 16, original_capacity_from_repr(5));
+        assert_eq!(min_cap * 32, original_capacity_from_repr(6));
+        assert_eq!(min_cap * 64, original_capacity_from_repr(7));
+    }
 }
-
-#[test]
-fn test_original_capacity_from_repr() {
-    assert_eq!(0, original_capacity_from_repr(0));
-
-    let min_cap = 1 << MIN_ORIGINAL_CAPACITY_WIDTH;
-
-    assert_eq!(min_cap, original_capacity_from_repr(1));
-    assert_eq!(min_cap * 2, original_capacity_from_repr(2));
-    assert_eq!(min_cap * 4, original_capacity_from_repr(3));
-    assert_eq!(min_cap * 8, original_capacity_from_repr(4));
-    assert_eq!(min_cap * 16, original_capacity_from_repr(5));
-    assert_eq!(min_cap * 32, original_capacity_from_repr(6));
-    assert_eq!(min_cap * 64, original_capacity_from_repr(7));
-}
-*/
 
 unsafe impl Send for BytesMut {}
 unsafe impl Sync for BytesMut {}
@@ -1625,7 +1623,7 @@ impl From<BytesMut> for Vec<u8> {
 
         let mut vec = if kind == KIND_VEC {
             unsafe {
-                let (off, _) = bytes.get_vec_pos();
+                let off = bytes.get_vec_pos();
                 rebuild_vec(bytes.ptr.as_ptr(), bytes.len, bytes.cap, off)
             }
         } else {
@@ -1694,7 +1692,7 @@ fn offset_from(dst: *mut u8, original: *mut u8) -> usize {
 }
 
 unsafe fn rebuild_vec(ptr: *mut u8, mut len: usize, mut cap: usize, off: usize) -> Vec<u8> {
-    let ptr = ptr.offset(-(off as isize));
+    let ptr = ptr.sub(off);
     len += off;
     cap += off;
 

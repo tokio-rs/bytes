@@ -828,8 +828,7 @@ impl From<&'static str> for Bytes {
 }
 
 impl From<Vec<u8>> for Bytes {
-    fn from(vec: Vec<u8>) -> Bytes {
-        let mut vec = vec;
+    fn from(mut vec: Vec<u8>) -> Bytes {
         let ptr = vec.as_mut_ptr();
         let len = vec.len();
         let cap = vec.capacity();
