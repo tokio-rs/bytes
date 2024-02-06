@@ -247,7 +247,7 @@ impl BytesMut {
         if self.kind() == KIND_VEC {
             // Just re-use `Bytes` internal Vec vtable
             unsafe {
-                let (off, _) = self.get_vec_pos();
+                let off = self.get_vec_pos();
                 let vec = rebuild_vec(self.ptr.as_ptr(), self.len, self.cap, off);
                 mem::forget(self);
                 let mut b: Bytes = vec.into();
@@ -596,7 +596,7 @@ impl BytesMut {
             // We need to make sure that this optimization does not kill the
             // amortized runtimes of BytesMut's operations.
             unsafe {
-                let (off, prev) = self.get_vec_pos();
+                let off = self.get_vec_pos();
 
                 // Only reuse space if we can satisfy the requested additional space.
                 //
@@ -621,7 +621,7 @@ impl BytesMut {
                     // Since `off >= self.len()`, the two regions don't overlap.
                     ptr::copy_nonoverlapping(self.ptr.as_ptr(), base_ptr, self.len);
                     self.ptr = vptr(base_ptr);
-                    self.set_vec_pos(0, prev);
+                    self.set_vec_pos(0);
 
                     // Length stays constant, but since we moved backwards we
                     // can gain capacity back.
@@ -867,11 +867,10 @@ impl BytesMut {
             // complicated. First, we have to track how far ahead the
             // "start" of the byte buffer from the beginning of the vec. We
             // also have to ensure that we don't exceed the maximum shift.
-            let (mut pos, prev) = self.get_vec_pos();
-            pos += start;
+            let pos = self.get_vec_pos() + start;
 
             if pos <= MAX_VEC_POS {
-                self.set_vec_pos(pos, prev);
+                self.set_vec_pos(pos);
             } else {
                 // The repr must be upgraded to ARC. This will never happen
                 // on 64 bit systems and will only happen on 32 bit systems
@@ -979,19 +978,18 @@ impl BytesMut {
     }
 
     #[inline]
-    unsafe fn get_vec_pos(&mut self) -> (usize, usize) {
+    unsafe fn get_vec_pos(&mut self) -> usize {
         debug_assert_eq!(self.kind(), KIND_VEC);
 
-        let prev = self.data as usize;
-        (prev >> VEC_POS_OFFSET, prev)
+        self.data as usize >> VEC_POS_OFFSET
     }
 
     #[inline]
-    unsafe fn set_vec_pos(&mut self, pos: usize, prev: usize) {
+    unsafe fn set_vec_pos(&mut self, pos: usize) {
         debug_assert_eq!(self.kind(), KIND_VEC);
         debug_assert!(pos <= MAX_VEC_POS);
 
-        self.data = invalid_ptr((pos << VEC_POS_OFFSET) | (prev & NOT_VEC_POS_MASK));
+        self.data = invalid_ptr((pos << VEC_POS_OFFSET) | (self.data as usize & NOT_VEC_POS_MASK));
     }
 
     /// Returns the remaining spare capacity of the buffer as a slice of `MaybeUninit<u8>`.
@@ -1040,7 +1038,7 @@ impl Drop for BytesMut {
 
         if kind == KIND_VEC {
             unsafe {
-                let (off, _) = self.get_vec_pos();
+                let off = self.get_vec_pos();
 
                 // Vector storage, free the vector
                 let _ = rebuild_vec(self.ptr.as_ptr(), self.len, self.cap, off);
@@ -1625,7 +1623,7 @@ impl From<BytesMut> for Vec<u8> {
 
         let mut vec = if kind == KIND_VEC {
             unsafe {
-                let (off, _) = bytes.get_vec_pos();
+                let off = bytes.get_vec_pos();
                 rebuild_vec(bytes.ptr.as_ptr(), bytes.len, bytes.cap, off)
             }
         } else {
