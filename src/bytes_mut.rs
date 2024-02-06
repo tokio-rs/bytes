@@ -617,7 +617,7 @@ impl BytesMut {
                     //
                     // Just move the pointer back to the start after copying
                     // data back.
-                    let base_ptr = self.ptr.as_ptr().offset(-(off as isize));
+                    let base_ptr = self.ptr.as_ptr().sub(off);
                     // Since `off >= self.len()`, the two regions don't overlap.
                     ptr::copy_nonoverlapping(self.ptr.as_ptr(), base_ptr, self.len);
                     self.ptr = vptr(base_ptr);
@@ -1697,7 +1697,7 @@ fn offset_from(dst: *mut u8, original: *mut u8) -> usize {
 }
 
 unsafe fn rebuild_vec(ptr: *mut u8, mut len: usize, mut cap: usize, off: usize) -> Vec<u8> {
-    let ptr = ptr.offset(-(off as isize));
+    let ptr = ptr.sub(off);
     len += off;
     cap += off;
 
