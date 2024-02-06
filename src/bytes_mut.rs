@@ -393,11 +393,11 @@ impl BytesMut {
 
         unsafe {
             let mut other = self.shallow_clone();
-            other.cap = at;
-            other.len = at;
             // SAFETY: We've checked that `at` <= `self.len()` and we know that `self.len()` <=
             // `self.capacity()`.
             self.advance_unchecked(at);
+            other.cap = at;
+            other.len = at;
             other
         }
     }
