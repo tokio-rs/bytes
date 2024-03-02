@@ -1285,7 +1285,6 @@ impl Extend<u8> for BytesMut {
         // 1. If self.kind() == KIND_VEC, use Vec::extend
         // 2. Make `reserve` inline-able
         for b in iter {
-            self.reserve(1);
             self.put_u8(b);
         }
     }
