@@ -1617,6 +1617,7 @@ impl PartialEq<Bytes> for BytesMut {
 impl From<BytesMut> for Vec<u8> {
     fn from(bytes: BytesMut) -> Self {
         let kind = bytes.kind();
+        let bytes = ManuallyDrop::new(bytes);
 
         let mut vec = if kind == KIND_VEC {
             unsafe {
@@ -1633,7 +1634,7 @@ impl From<BytesMut> for Vec<u8> {
 
                 vec
             } else {
-                return bytes.deref().to_vec();
+                return ManuallyDrop::into_inner(bytes).deref().to_vec();
             }
         };
 
@@ -1643,8 +1644,6 @@ impl From<BytesMut> for Vec<u8> {
             ptr::copy(bytes.ptr.as_ptr(), vec.as_mut_ptr(), len);
             vec.set_len(len);
         }
-
-        mem::forget(bytes);
 
         vec
     }
