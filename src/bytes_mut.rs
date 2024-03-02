@@ -244,23 +244,22 @@ impl BytesMut {
     /// ```
     #[inline]
     pub fn freeze(self) -> Bytes {
-        if self.kind() == KIND_VEC {
+        let bytes = ManuallyDrop::new(self);
+        if bytes.kind() == KIND_VEC {
             // Just re-use `Bytes` internal Vec vtable
             unsafe {
-                let off = self.get_vec_pos();
-                let vec = rebuild_vec(self.ptr.as_ptr(), self.len, self.cap, off);
-                mem::forget(self);
+                let off = bytes.get_vec_pos();
+                let vec = rebuild_vec(bytes.ptr.as_ptr(), bytes.len, bytes.cap, off);
                 let mut b: Bytes = vec.into();
                 b.advance(off);
                 b
             }
         } else {
-            debug_assert_eq!(self.kind(), KIND_ARC);
+            debug_assert_eq!(bytes.kind(), KIND_ARC);
 
-            let ptr = self.ptr.as_ptr();
-            let len = self.len;
-            let data = AtomicPtr::new(self.data.cast());
-            mem::forget(self);
+            let ptr = bytes.ptr.as_ptr();
+            let len = bytes.len;
+            let data = AtomicPtr::new(bytes.data.cast());
             unsafe { Bytes::with_vtable(ptr, len, data, &SHARED_VTABLE) }
         }
     }
