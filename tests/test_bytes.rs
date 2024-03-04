@@ -599,6 +599,28 @@ fn extend_mut_from_bytes() {
 }
 
 #[test]
+fn extend_past_lower_limit_of_size_hint() {
+    // See https://github.com/tokio-rs/bytes/pull/674#pullrequestreview-1913035700
+    struct Iter<I>(I);
+
+    impl<I: Iterator<Item = u8>> Iterator for Iter<I> {
+        type Item = u8;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            self.0.next()
+        }
+
+        fn size_hint(&self) -> (usize, Option<usize>) {
+            (5, None)
+        }
+    }
+
+    let mut bytes = BytesMut::with_capacity(5);
+    bytes.extend(Iter(std::iter::repeat(0).take(10)));
+    assert_eq!(bytes.len(), 10);
+}
+
+#[test]
 fn extend_mut_without_size_hint() {
     let mut bytes = BytesMut::with_capacity(0);
     let mut long_iter = LONG.iter();
