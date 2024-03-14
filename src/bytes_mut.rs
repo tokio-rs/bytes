@@ -244,23 +244,22 @@ impl BytesMut {
     /// ```
     #[inline]
     pub fn freeze(self) -> Bytes {
-        if self.kind() == KIND_VEC {
+        let bytes = ManuallyDrop::new(self);
+        if bytes.kind() == KIND_VEC {
             // Just re-use `Bytes` internal Vec vtable
             unsafe {
-                let off = self.get_vec_pos();
-                let vec = rebuild_vec(self.ptr.as_ptr(), self.len, self.cap, off);
-                mem::forget(self);
+                let off = bytes.get_vec_pos();
+                let vec = rebuild_vec(bytes.ptr.as_ptr(), bytes.len, bytes.cap, off);
                 let mut b: Bytes = vec.into();
                 b.advance(off);
                 b
             }
         } else {
-            debug_assert_eq!(self.kind(), KIND_ARC);
+            debug_assert_eq!(bytes.kind(), KIND_ARC);
 
-            let ptr = self.ptr.as_ptr();
-            let len = self.len;
-            let data = AtomicPtr::new(self.data.cast());
-            mem::forget(self);
+            let ptr = bytes.ptr.as_ptr();
+            let len = bytes.len;
+            let data = AtomicPtr::new(bytes.data.cast());
             unsafe { Bytes::with_vtable(ptr, len, data, &SHARED_VTABLE) }
         }
     }
@@ -829,11 +828,11 @@ impl BytesMut {
     // internal change could make a simple pattern (`BytesMut::from(vec)`)
     // suddenly a lot more expensive.
     #[inline]
-    pub(crate) fn from_vec(mut vec: Vec<u8>) -> BytesMut {
+    pub(crate) fn from_vec(vec: Vec<u8>) -> BytesMut {
+        let mut vec = ManuallyDrop::new(vec);
         let ptr = vptr(vec.as_mut_ptr());
         let len = vec.len();
         let cap = vec.capacity();
-        mem::forget(vec);
 
         let original_capacity_repr = original_capacity_to_repr(cap);
         let data = (original_capacity_repr << ORIGINAL_CAPACITY_OFFSET) | KIND_VEC;
@@ -1616,6 +1615,7 @@ impl PartialEq<Bytes> for BytesMut {
 impl From<BytesMut> for Vec<u8> {
     fn from(bytes: BytesMut) -> Self {
         let kind = bytes.kind();
+        let bytes = ManuallyDrop::new(bytes);
 
         let mut vec = if kind == KIND_VEC {
             unsafe {
@@ -1632,7 +1632,7 @@ impl From<BytesMut> for Vec<u8> {
 
                 vec
             } else {
-                return bytes.deref().to_vec();
+                return ManuallyDrop::into_inner(bytes).deref().to_vec();
             }
         };
 
@@ -1642,8 +1642,6 @@ impl From<BytesMut> for Vec<u8> {
             ptr::copy(bytes.ptr.as_ptr(), vec.as_mut_ptr(), len);
             vec.set_len(len);
         }
-
-        mem::forget(bytes);
 
         vec
     }
