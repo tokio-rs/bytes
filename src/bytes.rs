@@ -829,13 +829,15 @@ impl From<&'static str> for Bytes {
 }
 
 impl From<Vec<u8>> for Bytes {
-    fn from(mut vec: Vec<u8>) -> Bytes {
+    fn from(vec: Vec<u8>) -> Bytes {
+        let mut vec = ManuallyDrop::new(vec);
         let ptr = vec.as_mut_ptr();
         let len = vec.len();
         let cap = vec.capacity();
 
         // Avoid an extra allocation if possible.
         if len == cap {
+            let vec = ManuallyDrop::into_inner(vec);
             return Bytes::from(vec.into_boxed_slice());
         }
 
@@ -844,7 +846,6 @@ impl From<Vec<u8>> for Bytes {
             cap,
             ref_cnt: AtomicUsize::new(1),
         });
-        mem::forget(vec);
 
         let shared = Box::into_raw(shared);
         // The pointer should be aligned, so this assert should
