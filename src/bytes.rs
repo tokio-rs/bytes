@@ -1,6 +1,7 @@
 use core::iter::FromIterator;
+use core::mem::{self, ManuallyDrop};
 use core::ops::{Deref, RangeBounds};
-use core::{cmp, fmt, hash, mem, ptr, slice, usize};
+use core::{cmp, fmt, hash, ptr, slice, usize};
 
 use alloc::{
     alloc::{dealloc, Layout},
@@ -900,7 +901,7 @@ impl From<String> for Bytes {
 
 impl From<Bytes> for Vec<u8> {
     fn from(bytes: Bytes) -> Vec<u8> {
-        let bytes = mem::ManuallyDrop::new(bytes);
+        let bytes = ManuallyDrop::new(bytes);
         unsafe { (bytes.vtable.to_vec)(&bytes.data, bytes.ptr, bytes.len) }
     }
 }
@@ -1120,7 +1121,7 @@ unsafe fn shared_to_vec_impl(shared: *mut Shared, ptr: *const u8, len: usize) ->
         let cap = (*shared).cap;
 
         // Deallocate Shared
-        drop(Box::from_raw(shared as *mut mem::ManuallyDrop<Shared>));
+        drop(Box::from_raw(shared as *mut ManuallyDrop<Shared>));
 
         // Copy back buffer
         ptr::copy(ptr, buf, len);
