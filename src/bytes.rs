@@ -1117,11 +1117,10 @@ unsafe fn shared_to_vec_impl(shared: *mut Shared, ptr: *const u8, len: usize) ->
         .compare_exchange(1, 0, Ordering::AcqRel, Ordering::Relaxed)
         .is_ok()
     {
-        let buf = (*shared).buf;
-        let cap = (*shared).cap;
-
-        // Deallocate Shared
-        drop(Box::from_raw(shared as *mut ManuallyDrop<Shared>));
+        // Deallocate the `Shared` instance without running its destructor.
+        let shared = ManuallyDrop::new(*Box::from_raw(shared));
+        let buf = shared.buf;
+        let cap = shared.cap;
 
         // Copy back buffer
         ptr::copy(ptr, buf, len);
