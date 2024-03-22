@@ -1119,7 +1119,8 @@ unsafe fn shared_to_vec_impl(shared: *mut Shared, ptr: *const u8, len: usize) ->
         .is_ok()
     {
         // Deallocate the `Shared` instance without running its destructor.
-        let shared = ManuallyDrop::new(*Box::from_raw(shared));
+        let shared = *Box::from_raw(shared);
+        let shared = ManuallyDrop::new(shared);
         let buf = shared.buf;
         let cap = shared.cap;
 
