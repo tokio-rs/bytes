@@ -1,3 +1,17 @@
+# 1.6.0 (March 22, 2024)
+
+### Added
+
+- Add `Bytes::is_unique` (#643)
+
+### Documented
+
+- Fix changelog typo (#628)
+- Fix some spelling mistakes (#633)
+- Typo fix (#637)
+- Fix broken links (#639)
+- Add security policy (#649)
+
 # 1.5.0 (September 7, 2023)
 
 ### Added
