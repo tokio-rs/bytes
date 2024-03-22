@@ -1,6 +1,7 @@
 use core::iter::FromIterator;
+use core::mem::{self, ManuallyDrop};
 use core::ops::{Deref, RangeBounds};
-use core::{cmp, fmt, hash, mem, ptr, slice, usize};
+use core::{cmp, fmt, hash, ptr, slice, usize};
 
 use alloc::{
     alloc::{dealloc, Layout},
@@ -828,13 +829,15 @@ impl From<&'static str> for Bytes {
 }
 
 impl From<Vec<u8>> for Bytes {
-    fn from(mut vec: Vec<u8>) -> Bytes {
+    fn from(vec: Vec<u8>) -> Bytes {
+        let mut vec = ManuallyDrop::new(vec);
         let ptr = vec.as_mut_ptr();
         let len = vec.len();
         let cap = vec.capacity();
 
         // Avoid an extra allocation if possible.
         if len == cap {
+            let vec = ManuallyDrop::into_inner(vec);
             return Bytes::from(vec.into_boxed_slice());
         }
 
@@ -843,7 +846,6 @@ impl From<Vec<u8>> for Bytes {
             cap,
             ref_cnt: AtomicUsize::new(1),
         });
-        mem::forget(vec);
 
         let shared = Box::into_raw(shared);
         // The pointer should be aligned, so this assert should
@@ -900,7 +902,7 @@ impl From<String> for Bytes {
 
 impl From<Bytes> for Vec<u8> {
     fn from(bytes: Bytes) -> Vec<u8> {
-        let bytes = mem::ManuallyDrop::new(bytes);
+        let bytes = ManuallyDrop::new(bytes);
         unsafe { (bytes.vtable.to_vec)(&bytes.data, bytes.ptr, bytes.len) }
     }
 }
@@ -1116,11 +1118,11 @@ unsafe fn shared_to_vec_impl(shared: *mut Shared, ptr: *const u8, len: usize) ->
         .compare_exchange(1, 0, Ordering::AcqRel, Ordering::Relaxed)
         .is_ok()
     {
-        let buf = (*shared).buf;
-        let cap = (*shared).cap;
-
-        // Deallocate Shared
-        drop(Box::from_raw(shared as *mut mem::ManuallyDrop<Shared>));
+        // Deallocate the `Shared` instance without running its destructor.
+        let shared = *Box::from_raw(shared);
+        let shared = ManuallyDrop::new(shared);
+        let buf = shared.buf;
+        let cap = shared.cap;
 
         // Copy back buffer
         ptr::copy(ptr, buf, len);
