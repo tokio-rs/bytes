@@ -639,7 +639,6 @@ impl BytesMut {
 
                     // Update the info
                     self.ptr = vptr(v.as_mut_ptr().add(off));
-                    self.len = v.len() - off;
                     self.cap = v.capacity() - off;
                 }
 
@@ -746,7 +745,6 @@ impl BytesMut {
         let data = (original_capacity_repr << ORIGINAL_CAPACITY_OFFSET) | KIND_VEC;
         self.data = invalid_ptr(data);
         self.ptr = vptr(v.as_mut_ptr());
-        self.len = v.len();
         self.cap = v.capacity();
     }
 
