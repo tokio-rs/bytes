@@ -3,7 +3,7 @@ use core::ops::{Deref, RangeBounds};
 use core::{cmp, fmt, hash, mem, ptr, slice, usize};
 
 use alloc::{
-    alloc::{dealloc, Layout},
+    alloc::{alloc, dealloc, handle_alloc_error, Layout},
     borrow::Borrow,
     boxed::Box,
     string::String,
@@ -534,6 +534,46 @@ impl Bytes {
         debug_assert!(self.len >= by, "internal: inc_start out of bounds");
         self.len -= by;
         self.ptr = self.ptr.add(by);
+    }
+
+    /// Creates a new `Bytes`, where the backing store is aligned to `align` bytes
+    /// and is uninitialised.
+    ///
+    /// Both the start position and end position of the backing store will be aligned to `align`
+    /// bytes. That is, `len` will be rounded up to a multiple of `align`.
+    ///
+    /// `len` must not be 0.
+    /// `align` must be at least 2, and must be a power of 2.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Bytes;
+    ///
+    /// const LEN: usize = 64;
+    /// const ALIGN: usize = 32;
+    /// let buf = Bytes::new_aligned_uninit(LEN, ALIGN);
+    /// assert_eq!(buf.len(), LEN);
+    /// ```
+    pub fn new_aligned_uninit(len: usize, align: usize) -> Self {
+        assert_ne!(len, 0);
+        assert!(align > 1);
+        let layout = Layout::from_size_align(len, align)
+            .expect("failed to create Layout!")
+            .pad_to_align();
+        let ptr = unsafe { alloc(layout) };
+        if ptr.is_null() {
+            handle_alloc_error(layout);
+        };
+        // `align` must be even, so ptr will always be even.
+        assert!(ptr as usize & 0x1 == 0);
+        let data = ptr_map(ptr, |addr| addr | KIND_VEC);
+        Self {
+            ptr,
+            len,
+            data: AtomicPtr::new(data.cast()),
+            vtable: &PROMOTABLE_EVEN_VTABLE,
+        }
     }
 }
 
