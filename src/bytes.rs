@@ -556,8 +556,10 @@ impl Bytes {
     /// if ptr.is_null() {
     ///     handle_alloc_error(layout);
     /// };
+    ///
     /// // (Not shown here: Pass `ptr` and `LEN` to code that will write data into the buffer.
     /// // For example, pass `ptr` to a system call to load data from disk using `O_DIRECT`.)
+    ///
     /// let buf = Bytes::from_raw_parts(ptr, LEN);
     /// assert_eq!(buf.len(), LEN);
     /// ```
