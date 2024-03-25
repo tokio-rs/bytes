@@ -1172,20 +1172,3 @@ fn shared_is_unique() {
     drop(b);
     assert!(c.is_unique());
 }
-
-#[test]
-fn test_bytes_new_aligned_uninit() {
-    const LEN: usize = 128;
-    const ALIGN: usize = 32;
-    let b = Bytes::new_aligned_uninit(LEN, ALIGN);
-    assert_eq!(b.len(), LEN);
-
-    // Mimic the operating system writing into this buffer:
-    let ptr = b.as_ptr() as *mut u8;
-    (0..LEN).for_each(|i| unsafe {
-        *ptr.offset(i as isize) = i as u8;
-    });
-
-    // Check the data:
-    (0..LEN).for_each(|i| assert_eq!(b[i], i as u8));
-}

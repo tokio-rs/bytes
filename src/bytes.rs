@@ -3,7 +3,7 @@ use core::ops::{Deref, RangeBounds};
 use core::{cmp, fmt, hash, mem, ptr, slice, usize};
 
 use alloc::{
-    alloc::{alloc, dealloc, handle_alloc_error, Layout},
+    alloc::{dealloc, Layout},
     borrow::Borrow,
     boxed::Box,
     string::String,
@@ -536,43 +536,48 @@ impl Bytes {
         self.ptr = self.ptr.add(by);
     }
 
-    /// Creates a new `Bytes`, where the backing store is aligned to `align` bytes
-    /// and is uninitialised.
-    ///
-    /// Both the start position and end position of the backing store will be aligned to `align`
-    /// bytes. That is, `len` will be rounded up to a multiple of `align`.
-    ///
-    /// `len` must not be 0.
-    /// `align` must be at least 2, and must be a power of 2.
+    /// Creates a new `Bytes` from a raw pointer and a length.
     ///
     /// # Examples
+    /// To create a new `Bytes` where the start position and end position of the backing store are
+    /// aligned to 32-byte boundaries:
     ///
     /// ```
     /// use bytes::Bytes;
+    /// use std::alloc::{alloc, Layout, handle_alloc_error};
     ///
     /// const LEN: usize = 64;
     /// const ALIGN: usize = 32;
-    /// let buf = Bytes::new_aligned_uninit(LEN, ALIGN);
+    ///
+    /// let layout = Layout::from_size_align(LEN, ALIGN)
+    ///     .expect("failed to create Layout!")
+    ///     .pad_to_align();
+    /// let ptr = unsafe { alloc(layout) };
+    /// if ptr.is_null() {
+    ///     handle_alloc_error(layout);
+    /// };
+    /// // (Not shown here: Pass `ptr` and `LEN` to code that will write data into the buffer.
+    /// // For example, pass `ptr` to a system call to load data from disk using `O_DIRECT`.)
+    /// let buf = Bytes::from_raw_parts(ptr, LEN);
     /// assert_eq!(buf.len(), LEN);
     /// ```
-    pub fn new_aligned_uninit(len: usize, align: usize) -> Self {
-        assert_ne!(len, 0);
-        assert!(align > 1);
-        let layout = Layout::from_size_align(len, align)
-            .expect("failed to create Layout!")
-            .pad_to_align();
-        let ptr = unsafe { alloc(layout) };
-        if ptr.is_null() {
-            handle_alloc_error(layout);
-        };
-        // `align` must be even, so ptr will always be even.
-        assert!(ptr as usize & 0x1 == 0);
-        let data = ptr_map(ptr, |addr| addr | KIND_VEC);
-        Self {
-            ptr,
-            len,
-            data: AtomicPtr::new(data.cast()),
-            vtable: &PROMOTABLE_EVEN_VTABLE,
+    pub fn from_raw_parts(ptr: *const u8, len: usize) -> Self {
+        let ptr = ptr as *mut u8;
+        if ptr as usize & 0x1 == 0 {
+            let data = ptr_map(ptr, |addr| addr | KIND_VEC);
+            Bytes {
+                ptr,
+                len,
+                data: AtomicPtr::new(data.cast()),
+                vtable: &PROMOTABLE_EVEN_VTABLE,
+            }
+        } else {
+            Bytes {
+                ptr,
+                len,
+                data: AtomicPtr::new(ptr.cast()),
+                vtable: &PROMOTABLE_ODD_VTABLE,
+            }
         }
     }
 }
