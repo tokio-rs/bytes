@@ -821,6 +821,12 @@ impl From<&'static [u8]> for Bytes {
     }
 }
 
+impl<const N: usize> From<&[u8; N]> for Bytes {
+    fn from(slice: &[u8; N]) -> Self {
+        Bytes::copy_from_slice(slice)
+    }
+}
+
 impl From<&'static str> for Bytes {
     fn from(slice: &'static str) -> Bytes {
         Bytes::from_static(slice.as_bytes())
