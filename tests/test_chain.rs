@@ -1,6 +1,6 @@
 #![warn(rust_2018_idioms)]
 
-use bytes::{Buf, BufMut, Bytes};
+use bytes::{Buf, BufMut, Bytes, SeekBufExt};
 #[cfg(feature = "std")]
 use std::io::IoSlice;
 
@@ -174,4 +174,28 @@ fn chain_get_bytes() {
     assert_eq!(ab_ptr, a.as_ptr());
     // assert `get_bytes` did not allocate
     assert_eq!(cd_ptr.wrapping_offset(1), d.as_ptr());
+}
+
+#[test]
+fn chain_seek_buf_iterator() {
+    let buf1 = b"01234".as_slice();
+    let buf2 = b"56789".as_slice();
+    let buf3 = b"abcde".as_slice();
+
+    let chain = buf1.chain(buf2).chain(buf3);
+
+    assert_eq!(
+        chain.cursor().copied().collect::<Vec<u8>>().as_slice(),
+        b"0123456789abcde".as_slice()
+    );
+
+    assert_eq!(
+        chain
+            .cursor()
+            .rev()
+            .copied()
+            .collect::<Vec<u8>>()
+            .as_slice(),
+        b"edcba9876543210".as_slice()
+    );
 }
