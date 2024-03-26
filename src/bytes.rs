@@ -557,11 +557,11 @@ impl Bytes {
     ///     handle_alloc_error(layout);
     /// };
     ///
-    /// // (Not shown here: Pass `ptr` and `LEN` to code that will write data into the buffer.
+    /// // (Not shown here: Pass `ptr` to code that will write data into the buffer.
     /// // For example, pass `ptr` to a system call to load data from disk using `O_DIRECT`.)
     ///
-    /// let buf = Bytes::from_raw_parts(ptr, LEN);
-    /// assert_eq!(buf.len(), LEN);
+    /// let buf = Bytes::from_raw_parts(ptr, layout.size());
+    /// assert_eq!(buf.len(), layout.size());
     /// ```
     pub fn from_raw_parts(ptr: *const u8, len: usize) -> Self {
         let ptr = ptr as *mut u8;
