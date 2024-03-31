@@ -593,7 +593,7 @@ impl BytesMut {
     }
 
     // In separate function to allow the short-circuits in `reserve` to
-    // be inline-able. Significant helps performance.
+    // be inline-able. Significantly helps performance.
     fn reserve_inner(&mut self, additional: usize) {
         let len = self.len();
         let kind = self.kind();
@@ -756,6 +756,119 @@ impl BytesMut {
         self.ptr = vptr(v.as_mut_ptr());
         self.cap = v.capacity();
         debug_assert_eq!(self.len, v.len());
+    }
+
+    /// Attempts to cheaply reclaim capacity for at least `additional` more bytes to be inserted
+    /// into the given `BytesMut` and returns `true` if it succeeded.
+    ///
+    /// `try_reclaim` returns false under these conditions:
+    ///  - The spare capacity left is less than `additional` bytes AND
+    ///  - The existing allocation cannot be reclaimed cheaply or it was less than
+    ///    `additional` bytes in size
+    ///
+    /// Reclaiming the allocation cheaply is possible if the `BytesMut` is currently empty and
+    /// there are no outstanding references through other `BytesMut`s or `Bytes` which point to the
+    /// same underlying storage.
+    ///
+    ///  A call to `try_reclaim` never copies inside the allocation nor allocates new storage.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::BytesMut;
+    ///
+    /// let mut buf = BytesMut::with_capacity(64);
+    /// assert_eq!(true, buf.try_reclaim(64));
+    /// assert_eq!(64, buf.capacity());
+    ///
+    /// buf.extend_from_slice(b"abcd");
+    /// let mut split = buf.split();
+    /// assert_eq!(60, buf.capacity());
+    /// assert_eq!(4, split.capacity());
+    /// assert_eq!(false, split.try_reclaim(64));
+    /// assert_eq!(false, buf.try_reclaim(64));
+    /// // The split buffer is filled with "abcd"
+    /// assert_eq!(false, split.try_reclaim(4));
+    /// // buf is empty and has capacity for 60 bytes
+    /// assert_eq!(true, buf.try_reclaim(60));
+    ///
+    /// drop(buf);
+    /// assert_eq!(false, split.try_reclaim(64));
+    ///
+    /// split.clear();
+    /// assert_eq!(4, split.capacity());
+    /// assert_eq!(true, split.try_reclaim(64));
+    /// assert_eq!(64, split.capacity());
+    /// ```
+    // I tried splitting out try_reclaim_inner after the short circuits, but it was inlined
+    // regardless with Rust 1.78.0 so probably not worth it
+    #[inline]
+    #[must_use = "consider BytesMut::reserve if you need an infallible reservation"]
+    pub fn try_reclaim(&mut self, additional: usize) -> bool {
+        let len = self.len();
+        let rem = self.capacity() - len;
+
+        if additional <= rem {
+            // The handle can already store at least `additional` more bytes, so
+            // there is no further work needed to be done.
+            return true;
+        }
+
+        if !self.is_empty() {
+            // try_reclaim never copies any bytes but there are some bytes stored already
+            return false;
+        }
+
+        let kind = self.kind();
+        if kind == KIND_VEC {
+            // Safety: self is of KIND_VEC, so calling get_vec_pos() is safe.
+            let off = unsafe { self.get_vec_pos() };
+            // The whole allocation is too small to fit the request
+            if additional > rem + off {
+                return false;
+            }
+
+            // Otherwise, update info to point at the front of the vector
+            // again and reclaim capacity
+            //
+            // Safety: Offset `off` means self.ptr was moved `off` bytes from the base
+            // pointer of the allocation. Going back to the base pointer stays within
+            // that same allocation.
+            let base_ptr = unsafe { self.ptr.as_ptr().sub(off) };
+            self.ptr = vptr(base_ptr);
+
+            // Safety: Resetting the offset to 0 is safe as we reset the storage
+            // pointer to the base pointer of the allocation above
+            unsafe { self.set_vec_pos(0) }
+            self.cap += off;
+
+            return true;
+        }
+
+        debug_assert_eq!(kind, KIND_ARC);
+        let shared: *mut Shared = self.data;
+
+        // If there are other references to the underlying storage, we cannot reclaim it
+        //
+        // Safety: self is of type KIND_ARC, so the Shared ptr is valid
+        if unsafe { !(*shared).is_unique() } {
+            return false;
+        }
+
+        // Safety: self is of type KIND_ARC and there are no other handles alive, so we
+        // can get a mut reference to the underlying storageq
+        let v = unsafe { &mut (*shared).vec };
+        let cap = v.capacity();
+        if additional > cap {
+            // The underlying storage does not have enough capacity
+            return false;
+        }
+
+        // Update info to point at start of allocation and reclaim capacity
+        let ptr = v.as_mut_ptr();
+        self.ptr = vptr(ptr);
+        self.cap = cap;
+        true
     }
 
     /// Appends given bytes to this `BytesMut`.
