@@ -582,13 +582,7 @@ impl Buf for Bytes {
     }
 
     fn copy_to_bytes(&mut self, len: usize) -> Self {
-        if len == self.remaining() {
-            core::mem::replace(self, Bytes::new())
-        } else {
-            let ret = self.slice(..len);
-            self.advance(len);
-            ret
-        }
+        self.split_to(len)
     }
 }
 
