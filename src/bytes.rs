@@ -15,7 +15,7 @@ use crate::buf::IntoIter;
 #[allow(unused)]
 use crate::loom::sync::atomic::AtomicMut;
 use crate::loom::sync::atomic::{AtomicPtr, AtomicUsize, Ordering};
-use crate::Buf;
+use crate::{Buf, BytesMut};
 
 /// A cheaply cloneable and sliceable chunk of contiguous memory.
 ///
@@ -505,6 +505,28 @@ impl Bytes {
     #[inline]
     pub fn clear(&mut self) {
         self.truncate(0);
+    }
+
+    /// Try to convert self into `BytesMut`.
+    ///
+    /// If `self` is unique, this will succeed and return a `BytesMut` with
+    /// the contents of `self` without copying. If `self` is not unique, this
+    /// will fail and return self.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::{Bytes, BytesMut};
+    ///
+    /// let bytes = Bytes::from(b"hello".to_vec());
+    /// assert_eq!(bytes.try_into_mut(), Ok(BytesMut::from(&b"hello"[..])));
+    /// ```
+    pub fn try_into_mut(self) -> std::result::Result<BytesMut, Bytes> {
+        if self.is_unique() {
+            Ok(BytesMut::from_vec(self.into()))
+        } else {
+            Err(self)
+        }
     }
 
     #[inline]
