@@ -640,6 +640,7 @@ impl BytesMut {
                     // Update the info
                     self.ptr = vptr(v.as_mut_ptr().add(off));
                     self.cap = v.capacity() - off;
+                    debug_assert_eq!(self.len, v.len() - off);
                 }
 
                 return;
@@ -746,6 +747,7 @@ impl BytesMut {
         self.data = invalid_ptr(data);
         self.ptr = vptr(v.as_mut_ptr());
         self.cap = v.capacity();
+        debug_assert_eq!(self.len, v.len());
     }
 
     /// Appends given bytes to this `BytesMut`.
