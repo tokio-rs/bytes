@@ -385,13 +385,6 @@ impl Bytes {
     /// Panics if `at > len`.
     #[must_use = "consider Bytes::truncate if you don't need the other half"]
     pub fn split_off(&mut self, at: usize) -> Self {
-        assert!(
-            at <= self.len(),
-            "split_off out of bounds: {:?} <= {:?}",
-            at,
-            self.len(),
-        );
-
         if at == self.len() {
             return Bytes::new();
         }
@@ -399,6 +392,13 @@ impl Bytes {
         if at == 0 {
             return mem::replace(self, Bytes::new());
         }
+
+        assert!(
+            at <= self.len(),
+            "split_off out of bounds: {:?} <= {:?}",
+            at,
+            self.len(),
+        );
 
         let mut ret = self.clone();
 
