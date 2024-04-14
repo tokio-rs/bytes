@@ -422,7 +422,7 @@ impl BytesMut {
     /// assert_eq!(buf, b"hello"[..]);
     /// ```
     pub fn truncate(&mut self, len: usize) {
-        if len <= self.len() {
+        if len < self.len() {
             unsafe {
                 self.set_len(len);
             }
