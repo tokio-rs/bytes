@@ -15,7 +15,7 @@ use crate::buf::IntoIter;
 #[allow(unused)]
 use crate::loom::sync::atomic::AtomicMut;
 use crate::loom::sync::atomic::{AtomicPtr, AtomicUsize, Ordering};
-use crate::Buf;
+use crate::{Buf, BytesMut};
 
 /// A cheaply cloneable and sliceable chunk of contiguous memory.
 ///
@@ -113,6 +113,7 @@ pub(crate) struct Vtable {
     ///
     /// takes `Bytes` to value
     pub to_vec: unsafe fn(&AtomicPtr<()>, *const u8, usize) -> Vec<u8>,
+    pub to_mut: unsafe fn(&AtomicPtr<()>, *const u8, usize) -> BytesMut,
     /// fn(data)
     pub is_unique: unsafe fn(&AtomicPtr<()>) -> bool,
     /// fn(data, ptr, len)
@@ -505,6 +506,46 @@ impl Bytes {
     #[inline]
     pub fn clear(&mut self) {
         self.truncate(0);
+    }
+
+    /// Try to convert self into `BytesMut`.
+    ///
+    /// If `self` is unique, this will succeed and return a `BytesMut` with
+    /// the contents of `self` without copying. If `self` is not unique, this
+    /// will fail and return self.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::{Bytes, BytesMut};
+    ///
+    /// let bytes = Bytes::from(b"hello".to_vec());
+    /// assert_eq!(bytes.try_into_mut(), Ok(BytesMut::from(&b"hello"[..])));
+    /// ```
+    pub fn try_into_mut(self) -> Result<BytesMut, Bytes> {
+        if self.is_unique() {
+            Ok(self.make_mut())
+        } else {
+            Err(self)
+        }
+    }
+
+    /// Convert self into `BytesMut`.
+    ///
+    /// If `self` is unique, it will `BytesMut` with the contents of `self` without copying.
+    /// If `self` is not unique, it will make a copy of the data.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::{Bytes, BytesMut};
+    ///
+    /// let bytes = Bytes::from(b"hello".to_vec());
+    /// assert_eq!(bytes.make_mut(), BytesMut::from(&b"hello"[..]));
+    /// ```
+    pub fn make_mut(self) -> BytesMut {
+        let bytes = ManuallyDrop::new(self);
+        unsafe { (bytes.vtable.to_mut)(&bytes.data, bytes.ptr, bytes.len) }
     }
 
     #[inline]
@@ -917,6 +958,7 @@ impl fmt::Debug for Vtable {
 const STATIC_VTABLE: Vtable = Vtable {
     clone: static_clone,
     to_vec: static_to_vec,
+    to_mut: static_to_mut,
     is_unique: static_is_unique,
     drop: static_drop,
 };
@@ -929,6 +971,11 @@ unsafe fn static_clone(_: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Bytes {
 unsafe fn static_to_vec(_: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Vec<u8> {
     let slice = slice::from_raw_parts(ptr, len);
     slice.to_vec()
+}
+
+unsafe fn static_to_mut(_: &AtomicPtr<()>, ptr: *const u8, len: usize) -> BytesMut {
+    let slice = slice::from_raw_parts(ptr, len);
+    BytesMut::from(slice)
 }
 
 fn static_is_unique(_: &AtomicPtr<()>) -> bool {
@@ -944,6 +991,7 @@ unsafe fn static_drop(_: &mut AtomicPtr<()>, _: *const u8, _: usize) {
 static PROMOTABLE_EVEN_VTABLE: Vtable = Vtable {
     clone: promotable_even_clone,
     to_vec: promotable_even_to_vec,
+    to_mut: promotable_even_to_mut,
     is_unique: promotable_is_unique,
     drop: promotable_even_drop,
 };
@@ -951,6 +999,7 @@ static PROMOTABLE_EVEN_VTABLE: Vtable = Vtable {
 static PROMOTABLE_ODD_VTABLE: Vtable = Vtable {
     clone: promotable_odd_clone,
     to_vec: promotable_odd_to_vec,
+    to_mut: promotable_odd_to_mut,
     is_unique: promotable_is_unique,
     drop: promotable_odd_drop,
 };
@@ -994,8 +1043,37 @@ unsafe fn promotable_to_vec(
     }
 }
 
+unsafe fn promotable_to_mut(
+    data: &AtomicPtr<()>,
+    ptr: *const u8,
+    len: usize,
+    f: fn(*mut ()) -> *mut u8,
+) -> BytesMut {
+    let shared = data.load(Ordering::Acquire);
+    let kind = shared as usize & KIND_MASK;
+
+    if kind == KIND_ARC {
+        shared_to_mut_impl(shared.cast(), ptr, len)
+    } else {
+        debug_assert_eq!(kind, KIND_VEC);
+
+        let buf = f(shared);
+        let off = offset_from(ptr, buf);
+        let cap = off + len;
+        let v = Vec::from_raw_parts(buf, cap, cap);
+
+        BytesMut::from_vec_offset(v, off)
+    }
+}
+
 unsafe fn promotable_even_to_vec(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Vec<u8> {
     promotable_to_vec(data, ptr, len, |shared| {
+        ptr_map(shared.cast(), |addr| addr & !KIND_MASK)
+    })
+}
+
+unsafe fn promotable_even_to_mut(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> BytesMut {
+    promotable_to_mut(data, ptr, len, |shared| {
         ptr_map(shared.cast(), |addr| addr & !KIND_MASK)
     })
 }
@@ -1029,6 +1107,10 @@ unsafe fn promotable_odd_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize)
 
 unsafe fn promotable_odd_to_vec(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Vec<u8> {
     promotable_to_vec(data, ptr, len, |shared| shared.cast())
+}
+
+unsafe fn promotable_odd_to_mut(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> BytesMut {
+    promotable_to_mut(data, ptr, len, |shared| shared.cast())
 }
 
 unsafe fn promotable_odd_drop(data: &mut AtomicPtr<()>, ptr: *const u8, len: usize) {
@@ -1087,6 +1169,7 @@ const _: [(); 0 - mem::align_of::<Shared>() % 2] = []; // Assert that the alignm
 static SHARED_VTABLE: Vtable = Vtable {
     clone: shared_clone,
     to_vec: shared_to_vec,
+    to_mut: shared_to_mut,
     is_unique: shared_is_unique,
     drop: shared_drop,
 };
@@ -1131,6 +1214,43 @@ unsafe fn shared_to_vec_impl(shared: *mut Shared, ptr: *const u8, len: usize) ->
 
 unsafe fn shared_to_vec(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Vec<u8> {
     shared_to_vec_impl(data.load(Ordering::Relaxed).cast(), ptr, len)
+}
+
+unsafe fn shared_to_mut_impl(shared: *mut Shared, ptr: *const u8, len: usize) -> BytesMut {
+    // The goal is to check if the current handle is the only handle
+    // that currently has access to the buffer. This is done by
+    // checking if the `ref_cnt` is currently 1.
+    //
+    // The `Acquire` ordering synchronizes with the `Release` as
+    // part of the `fetch_sub` in `release_shared`. The `fetch_sub`
+    // operation guarantees that any mutations done in other threads
+    // are ordered before the `ref_cnt` is decremented. As such,
+    // this `Acquire` will guarantee that those mutations are
+    // visible to the current thread.
+    //
+    // Otherwise, we take the other branch, copy the data and call `release_shared``.
+    if (*shared).ref_cnt.load(Ordering::Acquire) == 1 {
+        // Deallocate the `Shared` instance without running its destructor.
+        let shared = *Box::from_raw(shared);
+        let shared = ManuallyDrop::new(shared);
+        let buf = shared.buf;
+        let cap = shared.cap;
+
+        // Rebuild Vec
+        let off = offset_from(ptr, buf);
+        let len = len + off;
+        let v = Vec::from_raw_parts(buf, len, cap);
+
+        BytesMut::from_vec_offset(v, off)
+    } else {
+        let v = slice::from_raw_parts(ptr, len).to_vec();
+        release_shared(shared);
+        BytesMut::from_vec(v)
+    }
+}
+
+unsafe fn shared_to_mut(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> BytesMut {
+    shared_to_mut_impl(data.load(Ordering::Relaxed).cast(), ptr, len)
 }
 
 pub(crate) unsafe fn shared_is_unique(data: &AtomicPtr<()>) -> bool {
@@ -1289,6 +1409,23 @@ where
     let old_addr = ptr as usize;
     let new_addr = f(old_addr);
     new_addr as *mut u8
+}
+
+/// Precondition: dst >= original
+///
+/// The following line is equivalent to:
+///
+/// ```rust,ignore
+/// self.ptr.as_ptr().offset_from(ptr) as usize;
+/// ```
+///
+/// But due to min rust is 1.39 and it is only stabilized
+/// in 1.47, we cannot use it.
+#[inline]
+fn offset_from(dst: *const u8, original: *const u8) -> usize {
+    debug_assert!(dst >= original);
+
+    dst as usize - original as usize
 }
 
 // compile-fails

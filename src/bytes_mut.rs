@@ -837,13 +837,20 @@ impl BytesMut {
     // suddenly a lot more expensive.
     #[inline]
     pub(crate) fn from_vec(vec: Vec<u8>) -> BytesMut {
-        let mut vec = ManuallyDrop::new(vec);
-        let ptr = vptr(vec.as_mut_ptr());
-        let len = vec.len();
-        let cap = vec.capacity();
+        unsafe { BytesMut::from_vec_offset(vec, 0) }
+    }
 
-        let original_capacity_repr = original_capacity_to_repr(cap);
-        let data = (original_capacity_repr << ORIGINAL_CAPACITY_OFFSET) | KIND_VEC;
+    #[inline]
+    pub(crate) unsafe fn from_vec_offset(vec: Vec<u8>, off: usize) -> BytesMut {
+        let mut vec = ManuallyDrop::new(vec);
+        let ptr = vptr(vec.as_mut_ptr().add(off));
+        let len = vec.len().checked_sub(off).unwrap_or(0);
+        let cap = vec.capacity() - off;
+
+        let original_capacity_repr = original_capacity_to_repr(vec.capacity());
+        let data = (original_capacity_repr << ORIGINAL_CAPACITY_OFFSET)
+            | (off << VEC_POS_OFFSET)
+            | KIND_VEC;
 
         BytesMut {
             ptr,
@@ -1713,6 +1720,7 @@ unsafe fn rebuild_vec(ptr: *mut u8, mut len: usize, mut cap: usize, off: usize) 
 static SHARED_VTABLE: Vtable = Vtable {
     clone: shared_v_clone,
     to_vec: shared_v_to_vec,
+    to_mut: shared_v_to_mut,
     is_unique: crate::bytes::shared_is_unique,
     drop: shared_v_drop,
 };
@@ -1744,6 +1752,28 @@ unsafe fn shared_v_to_vec(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> V
         let v = slice::from_raw_parts(ptr, len).to_vec();
         release_shared(shared);
         v
+    }
+}
+
+unsafe fn shared_v_to_mut(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> BytesMut {
+    let shared: *mut Shared = data.load(Ordering::Relaxed).cast();
+
+    if (*shared).is_unique() {
+        let shared = &mut *shared;
+
+        let ptr = vptr(ptr as *mut u8);
+        let cap = len; // It will try to reclaim the buffer on first insert
+
+        BytesMut {
+            ptr,
+            len,
+            cap,
+            data: shared,
+        }
+    } else {
+        let v = slice::from_raw_parts(ptr, len).to_vec();
+        release_shared(shared);
+        BytesMut::from_vec(v)
     }
 }
 
