@@ -424,6 +424,7 @@ impl BytesMut {
     pub fn truncate(&mut self, len: usize) {
         if len < self.len() {
             unsafe {
+                // SAFETY: Shrinking the buffer cannot expose uninitialized bytes.
                 self.set_len(len);
             }
         }
