@@ -469,6 +469,10 @@ impl BytesMut {
     /// ```
     pub fn resize(&mut self, new_len: usize, value: u8) {
         if let Some(additional) = new_len.checked_sub(self.len()) {
+            if additional == 0 {
+                return;
+            }
+
             self.reserve(additional);
             unsafe {
                 let dst = self.chunk_mut().as_mut_ptr();
