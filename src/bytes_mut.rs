@@ -474,8 +474,8 @@ impl BytesMut {
             }
 
             self.reserve(additional);
+            let dst = self.chunk_mut().as_mut_ptr();
             unsafe {
-                let dst = self.chunk_mut().as_mut_ptr();
                 ptr::write_bytes(dst, value, additional);
                 self.set_len(new_len);
             }
