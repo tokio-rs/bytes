@@ -468,18 +468,17 @@ impl BytesMut {
     /// assert_eq!(&buf[..], &[0x1, 0x1, 0x3, 0x3]);
     /// ```
     pub fn resize(&mut self, new_len: usize, value: u8) {
-        let additional = new_len.checked_sub(self.len());
-
-        if additional.is_none() {
+        let additional = if let Some(additional) = new_len.checked_sub(self.len()) {
+            additional
+        } else {
             self.truncate(new_len);
             return;
-        }
+        };
 
-        if additional == Some(0) {
+        if additional == 0 {
             return;
         }
 
-        let additional = additional.unwrap();
         self.reserve(additional);
         let dst = self.spare_capacity_mut().as_mut_ptr();
         unsafe {
