@@ -468,9 +468,7 @@ impl BytesMut {
     /// assert_eq!(&buf[..], &[0x1, 0x1, 0x3, 0x3]);
     /// ```
     pub fn resize(&mut self, new_len: usize, value: u8) {
-        let len = self.len();
-        if new_len > len {
-            let additional = new_len - len;
+        if let Some(additional) = new_len.checked_sub(self.len()) {
             self.reserve(additional);
             unsafe {
                 let dst = self.chunk_mut().as_mut_ptr();
