@@ -468,24 +468,28 @@ impl BytesMut {
     /// assert_eq!(&buf[..], &[0x1, 0x1, 0x3, 0x3]);
     /// ```
     pub fn resize(&mut self, new_len: usize, value: u8) {
-        if let Some(additional) = new_len.checked_sub(self.len()) {
-            if additional == 0 {
-                return;
-            }
+        let additional = new_len.checked_sub(self.len());
 
-            self.reserve(additional);
-            let dst = self.spare_capacity_mut().as_mut_ptr();
-            unsafe {
-                // SAFETY: `spare_capacity_mut` returns a valid, properly aligned pointer and we've
-                // reserved enough space to write `additional` bytes.
-                ptr::write_bytes(dst, value, additional);
-
-                // SAFETY: There are at least `new_len` initialized bytes in the buffer so no
-                // uninitialized bytes are being exposed.
-                self.set_len(new_len);
-            }
-        } else {
+        if additional.is_none() {
             self.truncate(new_len);
+            return;
+        }
+
+        if additional == Some(0) {
+            return;
+        }
+
+        let additional = additional.unwrap();
+        self.reserve(additional);
+        let dst = self.spare_capacity_mut().as_mut_ptr();
+        unsafe {
+            // SAFETY: `spare_capacity_mut` returns a valid, properly aligned pointer and we've
+            // reserved enough space to write `additional` bytes.
+            ptr::write_bytes(dst, value, additional);
+
+            // SAFETY: There are at least `new_len` initialized bytes in the buffer so no
+            // uninitialized bytes are being exposed.
+            self.set_len(new_len);
         }
     }
 
