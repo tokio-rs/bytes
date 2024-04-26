@@ -422,11 +422,9 @@ impl BytesMut {
     /// assert_eq!(buf, b"hello"[..]);
     /// ```
     pub fn truncate(&mut self, len: usize) {
-        if len < self.len() {
-            unsafe {
-                // SAFETY: Shrinking the buffer cannot expose uninitialized bytes.
-                self.set_len(len);
-            }
+        if len <= self.len() {
+            // SAFETY: Shrinking the buffer cannot expose uninitialized bytes.
+            unsafe { self.set_len(len) };
         }
     }
 
@@ -442,7 +440,8 @@ impl BytesMut {
     /// assert!(buf.is_empty());
     /// ```
     pub fn clear(&mut self) {
-        self.truncate(0);
+        // SAFETY: Setting the length to zero cannot expose uninitialized bytes.
+        unsafe { self.set_len(0) };
     }
 
     /// Resizes the buffer so that `len` is equal to `new_len`.
@@ -1069,8 +1068,7 @@ impl Buf for BytesMut {
         // Advancing by the length is the same as resetting the length to 0,
         // except this way we get to reuse the full capacity.
         if cnt == self.remaining() {
-            // SAFETY: Zero is not greater than the capacity.
-            unsafe { self.set_len(0) };
+            self.clear();
             return;
         }
 
