@@ -1055,6 +1055,9 @@ unsafe fn promotable_to_mut(
     if kind == KIND_ARC {
         shared_to_mut_impl(shared.cast(), ptr, len)
     } else {
+        // The kind KIND_VEC always represents the full view of the underlying buffer,
+        // if it truncated it is first promoted to KIND_ARC. Thus we can reconstruct
+        // a Vec from it without leaking memory.
         debug_assert_eq!(kind, KIND_VEC);
 
         let buf = f(shared);
