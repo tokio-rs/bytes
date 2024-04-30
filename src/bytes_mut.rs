@@ -845,7 +845,7 @@ impl BytesMut {
         let mut vec = ManuallyDrop::new(vec);
         let ptr = vptr(vec.as_mut_ptr().add(off));
         let len = vec.len().checked_sub(off).unwrap_or(0);
-        let cap = vec.capacity() - off;
+        let cap = vec.capacity().checked_sub(off).unwrap_or(0);
 
         let original_capacity_repr = original_capacity_to_repr(vec.capacity());
         let data = (original_capacity_repr << ORIGINAL_CAPACITY_OFFSET)
