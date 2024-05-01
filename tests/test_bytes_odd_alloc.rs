@@ -97,31 +97,46 @@ fn test_bytes_into_vec() {
 }
 
 #[test]
-fn test_bytes_make_mut() {
+fn test_bytes_make_mut_vec() {
     let vec = vec![33u8; 1024];
 
-    // Test cases where kind == KIND_VEC
+    // Test case where kind == KIND_VEC
     let b1 = Bytes::from(vec.clone());
     let b1m = b1.make_mut();
     assert_eq!(b1m, vec);
+}
 
-    // Test cases where kind == KIND_ARC, ref_cnt == 1
+#[test]
+fn test_bytes_make_mut_arc_1() {
+    let vec = vec![33u8; 1024];
+
+    // Test case where kind == KIND_ARC, ref_cnt == 1
     let b1 = Bytes::from(vec.clone());
     drop(b1.clone());
     let b1m = b1.make_mut();
     assert_eq!(b1m, vec);
+}
 
-    // Test cases where kind == KIND_ARC, ref_cnt == 2
+#[test]
+fn test_bytes_make_mut_arc_2() {
+    let vec = vec![33u8; 1024];
+
+    // Test case where kind == KIND_ARC, ref_cnt == 2
     let b1 = Bytes::from(vec.clone());
     let b2 = b1.clone();
     let b1m = b1.make_mut();
     assert_eq!(b1m, vec);
 
-    // Test cases where vtable = SHARED_VTABLE, kind == KIND_ARC, ref_cnt == 1
+    // Test case where vtable = SHARED_VTABLE, kind == KIND_ARC, ref_cnt == 1
     let b2m = b2.make_mut();
     assert_eq!(b2m, vec);
+}
 
-    // Test cases where offset != 0
+#[test]
+fn test_bytes_make_mut_arc_offset() {
+    let vec = vec![33u8; 1024];
+
+    // Test case where offset != 0
     let mut b1 = Bytes::from(vec.clone());
     let b2 = b1.split_off(20);
     let b1m = b1.make_mut();
