@@ -1761,8 +1761,8 @@ unsafe fn shared_v_to_mut(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> B
     if (*shared).is_unique() {
         let shared = &mut *shared;
 
-        // The capacity of the buffer is always the original capacity
-        // of the buffer minus the offset from the start of that buffer.
+        // The capacity is always the original capacity of the buffer
+        // minus the offset from the start of the buffer
         let v = &mut shared.vec;
         let v_capacity = v.capacity();
         let v_ptr = v.as_mut_ptr();
