@@ -1055,9 +1055,10 @@ unsafe fn promotable_to_mut(
     if kind == KIND_ARC {
         shared_to_mut_impl(shared.cast(), ptr, len)
     } else {
-        // The kind KIND_VEC always represents the full view of the underlying buffer,
-        // if it truncated it is first promoted to KIND_ARC. Thus we can reconstruct
-        // a Vec from it without leaking memory.
+        // KIND_VEC is a view of an underlying buffer at a certain offset.
+        // The ptr + len always represents the end of that buffer.
+        // Before truncating it, it is first promoted to KIND_ARC.
+        // Thus, we can safely reconstruct a Vec from it without leaking memory.
         debug_assert_eq!(kind, KIND_VEC);
 
         let buf = f(shared);
@@ -1231,7 +1232,7 @@ unsafe fn shared_to_mut_impl(shared: *mut Shared, ptr: *const u8, len: usize) ->
     // this `Acquire` will guarantee that those mutations are
     // visible to the current thread.
     //
-    // Otherwise, we take the other branch, copy the data and call `release_shared``.
+    // Otherwise, we take the other branch, copy the data and call `release_shared`.
     if (*shared).ref_cnt.load(Ordering::Acquire) == 1 {
         // Deallocate the `Shared` instance without running its destructor.
         let shared = *Box::from_raw(shared);
@@ -1246,6 +1247,7 @@ unsafe fn shared_to_mut_impl(shared: *mut Shared, ptr: *const u8, len: usize) ->
 
         BytesMut::from_vec_offset(v, off)
     } else {
+        // Copy the data from Shared in a new Vec, then release it
         let v = slice::from_raw_parts(ptr, len).to_vec();
         release_shared(shared);
         BytesMut::from_vec(v)
