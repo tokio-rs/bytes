@@ -1066,7 +1066,9 @@ unsafe fn promotable_to_mut(
         let cap = off + len;
         let v = Vec::from_raw_parts(buf, cap, cap);
 
-        BytesMut::from_vec_offset(v, off)
+        let mut b = BytesMut::from_vec(v);
+        b.advance_unchecked(off);
+        b
     }
 }
 
@@ -1242,10 +1244,11 @@ unsafe fn shared_to_mut_impl(shared: *mut Shared, ptr: *const u8, len: usize) ->
 
         // Rebuild Vec
         let off = offset_from(ptr, buf);
-        let len = len + off;
-        let v = Vec::from_raw_parts(buf, len, cap);
+        let v = Vec::from_raw_parts(buf, len + off, cap);
 
-        BytesMut::from_vec_offset(v, off)
+        let mut b = BytesMut::from_vec(v);
+        b.advance_unchecked(off);
+        b
     } else {
         // Copy the data from Shared in a new Vec, then release it
         let v = slice::from_raw_parts(ptr, len).to_vec();

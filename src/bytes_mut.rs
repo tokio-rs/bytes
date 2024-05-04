@@ -837,20 +837,13 @@ impl BytesMut {
     // suddenly a lot more expensive.
     #[inline]
     pub(crate) fn from_vec(vec: Vec<u8>) -> BytesMut {
-        unsafe { BytesMut::from_vec_offset(vec, 0) }
-    }
-
-    #[inline]
-    pub(crate) unsafe fn from_vec_offset(vec: Vec<u8>, off: usize) -> BytesMut {
         let mut vec = ManuallyDrop::new(vec);
-        let ptr = vptr(vec.as_mut_ptr().add(off));
-        let len = vec.len().checked_sub(off).unwrap_or(0);
-        let cap = vec.capacity().checked_sub(off).unwrap_or(0);
+        let ptr = vptr(vec.as_mut_ptr());
+        let len = vec.len();
+        let cap = vec.capacity();
 
-        let original_capacity_repr = original_capacity_to_repr(vec.capacity());
-        let data = (original_capacity_repr << ORIGINAL_CAPACITY_OFFSET)
-            | (off << VEC_POS_OFFSET)
-            | KIND_VEC;
+        let original_capacity_repr = original_capacity_to_repr(cap);
+        let data = (original_capacity_repr << ORIGINAL_CAPACITY_OFFSET) | KIND_VEC;
 
         BytesMut {
             ptr,
@@ -875,7 +868,7 @@ impl BytesMut {
     /// # SAFETY
     ///
     /// The caller must ensure that `count` <= `self.cap`.
-    unsafe fn advance_unchecked(&mut self, count: usize) {
+    pub(crate) unsafe fn advance_unchecked(&mut self, count: usize) {
         // Setting the start to 0 is a no-op, so return early if this is the
         // case.
         if count == 0 {
