@@ -868,7 +868,7 @@ impl BytesMut {
     /// # SAFETY
     ///
     /// The caller must ensure that `count` <= `self.cap`.
-    unsafe fn advance_unchecked(&mut self, count: usize) {
+    pub(crate) unsafe fn advance_unchecked(&mut self, count: usize) {
         // Setting the start to 0 is a no-op, so return early if this is the
         // case.
         if count == 0 {
@@ -1713,6 +1713,7 @@ unsafe fn rebuild_vec(ptr: *mut u8, mut len: usize, mut cap: usize, off: usize) 
 static SHARED_VTABLE: Vtable = Vtable {
     clone: shared_v_clone,
     to_vec: shared_v_to_vec,
+    to_mut: shared_v_to_mut,
     is_unique: crate::bytes::shared_is_unique,
     drop: shared_v_drop,
 };
@@ -1744,6 +1745,35 @@ unsafe fn shared_v_to_vec(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> V
         let v = slice::from_raw_parts(ptr, len).to_vec();
         release_shared(shared);
         v
+    }
+}
+
+unsafe fn shared_v_to_mut(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> BytesMut {
+    let shared: *mut Shared = data.load(Ordering::Relaxed).cast();
+
+    if (*shared).is_unique() {
+        let shared = &mut *shared;
+
+        // The capacity is always the original capacity of the buffer
+        // minus the offset from the start of the buffer
+        let v = &mut shared.vec;
+        let v_capacity = v.capacity();
+        let v_ptr = v.as_mut_ptr();
+        let offset = offset_from(ptr as *mut u8, v_ptr);
+        let cap = v_capacity - offset;
+
+        let ptr = vptr(ptr as *mut u8);
+
+        BytesMut {
+            ptr,
+            len,
+            cap,
+            data: shared,
+        }
+    } else {
+        let v = slice::from_raw_parts(ptr, len).to_vec();
+        release_shared(shared);
+        BytesMut::from_vec(v)
     }
 }
 

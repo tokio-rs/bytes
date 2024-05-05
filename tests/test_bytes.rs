@@ -1172,3 +1172,114 @@ fn shared_is_unique() {
     drop(b);
     assert!(c.is_unique());
 }
+
+#[test]
+fn test_bytes_make_mut_static() {
+    let bs = b"1b23exfcz3r";
+
+    // Test STATIC_VTABLE.to_mut
+    let bytes_mut = Bytes::from_static(bs).make_mut();
+    assert_eq!(bytes_mut, bs[..]);
+}
+
+#[test]
+fn test_bytes_make_mut_bytes_mut_vec() {
+    let bs = b"1b23exfcz3r";
+    let bs_long = b"1b23exfcz3r1b23exfcz3r";
+
+    // Test case where kind == KIND_VEC
+    let mut bytes_mut: BytesMut = bs[..].into();
+    bytes_mut = bytes_mut.freeze().make_mut();
+    assert_eq!(bytes_mut, bs[..]);
+    bytes_mut.extend_from_slice(&bs[..]);
+    assert_eq!(bytes_mut, bs_long[..]);
+}
+
+#[test]
+fn test_bytes_make_mut_bytes_mut_shared() {
+    let bs = b"1b23exfcz3r";
+
+    // Set kind to KIND_ARC so that after freeze, Bytes will use bytes_mut.SHARED_VTABLE
+    let mut bytes_mut: BytesMut = bs[..].into();
+    drop(bytes_mut.split_off(bs.len()));
+
+    let b1 = bytes_mut.freeze();
+    let b2 = b1.clone();
+
+    // shared.is_unique() = False
+    let mut b1m = b1.make_mut();
+    assert_eq!(b1m, bs[..]);
+    b1m[0] = b'9';
+
+    // shared.is_unique() = True
+    let b2m = b2.make_mut();
+    assert_eq!(b2m, bs[..]);
+}
+
+#[test]
+fn test_bytes_make_mut_bytes_mut_offset() {
+    let bs = b"1b23exfcz3r";
+
+    // Test bytes_mut.SHARED_VTABLE.to_mut impl where offset != 0
+    let mut bytes_mut1: BytesMut = bs[..].into();
+    let bytes_mut2 = bytes_mut1.split_off(9);
+
+    let b1 = bytes_mut1.freeze();
+    let b2 = bytes_mut2.freeze();
+
+    let b1m = b1.make_mut();
+    let b2m = b2.make_mut();
+
+    assert_eq!(b2m, bs[9..]);
+    assert_eq!(b1m, bs[..9]);
+}
+
+#[test]
+fn test_bytes_make_mut_promotable_even_vec() {
+    let vec = vec![33u8; 1024];
+
+    // Test case where kind == KIND_VEC
+    let b1 = Bytes::from(vec.clone());
+    let b1m = b1.make_mut();
+    assert_eq!(b1m, vec);
+}
+
+#[test]
+fn test_bytes_make_mut_promotable_even_arc_1() {
+    let vec = vec![33u8; 1024];
+
+    // Test case where kind == KIND_ARC, ref_cnt == 1
+    let b1 = Bytes::from(vec.clone());
+    drop(b1.clone());
+    let b1m = b1.make_mut();
+    assert_eq!(b1m, vec);
+}
+
+#[test]
+fn test_bytes_make_mut_promotable_even_arc_2() {
+    let vec = vec![33u8; 1024];
+
+    // Test case where kind == KIND_ARC, ref_cnt == 2
+    let b1 = Bytes::from(vec.clone());
+    let b2 = b1.clone();
+    let b1m = b1.make_mut();
+    assert_eq!(b1m, vec);
+
+    // Test case where vtable = SHARED_VTABLE, kind == KIND_ARC, ref_cnt == 1
+    let b2m = b2.make_mut();
+    assert_eq!(b2m, vec);
+}
+
+#[test]
+fn test_bytes_make_mut_promotable_even_arc_offset() {
+    let vec = vec![33u8; 1024];
+
+    // Test case where offset != 0
+    let mut b1 = Bytes::from(vec.clone());
+    let b2 = b1.split_off(20);
+    let b1m = b1.make_mut();
+    let b2m = b2.make_mut();
+
+    assert_eq!(b2m, vec[20..]);
+    assert_eq!(b1m, vec[..20]);
+}
