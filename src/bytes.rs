@@ -1037,7 +1037,7 @@ unsafe fn promotable_to_vec(
 
         let buf = f(shared);
 
-        let cap = (ptr as usize - buf as usize) + len;
+        let cap = offset_from(ptr, buf) + len;
 
         // Copy back buffer
         ptr::copy(ptr, buf, len);
@@ -1150,7 +1150,7 @@ unsafe fn promotable_is_unique(data: &AtomicPtr<()>) -> bool {
 }
 
 unsafe fn free_boxed_slice(buf: *mut u8, offset: *const u8, len: usize) {
-    let cap = (offset as usize - buf as usize) + len;
+    let cap = offset_from(offset, buf) + len;
     dealloc(buf, Layout::from_size_align(cap, 1).unwrap())
 }
 
@@ -1312,7 +1312,7 @@ unsafe fn shallow_clone_vec(
     // vector.
     let shared = Box::new(Shared {
         buf,
-        cap: (offset as usize - buf as usize) + len,
+        cap: offset_from(offset, buf) + len,
         // Initialize refcount to 2. One for this reference, and one
         // for the new clone that will be returned from
         // `shallow_clone`.
