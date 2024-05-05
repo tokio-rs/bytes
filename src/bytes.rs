@@ -15,7 +15,7 @@ use crate::buf::IntoIter;
 #[allow(unused)]
 use crate::loom::sync::atomic::AtomicMut;
 use crate::loom::sync::atomic::{AtomicPtr, AtomicUsize, Ordering};
-use crate::{Buf, BytesMut};
+use crate::{offset_from, Buf, BytesMut};
 
 /// A cheaply cloneable and sliceable chunk of contiguous memory.
 ///
@@ -1420,23 +1420,6 @@ where
     let old_addr = ptr as usize;
     let new_addr = f(old_addr);
     new_addr as *mut u8
-}
-
-/// Precondition: dst >= original
-///
-/// The following line is equivalent to:
-///
-/// ```rust,ignore
-/// self.ptr.as_ptr().offset_from(ptr) as usize;
-/// ```
-///
-/// But due to min rust is 1.39 and it is only stabilized
-/// in 1.47, we cannot use it.
-#[inline]
-fn offset_from(dst: *const u8, original: *const u8) -> usize {
-    debug_assert!(dst >= original);
-
-    dst as usize - original as usize
 }
 
 // compile-fails
