@@ -1,4 +1,4 @@
-#![allow(unexpected_cfgs)]
+#![allow(unexpected_cfgs, unknown_lints)]
 #![warn(missing_docs, missing_debug_implementations, rust_2018_idioms)]
 #![doc(test(
     no_crate_inject,
