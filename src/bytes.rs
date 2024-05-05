@@ -510,9 +510,10 @@ impl Bytes {
 
     /// Try to convert self into `BytesMut`.
     ///
-    /// If `self` is unique, this will succeed and return a `BytesMut` with
-    /// the contents of `self` without copying. If `self` is not unique, this
-    /// will fail and return self.
+    /// If `self` is unique for the entire original buffer, this will succeed
+    /// and return a `BytesMut` with the contents of `self` without copying.
+    /// If `self` is not unique for the entire original buffer, this will fail
+    /// and return self.
     ///
     /// # Examples
     ///
@@ -532,8 +533,10 @@ impl Bytes {
 
     /// Convert self into `BytesMut`.
     ///
-    /// If `self` is unique, it will `BytesMut` with the contents of `self` without copying.
-    /// If `self` is not unique, it will make a copy of the data.
+    /// If `self` is unique for the entire original buffer, this will return a
+    /// `BytesMut` with the contents of `self` without copying.
+    /// If `self` is not unique for the entire original buffer, this will make
+    /// a copy of `self` subset of the original buffer in a new `BytesMut`.
     ///
     /// # Examples
     ///
