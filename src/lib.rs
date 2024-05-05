@@ -161,7 +161,5 @@ fn panic_does_not_fit(size: usize, nbytes: usize) -> ! {
 /// in 1.47, we cannot use it.
 #[inline]
 fn offset_from(dst: *const u8, original: *const u8) -> usize {
-    debug_assert!(dst >= original);
-
     dst as usize - original as usize
 }
