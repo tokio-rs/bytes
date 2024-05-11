@@ -15,7 +15,7 @@ use crate::buf::IntoIter;
 #[allow(unused)]
 use crate::loom::sync::atomic::AtomicMut;
 use crate::loom::sync::atomic::{AtomicPtr, AtomicUsize, Ordering};
-use crate::{Buf, BytesMut};
+use crate::{offset_from, Buf, BytesMut};
 
 /// A cheaply cloneable and sliceable chunk of contiguous memory.
 ///
@@ -1037,7 +1037,7 @@ unsafe fn promotable_to_vec(
 
         let buf = f(shared);
 
-        let cap = (ptr as usize - buf as usize) + len;
+        let cap = offset_from(ptr, buf) + len;
 
         // Copy back buffer
         ptr::copy(ptr, buf, len);
@@ -1150,7 +1150,7 @@ unsafe fn promotable_is_unique(data: &AtomicPtr<()>) -> bool {
 }
 
 unsafe fn free_boxed_slice(buf: *mut u8, offset: *const u8, len: usize) {
-    let cap = (offset as usize - buf as usize) + len;
+    let cap = offset_from(offset, buf) + len;
     dealloc(buf, Layout::from_size_align(cap, 1).unwrap())
 }
 
@@ -1312,7 +1312,7 @@ unsafe fn shallow_clone_vec(
     // vector.
     let shared = Box::new(Shared {
         buf,
-        cap: (offset as usize - buf as usize) + len,
+        cap: offset_from(offset, buf) + len,
         // Initialize refcount to 2. One for this reference, and one
         // for the new clone that will be returned from
         // `shallow_clone`.
@@ -1420,23 +1420,6 @@ where
     let old_addr = ptr as usize;
     let new_addr = f(old_addr);
     new_addr as *mut u8
-}
-
-/// Precondition: dst >= original
-///
-/// The following line is equivalent to:
-///
-/// ```rust,ignore
-/// self.ptr.as_ptr().offset_from(ptr) as usize;
-/// ```
-///
-/// But due to min rust is 1.39 and it is only stabilized
-/// in 1.47, we cannot use it.
-#[inline]
-fn offset_from(dst: *const u8, original: *const u8) -> usize {
-    debug_assert!(dst >= original);
-
-    dst as usize - original as usize
 }
 
 // compile-fails

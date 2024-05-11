@@ -17,7 +17,7 @@ use crate::bytes::Vtable;
 #[allow(unused)]
 use crate::loom::sync::atomic::AtomicMut;
 use crate::loom::sync::atomic::{AtomicPtr, AtomicUsize, Ordering};
-use crate::{Buf, BufMut, Bytes};
+use crate::{offset_from, Buf, BufMut, Bytes};
 
 /// A unique reference to a contiguous slice of memory.
 ///
@@ -1681,23 +1681,6 @@ fn invalid_ptr<T>(addr: usize) -> *mut T {
     let ptr = core::ptr::null_mut::<u8>().wrapping_add(addr);
     debug_assert_eq!(ptr as usize, addr);
     ptr.cast::<T>()
-}
-
-/// Precondition: dst >= original
-///
-/// The following line is equivalent to:
-///
-/// ```rust,ignore
-/// self.ptr.as_ptr().offset_from(ptr) as usize;
-/// ```
-///
-/// But due to min rust is 1.39 and it is only stabilized
-/// in 1.47, we cannot use it.
-#[inline]
-fn offset_from(dst: *mut u8, original: *mut u8) -> usize {
-    debug_assert!(dst >= original);
-
-    dst as usize - original as usize
 }
 
 unsafe fn rebuild_vec(ptr: *mut u8, mut len: usize, mut cap: usize, off: usize) -> Vec<u8> {
