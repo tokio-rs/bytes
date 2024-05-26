@@ -525,30 +525,10 @@ impl Bytes {
     /// ```
     pub fn try_into_mut(self) -> Result<BytesMut, Bytes> {
         if self.is_unique() {
-            Ok(self.make_mut())
+            Ok(self.into())
         } else {
             Err(self)
         }
-    }
-
-    /// Convert self into `BytesMut`.
-    ///
-    /// If `self` is unique for the entire original buffer, this will return a
-    /// `BytesMut` with the contents of `self` without copying.
-    /// If `self` is not unique for the entire original buffer, this will make
-    /// a copy of `self` subset of the original buffer in a new `BytesMut`.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use bytes::{Bytes, BytesMut};
-    ///
-    /// let bytes = Bytes::from(b"hello".to_vec());
-    /// assert_eq!(bytes.make_mut(), BytesMut::from(&b"hello"[..]));
-    /// ```
-    pub fn make_mut(self) -> BytesMut {
-        let bytes = ManuallyDrop::new(self);
-        unsafe { (bytes.vtable.to_mut)(&bytes.data, bytes.ptr, bytes.len) }
     }
 
     #[inline]
@@ -929,6 +909,28 @@ impl From<Box<[u8]>> for Bytes {
                 vtable: &PROMOTABLE_ODD_VTABLE,
             }
         }
+    }
+}
+
+impl From<Bytes> for BytesMut {
+    /// Convert self into `BytesMut`.
+    ///
+    /// If `bytes` is unique for the entire original buffer, this will return a
+    /// `BytesMut` with the contents of `bytes` without copying.
+    /// If `bytes` is not unique for the entire original buffer, this will make
+    /// a copy of `bytes` subset of the original buffer in a new `BytesMut`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::{Bytes, BytesMut};
+    ///
+    /// let bytes = Bytes::from(b"hello".to_vec());
+    /// assert_eq!(BytesMut::from(bytes), BytesMut::from(&b"hello"[..]));
+    /// ```
+    fn from(bytes: Bytes) -> Self {
+        let bytes = ManuallyDrop::new(bytes);
+        unsafe { (bytes.vtable.to_mut)(&bytes.data, bytes.ptr, bytes.len) }
     }
 }
 
