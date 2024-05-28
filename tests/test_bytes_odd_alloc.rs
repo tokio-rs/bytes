@@ -6,7 +6,7 @@
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::ptr;
 
-use bytes::Bytes;
+use bytes::{Bytes, BytesMut};
 
 #[global_allocator]
 static ODD: Odd = Odd;
@@ -97,50 +97,50 @@ fn test_bytes_into_vec() {
 }
 
 #[test]
-fn test_bytes_make_mut_vec() {
+fn test_bytesmut_from_bytes_vec() {
     let vec = vec![33u8; 1024];
 
     // Test case where kind == KIND_VEC
     let b1 = Bytes::from(vec.clone());
-    let b1m = b1.make_mut();
+    let b1m = BytesMut::from(b1);
     assert_eq!(b1m, vec);
 }
 
 #[test]
-fn test_bytes_make_mut_arc_1() {
+fn test_bytesmut_from_bytes_arc_1() {
     let vec = vec![33u8; 1024];
 
     // Test case where kind == KIND_ARC, ref_cnt == 1
     let b1 = Bytes::from(vec.clone());
     drop(b1.clone());
-    let b1m = b1.make_mut();
+    let b1m = BytesMut::from(b1);
     assert_eq!(b1m, vec);
 }
 
 #[test]
-fn test_bytes_make_mut_arc_2() {
+fn test_bytesmut_from_bytes_arc_2() {
     let vec = vec![33u8; 1024];
 
     // Test case where kind == KIND_ARC, ref_cnt == 2
     let b1 = Bytes::from(vec.clone());
     let b2 = b1.clone();
-    let b1m = b1.make_mut();
+    let b1m = BytesMut::from(b1);
     assert_eq!(b1m, vec);
 
     // Test case where vtable = SHARED_VTABLE, kind == KIND_ARC, ref_cnt == 1
-    let b2m = b2.make_mut();
+    let b2m = BytesMut::from(b2);
     assert_eq!(b2m, vec);
 }
 
 #[test]
-fn test_bytes_make_mut_arc_offset() {
+fn test_bytesmut_from_bytes_arc_offset() {
     let vec = vec![33u8; 1024];
 
     // Test case where offset != 0
     let mut b1 = Bytes::from(vec.clone());
     let b2 = b1.split_off(20);
-    let b1m = b1.make_mut();
-    let b2m = b2.make_mut();
+    let b1m = BytesMut::from(b1);
+    let b2m = BytesMut::from(b2);
 
     assert_eq!(b2m, vec[20..]);
     assert_eq!(b1m, vec[..20]);
