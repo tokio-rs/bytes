@@ -1310,7 +1310,13 @@ fn try_reserve_vec() {
     let mut buf = BytesMut::with_capacity(6);
     buf.put_slice(b"abc");
     assert_eq!(false, buf.try_reclaim(6));
-    buf.advance(3);
+    buf.advance(2);
+    assert_eq!(4, buf.capacity());
+    // We can reclaim 5 bytes, because the byte in the buffer can be moved to the front. 6 bytes
+    // cannot be reclaimed because there is already one byte stored
+    assert_eq!(false, buf.try_reclaim(6));
+    assert_eq!(true, buf.try_reclaim(5));
+    buf.advance(1);
     assert_eq!(true, buf.try_reclaim(6));
     assert_eq!(6, buf.capacity());
 }
@@ -1336,6 +1342,8 @@ fn try_reserve_arc() {
     assert_eq!(6, buf.capacity());
     assert_eq!(6, buf.len());
     assert_eq!(false, buf.try_reclaim(6));
-    buf.advance(6);
+    buf.advance(4);
+    assert_eq!(true, buf.try_reclaim(4));
+    buf.advance(2);
     assert_eq!(true, buf.try_reclaim(6));
 }
