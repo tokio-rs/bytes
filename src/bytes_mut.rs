@@ -264,7 +264,14 @@ impl BytesMut {
         }
     }
 
-    /// Creates a new `BytesMut`, which is initialized with zero.
+    /// Creates a new `BytesMut` containing `len` zeros.
+    ///
+    /// The resulting object has a length of `len` and a capacity greater
+    /// than or equal to `len`. The entire length of the object will be filled
+    /// with zeros.
+    ///
+    /// On some platforms or allocators this function may be faster than
+    /// a manual implementation.
     ///
     /// # Examples
     ///
@@ -273,6 +280,7 @@ impl BytesMut {
     ///
     /// let zeros = BytesMut::zeroed(42);
     ///
+    /// assert!(zeros.capacity() >= 42);
     /// assert_eq!(zeros.len(), 42);
     /// zeros.into_iter().for_each(|x| assert_eq!(x, 0));
     /// ```
