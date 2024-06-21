@@ -264,7 +264,7 @@ impl BytesMut {
         }
     }
 
-    /// Creates a new `BytesMut`, with the length initialized with zeros.
+    /// Creates a new `BytesMut` containing `len` zeros.
     ///
     /// The resulting object has a length of `len` and a capacity greater
     /// than or equal to `len`. The entire length of the object will be filled
