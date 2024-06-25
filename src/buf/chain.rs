@@ -1,5 +1,5 @@
 use crate::buf::{IntoIter, UninitSlice};
-use crate::{Buf, BufMut, Bytes};
+use crate::{Buf, BufMut, Bytes, SeekBuf};
 
 #[cfg(feature = "std")]
 use std::io::IoSlice;
@@ -184,6 +184,28 @@ where
             ret.put(&mut self.a);
             ret.put((&mut self.b).take(len - a_rem));
             ret.freeze()
+        }
+    }
+}
+
+impl<T, U> SeekBuf for Chain<T, U>
+where
+    T: SeekBuf,
+    U: SeekBuf,
+{
+    fn chunk_from(&self, start: usize) -> Option<&[u8]> {
+        if start < self.a.remaining() {
+            self.a.chunk_from(start)
+        } else {
+            self.b.chunk_from(start - self.a.remaining())
+        }
+    }
+
+    fn chunk_to(&self, end: usize) -> Option<&[u8]> {
+        if end <= self.a.remaining() {
+            self.a.chunk_to(end)
+        } else {
+            self.b.chunk_to(end - self.a.remaining())
         }
     }
 }
