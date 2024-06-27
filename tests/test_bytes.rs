@@ -1285,7 +1285,7 @@ fn test_bytes_make_mut_promotable_even_arc_offset() {
 }
 
 #[test]
-fn try_reserve_empty() {
+fn try_reclaim_empty() {
     let mut buf = BytesMut::new();
     assert_eq!(false, buf.try_reclaim(6));
     buf.reserve(6);
@@ -1306,9 +1306,12 @@ fn try_reserve_empty() {
 }
 
 #[test]
-fn try_reserve_vec() {
+fn try_reclaim_vec() {
     let mut buf = BytesMut::with_capacity(6);
     buf.put_slice(b"abc");
+    // Reclaiming a ludicrous amount of space should calmly return false
+    assert_eq!(false, buf.try_reclaim(usize::MAX));
+
     assert_eq!(false, buf.try_reclaim(6));
     buf.advance(2);
     assert_eq!(4, buf.capacity());
@@ -1322,11 +1325,14 @@ fn try_reserve_vec() {
 }
 
 #[test]
-fn try_reserve_arc() {
+fn try_reclaim_arc() {
     let mut buf = BytesMut::with_capacity(6);
     buf.put_slice(b"abc");
     let x = buf.split().freeze();
     buf.put_slice(b"def");
+    // Reclaiming a ludicrous amount of space should calmly return false
+    assert_eq!(false, buf.try_reclaim(usize::MAX));
+
     let y = buf.split().freeze();
     let z = y.clone();
     assert_eq!(false, buf.try_reclaim(6));

@@ -666,7 +666,11 @@ impl BytesMut {
         // allocating a new vector with the requested capacity.
         //
         // Compute the new capacity
-        let mut new_cap = len.checked_add(additional).expect("overflow");
+        let mut new_cap = match len.checked_add(additional) {
+            Some(new_cap) => new_cap,
+            None if !allocate => return false,
+            None => panic!("overflow"),
+        };
 
         unsafe {
             // First, try to reclaim the buffer. This is possible if the current
