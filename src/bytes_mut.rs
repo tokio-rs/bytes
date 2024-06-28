@@ -597,12 +597,13 @@ impl BytesMut {
             return;
         }
 
-        self.reserve_inner(additional);
+        // will always succeed
+        let _ = self.reserve_inner(additional, true);
     }
 
-    // In separate function to allow the short-circuits in `reserve` to
-    // be inline-able. Significant helps performance.
-    fn reserve_inner(&mut self, additional: usize) {
+    // In separate function to allow the short-circuits in `reserve` and `try_reclaim` to
+    // be inline-able. Significantly helps performance. Returns false if it did not succeed.
+    fn reserve_inner(&mut self, additional: usize, allocate: bool) -> bool {
         let len = self.len();
         let kind = self.kind();
 
@@ -647,6 +648,9 @@ impl BytesMut {
                     // can gain capacity back.
                     self.cap += off;
                 } else {
+                    if !allocate {
+                        return false;
+                    }
                     // Not enough space, or reusing might be too much overhead:
                     // allocate more space!
                     let mut v =
@@ -659,7 +663,7 @@ impl BytesMut {
                     debug_assert_eq!(self.len, v.len() - off);
                 }
 
-                return;
+                return true;
             }
         }
 
@@ -670,7 +674,11 @@ impl BytesMut {
         // allocating a new vector with the requested capacity.
         //
         // Compute the new capacity
-        let mut new_cap = len.checked_add(additional).expect("overflow");
+        let mut new_cap = match len.checked_add(additional) {
+            Some(new_cap) => new_cap,
+            None if !allocate => return false,
+            None => panic!("overflow"),
+        };
 
         unsafe {
             // First, try to reclaim the buffer. This is possible if the current
@@ -701,6 +709,9 @@ impl BytesMut {
                     self.ptr = vptr(ptr);
                     self.cap = v.capacity();
                 } else {
+                    if !allocate {
+                        return false;
+                    }
                     // calculate offset
                     let off = (self.ptr.as_ptr() as usize) - (v.as_ptr() as usize);
 
@@ -739,8 +750,11 @@ impl BytesMut {
                     self.cap = v.capacity() - off;
                 }
 
-                return;
+                return true;
             }
+        }
+        if !allocate {
+            return false;
         }
 
         let original_capacity_repr = unsafe { (*shared).original_capacity_repr };
@@ -764,6 +778,67 @@ impl BytesMut {
         self.ptr = vptr(v.as_mut_ptr());
         self.cap = v.capacity();
         debug_assert_eq!(self.len, v.len());
+        return true;
+    }
+
+    /// Attempts to cheaply reclaim already allocated capacity for at least `additional` more
+    /// bytes to be inserted into the given `BytesMut` and returns `true` if it succeeded.
+    ///
+    /// `try_reclaim` behaves exactly like `reserve`, except that it never allocates new storage
+    /// and returns a `bool` indicating whether it was successful in doing so:
+    ///
+    /// `try_reclaim` returns false under these conditions:
+    ///  - The spare capacity left is less than `additional` bytes AND
+    ///  - The existing allocation cannot be reclaimed cheaply or it was less than
+    ///    `additional` bytes in size
+    ///
+    /// Reclaiming the allocation cheaply is possible if the `BytesMut` has no outstanding
+    /// references through other `BytesMut`s or `Bytes` which point to the same underlying
+    /// storage.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::BytesMut;
+    ///
+    /// let mut buf = BytesMut::with_capacity(64);
+    /// assert_eq!(true, buf.try_reclaim(64));
+    /// assert_eq!(64, buf.capacity());
+    ///
+    /// buf.extend_from_slice(b"abcd");
+    /// let mut split = buf.split();
+    /// assert_eq!(60, buf.capacity());
+    /// assert_eq!(4, split.capacity());
+    /// assert_eq!(false, split.try_reclaim(64));
+    /// assert_eq!(false, buf.try_reclaim(64));
+    /// // The split buffer is filled with "abcd"
+    /// assert_eq!(false, split.try_reclaim(4));
+    /// // buf is empty and has capacity for 60 bytes
+    /// assert_eq!(true, buf.try_reclaim(60));
+    ///
+    /// drop(buf);
+    /// assert_eq!(false, split.try_reclaim(64));
+    ///
+    /// split.clear();
+    /// assert_eq!(4, split.capacity());
+    /// assert_eq!(true, split.try_reclaim(64));
+    /// assert_eq!(64, split.capacity());
+    /// ```
+    // I tried splitting out try_reclaim_inner after the short circuits, but it was inlined
+    // regardless with Rust 1.78.0 so probably not worth it
+    #[inline]
+    #[must_use = "consider BytesMut::reserve if you need an infallible reservation"]
+    pub fn try_reclaim(&mut self, additional: usize) -> bool {
+        let len = self.len();
+        let rem = self.capacity() - len;
+
+        if additional <= rem {
+            // The handle can already store at least `additional` more bytes, so
+            // there is no further work needed to be done.
+            return true;
+        }
+
+        self.reserve_inner(additional, false)
     }
 
     /// Appends given bytes to this `BytesMut`.
