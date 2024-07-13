@@ -1174,6 +1174,15 @@ fn shared_is_unique() {
 }
 
 #[test]
+fn mut_shared_is_unique() {
+    let mut b = BytesMut::from(LONG);
+    let c = b.split().freeze();
+    assert!(!c.is_unique());
+    drop(b);
+    assert!(c.is_unique());
+}
+
+#[test]
 fn test_bytesmut_from_bytes_static() {
     let bs = b"1b23exfcz3r";
 
