@@ -1,19 +1,23 @@
 # 1.7.0 (July 31, 2024)
 
 ### Added
+
 - Add conversion from `Bytes` to `BytesMut` (#695, #710)
 - Add reclaim method without additional allocation (#686)
 
 ### Documented
+
 - Clarify how `BytesMut::zeroed` works (#714)
 - Clarify the behavior of `Buf::chunk` (#717)
 
 ### Changed
+
 - Change length condition of `BytesMut::truncate`
 - Reuse capacity when possible in `<BytesMut as Buf>::advance` impl (#698)
 - Improve `must_use` suggestion of `BytesMut::split` (#699)
 
 ### Internal changes
+
 - Use `ManuallyDrop` instead of `mem::forget` (#678)
 - Don't set `len` in `BytesMut::reserve` (#682)
 - Optimize `Bytes::copy_to_bytes` (#688)
