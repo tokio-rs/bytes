@@ -1148,13 +1148,6 @@ impl Buf for BytesMut {
 
     #[inline]
     fn advance(&mut self, cnt: usize) {
-        // Advancing by the length is the same as resetting the length to 0,
-        // except this way we get to reuse the full capacity.
-        if cnt == self.remaining() {
-            self.clear();
-            return;
-        }
-
         assert!(
             cnt <= self.remaining(),
             "cannot advance past `remaining`: {:?} <= {:?}",
