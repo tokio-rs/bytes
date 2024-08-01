@@ -1,3 +1,11 @@
+# 1.7.1 (August 1, 2024)
+
+This release reverts the following change due to a regression:
+
+- Reuse capacity when possible in `<BytesMut as Buf>::advance` impl (#698)
+
+The revert can be found at #726.
+
 # 1.7.0 (July 31, 2024)
 
 ### Added
