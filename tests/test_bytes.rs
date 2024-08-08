@@ -676,6 +676,43 @@ fn advance_bytes_mut() {
     assert_eq!(a, b"d zomg wat wat"[..]);
 }
 
+// Ensures BytesMut::advance reduces always capacity
+//
+// See https://github.com/tokio-rs/bytes/issues/725
+#[test]
+fn advance_bytes_mut_remaining_capacity() {
+    // reduce the search space under miri
+    let max_capacity = if cfg!(miri) { 16 } else { 256 };
+    for capacity in 0..=max_capacity {
+        for len in 0..=capacity {
+            for advance in 0..=len {
+                eprintln!("testing capacity={capacity}, len={len}, advance={advance}");
+                let mut buf = BytesMut::with_capacity(capacity);
+
+                buf.resize(len, 42);
+                assert_eq!(buf.len(), len, "resize should write `len` bytes");
+                assert_eq!(
+                    buf.remaining(),
+                    len,
+                    "Buf::remaining() should equal BytesMut::len"
+                );
+
+                buf.advance(advance);
+                assert_eq!(
+                    buf.remaining(),
+                    len - advance,
+                    "Buf::advance should reduce the remaining len"
+                );
+                assert_eq!(
+                    buf.capacity(),
+                    capacity - advance,
+                    "Buf::advance should reduce the remaining capacity"
+                );
+            }
+        }
+    }
+}
+
 #[test]
 #[should_panic]
 fn advance_past_len() {
@@ -1174,6 +1211,15 @@ fn shared_is_unique() {
 }
 
 #[test]
+fn mut_shared_is_unique() {
+    let mut b = BytesMut::from(LONG);
+    let c = b.split().freeze();
+    assert!(!c.is_unique());
+    drop(b);
+    assert!(c.is_unique());
+}
+
+#[test]
 fn test_bytesmut_from_bytes_static() {
     let bs = b"1b23exfcz3r";
 
@@ -1282,4 +1328,74 @@ fn test_bytesmut_from_bytes_promotable_even_arc_offset() {
 
     assert_eq!(b2m, vec[20..]);
     assert_eq!(b1m, vec[..20]);
+}
+
+#[test]
+fn try_reclaim_empty() {
+    let mut buf = BytesMut::new();
+    assert_eq!(false, buf.try_reclaim(6));
+    buf.reserve(6);
+    assert_eq!(true, buf.try_reclaim(6));
+    let cap = buf.capacity();
+    assert!(cap >= 6);
+    assert_eq!(false, buf.try_reclaim(cap + 1));
+
+    let mut buf = BytesMut::new();
+    buf.reserve(6);
+    let cap = buf.capacity();
+    assert!(cap >= 6);
+    let mut split = buf.split();
+    drop(buf);
+    assert_eq!(0, split.capacity());
+    assert_eq!(true, split.try_reclaim(6));
+    assert_eq!(false, split.try_reclaim(cap + 1));
+}
+
+#[test]
+fn try_reclaim_vec() {
+    let mut buf = BytesMut::with_capacity(6);
+    buf.put_slice(b"abc");
+    // Reclaiming a ludicrous amount of space should calmly return false
+    assert_eq!(false, buf.try_reclaim(usize::MAX));
+
+    assert_eq!(false, buf.try_reclaim(6));
+    buf.advance(2);
+    assert_eq!(4, buf.capacity());
+    // We can reclaim 5 bytes, because the byte in the buffer can be moved to the front. 6 bytes
+    // cannot be reclaimed because there is already one byte stored
+    assert_eq!(false, buf.try_reclaim(6));
+    assert_eq!(true, buf.try_reclaim(5));
+    buf.advance(1);
+    assert_eq!(true, buf.try_reclaim(6));
+    assert_eq!(6, buf.capacity());
+}
+
+#[test]
+fn try_reclaim_arc() {
+    let mut buf = BytesMut::with_capacity(6);
+    buf.put_slice(b"abc");
+    let x = buf.split().freeze();
+    buf.put_slice(b"def");
+    // Reclaiming a ludicrous amount of space should calmly return false
+    assert_eq!(false, buf.try_reclaim(usize::MAX));
+
+    let y = buf.split().freeze();
+    let z = y.clone();
+    assert_eq!(false, buf.try_reclaim(6));
+    drop(x);
+    drop(z);
+    assert_eq!(false, buf.try_reclaim(6));
+    drop(y);
+    assert_eq!(true, buf.try_reclaim(6));
+    assert_eq!(6, buf.capacity());
+    assert_eq!(0, buf.len());
+    buf.put_slice(b"abc");
+    buf.put_slice(b"def");
+    assert_eq!(6, buf.capacity());
+    assert_eq!(6, buf.len());
+    assert_eq!(false, buf.try_reclaim(6));
+    buf.advance(4);
+    assert_eq!(true, buf.try_reclaim(4));
+    buf.advance(2);
+    assert_eq!(true, buf.try_reclaim(6));
 }
