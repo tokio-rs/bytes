@@ -1301,7 +1301,7 @@ unsafe fn shallow_clone_vec(
     offset: *const u8,
     len: usize,
 ) -> Bytes {
-    // If  the buffer is still tracked in a `Vec<u8>`. It is time to
+    // If the buffer is still tracked in a `Vec<u8>`. It is time to
     // promote the vec to an `Arc`. This could potentially be called
     // concurrently, so some care must be taken.
 
