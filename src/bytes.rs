@@ -142,6 +142,7 @@ impl Bytes {
         Bytes::from_static(EMPTY)
     }
 
+    /// Creates a new empty `Bytes`.
     #[cfg(all(loom, test))]
     pub fn new() -> Self {
         const EMPTY: &[u8] = &[];
@@ -172,6 +173,7 @@ impl Bytes {
         }
     }
 
+    /// Creates a new `Bytes` from a static slice.
     #[cfg(all(loom, test))]
     pub fn from_static(bytes: &'static [u8]) -> Self {
         Bytes {
