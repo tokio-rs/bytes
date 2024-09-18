@@ -28,10 +28,10 @@ impl<T> IntoIter<T> {
     /// # Examples
     ///
     /// ```
-    /// use bytes::Bytes;
+    /// use bytes::{buf::IntoIter, Bytes};
     ///
     /// let buf = Bytes::from_static(b"abc");
-    /// let mut iter = buf.into_iter();
+    /// let mut iter = IntoIter::new(buf);
     ///
     /// assert_eq!(iter.next(), Some(b'a'));
     /// assert_eq!(iter.next(), Some(b'b'));
