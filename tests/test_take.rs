@@ -30,3 +30,55 @@ fn take_copy_to_bytes_panics() {
     let abcd = Bytes::copy_from_slice(b"abcd");
     abcd.take(2).copy_to_bytes(3);
 }
+
+#[cfg(feature = "std")]
+#[test]
+fn take_chunks_vectored() {
+    fn chain() -> impl Buf {
+        Bytes::from([1, 2, 3].to_vec()).chain(Bytes::from([4, 5, 6].to_vec()))
+    }
+
+    {
+        let mut dst = [std::io::IoSlice::new(&[]); 2];
+        let take = chain().take(0);
+        assert_eq!(take.chunks_vectored(&mut dst), 0);
+    }
+
+    {
+        let mut dst = [std::io::IoSlice::new(&[]); 2];
+        let take = chain().take(1);
+        assert_eq!(take.chunks_vectored(&mut dst), 1);
+        assert_eq!(&*dst[0], &[1]);
+    }
+
+    {
+        let mut dst = [std::io::IoSlice::new(&[]); 2];
+        let take = chain().take(3);
+        assert_eq!(take.chunks_vectored(&mut dst), 1);
+        assert_eq!(&*dst[0], &[1, 2, 3]);
+    }
+
+    {
+        let mut dst = [std::io::IoSlice::new(&[]); 2];
+        let take = chain().take(4);
+        assert_eq!(take.chunks_vectored(&mut dst), 2);
+        assert_eq!(&*dst[0], &[1, 2, 3]);
+        assert_eq!(&*dst[1], &[4]);
+    }
+
+    {
+        let mut dst = [std::io::IoSlice::new(&[]); 2];
+        let take = chain().take(6);
+        assert_eq!(take.chunks_vectored(&mut dst), 2);
+        assert_eq!(&*dst[0], &[1, 2, 3]);
+        assert_eq!(&*dst[1], &[4, 5, 6]);
+    }
+
+    {
+        let mut dst = [std::io::IoSlice::new(&[]); 2];
+        let take = chain().take(7);
+        assert_eq!(take.chunks_vectored(&mut dst), 2);
+        assert_eq!(&*dst[0], &[1, 2, 3]);
+        assert_eq!(&*dst[1], &[4, 5, 6]);
+    }
+}
