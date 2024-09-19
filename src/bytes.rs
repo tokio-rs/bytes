@@ -582,6 +582,21 @@ impl Clone for Bytes {
     }
 }
 
+macro_rules! buf_get_impl {
+    ($this:ident, $typ:tt::$conv:tt) => {{
+        const SIZE: usize = mem::size_of::<$typ>();
+
+        assert!($this.len >= SIZE);
+        // slice.get() returns None on failing bounds check, resulting in a panic, but skips the unnecessary code of the
+        // default buf impl that needs to account for non-contiguous memory
+        let ret = unsafe { $typ::$conv(($this.ptr as *const $typ).read_unaligned()) };
+
+        // if the direct conversion was possible, advance and return
+        $this.advance(SIZE);
+        return ret;
+    }};
+}
+
 impl Buf for Bytes {
     #[inline]
     fn remaining(&self) -> usize {
@@ -609,6 +624,136 @@ impl Buf for Bytes {
 
     fn copy_to_bytes(&mut self, len: usize) -> Self {
         self.split_to(len)
+    }
+
+    #[inline]
+    fn get_u8(&mut self) -> u8 {
+        buf_get_impl!(self, u8::from)
+    }
+
+    #[inline]
+    fn get_i8(&mut self) -> i8 {
+        buf_get_impl!(self, i8::from)
+    }
+
+    #[inline]
+    fn get_u16(&mut self) -> u16 {
+        buf_get_impl!(self, u16::from_be);
+    }
+
+    #[inline]
+    fn get_u16_le(&mut self) -> u16 {
+        buf_get_impl!(self, u16::from_le);
+    }
+
+    #[inline]
+    fn get_u16_ne(&mut self) -> u16 {
+        buf_get_impl!(self, u16::from);
+    }
+
+    #[inline]
+    fn get_i16(&mut self) -> i16 {
+        buf_get_impl!(self, i16::from_be);
+    }
+
+    #[inline]
+    fn get_i16_le(&mut self) -> i16 {
+        buf_get_impl!(self, i16::from_le);
+    }
+
+    #[inline]
+    fn get_i16_ne(&mut self) -> i16 {
+        buf_get_impl!(self, i16::from);
+    }
+
+    #[inline]
+    fn get_u32(&mut self) -> u32 {
+        buf_get_impl!(self, u32::from_be);
+    }
+
+    #[inline]
+    fn get_u32_le(&mut self) -> u32 {
+        buf_get_impl!(self, u32::from_le);
+    }
+
+    #[inline]
+    fn get_u32_ne(&mut self) -> u32 {
+        buf_get_impl!(self, u32::from);
+    }
+
+    #[inline]
+    fn get_i32(&mut self) -> i32 {
+        buf_get_impl!(self, i32::from_be);
+    }
+
+    #[inline]
+    fn get_i32_le(&mut self) -> i32 {
+        buf_get_impl!(self, i32::from_le);
+    }
+
+    #[inline]
+    fn get_i32_ne(&mut self) -> i32 {
+        buf_get_impl!(self, i32::from);
+    }
+
+    #[inline]
+    fn get_u64(&mut self) -> u64 {
+        buf_get_impl!(self, u64::from_be);
+    }
+
+    #[inline]
+    fn get_u64_le(&mut self) -> u64 {
+        buf_get_impl!(self, u64::from_le);
+    }
+
+    #[inline]
+    fn get_u64_ne(&mut self) -> u64 {
+        buf_get_impl!(self, u64::from);
+    }
+
+    #[inline]
+    fn get_i64(&mut self) -> i64 {
+        buf_get_impl!(self, i64::from_be);
+    }
+
+    #[inline]
+    fn get_i64_le(&mut self) -> i64 {
+        buf_get_impl!(self, i64::from_le);
+    }
+
+    #[inline]
+    fn get_i64_ne(&mut self) -> i64 {
+        buf_get_impl!(self, i64::from);
+    }
+
+    #[inline]
+    fn get_u128(&mut self) -> u128 {
+        buf_get_impl!(self, u128::from_be);
+    }
+
+    #[inline]
+    fn get_u128_le(&mut self) -> u128 {
+        buf_get_impl!(self, u128::from_le);
+    }
+
+    #[inline]
+    fn get_u128_ne(&mut self) -> u128 {
+        buf_get_impl!(self, u128::from);
+    }
+
+    #[inline]
+    fn get_i128(&mut self) -> i128 {
+        buf_get_impl!(self, i128::from_be);
+    }
+
+    #[inline]
+    fn get_i128_le(&mut self) -> i128 {
+        buf_get_impl!(self, i128::from_le);
+    }
+
+    #[inline]
+    fn get_i128_ne(&mut self) -> i128 {
+        buf_get_impl!(self, i128::from);
     }
 }
 
