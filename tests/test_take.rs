@@ -1,7 +1,7 @@
 #![warn(rust_2018_idioms)]
 
 use bytes::buf::Buf;
-use bytes::Bytes;
+use bytes::{Bytes, SeekBuf};
 
 #[test]
 fn long_take() {
@@ -10,6 +10,19 @@ fn long_take() {
     let buf = b"hello world".take(100);
     assert_eq!(11, buf.remaining());
     assert_eq!(b"hello world", buf.chunk());
+}
+
+#[test]
+fn take_from_seek_buf() {
+    let buf = b"hello world".take(5);
+
+    assert_eq!(buf.chunk_from(0), Some(b"hello".as_slice()));
+    assert_eq!(buf.chunk_from(3), Some(b"lo".as_slice()));
+    assert_eq!(buf.chunk_to(5), Some(b"hello".as_slice()));
+    assert_eq!(buf.chunk_to(2), Some(b"he".as_slice()));
+
+    assert_eq!(buf.chunk_from(6), None);
+    assert_eq!(buf.chunk_to(6), None);
 }
 
 #[test]
