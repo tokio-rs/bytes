@@ -14,9 +14,7 @@ use alloc::{
 
 use crate::buf::{IntoIter, UninitSlice};
 use crate::bytes::Vtable;
-#[allow(unused)]
-use crate::loom::sync::atomic::AtomicMut;
-use crate::loom::sync::atomic::{AtomicPtr, AtomicUsize, Ordering};
+use crate::loom::sync::atomic::{AtomicUsize, Ordering};
 use crate::{offset_from, Buf, BufMut, Bytes};
 
 /// A unique reference to a contiguous slice of memory.
@@ -259,8 +257,8 @@ impl BytesMut {
 
             let ptr = bytes.ptr.as_ptr();
             let len = bytes.len;
-            let data = AtomicPtr::new(bytes.data.cast());
-            unsafe { Bytes::with_vtable(ptr, len, data, &SHARED_VTABLE) }
+            let data = unsafe { NonNull::new_unchecked(bytes.data) };
+            unsafe { Bytes::with_vtable(ptr, len, data.cast(), &SHARED_VTABLE) }
         }
     }
 
@@ -1777,16 +1775,12 @@ static SHARED_VTABLE: Vtable = Vtable {
     drop: shared_v_drop,
 };
 
-unsafe fn shared_v_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Bytes {
-    let shared = data.load(Ordering::Relaxed) as *mut Shared;
-    increment_shared(shared);
-
-    let data = AtomicPtr::new(shared as *mut ());
-    Bytes::with_vtable(ptr, len, data, &SHARED_VTABLE)
+unsafe fn shared_v_clone(data: *const ()) {
+    increment_shared(data as _);
 }
 
-unsafe fn shared_v_to_vec(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Vec<u8> {
-    let shared: *mut Shared = data.load(Ordering::Relaxed).cast();
+unsafe fn shared_v_to_vec(data: *const (), ptr: *const u8, len: usize) -> Vec<u8> {
+    let shared: *mut Shared = data as _;
 
     if (*shared).is_unique() {
         let shared = &mut *shared;
@@ -1807,8 +1801,8 @@ unsafe fn shared_v_to_vec(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> V
     }
 }
 
-unsafe fn shared_v_to_mut(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> BytesMut {
-    let shared: *mut Shared = data.load(Ordering::Relaxed).cast();
+unsafe fn shared_v_to_mut(data: *const (), ptr: *const u8, len: usize) -> BytesMut {
+    let shared: *mut Shared = data as _;
 
     if (*shared).is_unique() {
         let shared = &mut *shared;
@@ -1836,16 +1830,14 @@ unsafe fn shared_v_to_mut(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> B
     }
 }
 
-unsafe fn shared_v_is_unique(data: &AtomicPtr<()>) -> bool {
-    let shared = data.load(Ordering::Acquire);
-    let ref_count = (*shared.cast::<Shared>()).ref_count.load(Ordering::Relaxed);
+unsafe fn shared_v_is_unique(data: *const ()) -> bool {
+    let shared = data as *mut Shared;
+    let ref_count = (*shared).ref_count.load(Ordering::Relaxed);
     ref_count == 1
 }
 
-unsafe fn shared_v_drop(data: &mut AtomicPtr<()>, _ptr: *const u8, _len: usize) {
-    data.with_mut(|shared| {
-        release_shared(*shared as *mut Shared);
-    });
+unsafe fn shared_v_drop(data: *const ()) {
+    release_shared(data as *mut Shared);
 }
 
 // compile-fails

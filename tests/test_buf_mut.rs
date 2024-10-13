@@ -130,6 +130,10 @@ fn do_test_slice_large<T: ?Sized>(make: impl Fn(&mut [u8]) -> &mut T)
 where
     for<'r> &'r mut T: BufMut,
 {
+    if cfg!(miri) {
+        return;
+    }
+
     const LEN: usize = 100;
     const FILL: [u8; LEN] = [b'Y'; LEN];
 
