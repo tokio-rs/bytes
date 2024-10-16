@@ -190,7 +190,7 @@ impl Bytes {
 
         // Detach this pointer's provenance from whichever allocation it came from, and reattach it
         // to the provenance of the fake ZST [u8;0] at the same address.
-        let ptr = ptr as usize as *const u8;
+        let ptr = without_provenance(ptr as usize);
 
         Bytes {
             ptr,
@@ -1443,6 +1443,10 @@ where
     let old_addr = ptr as usize;
     let new_addr = f(old_addr);
     new_addr as *mut u8
+}
+
+fn without_provenance(ptr: usize) -> *const u8 {
+    core::ptr::null::<u8>().wrapping_add(ptr)
 }
 
 // compile-fails
