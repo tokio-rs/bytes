@@ -200,6 +200,23 @@ impl Bytes {
         }
     }
 
+    pub unsafe fn from_external(owner: impl ExternalBytesOwner) -> Self {
+        let slice = owner.as_ref();
+        let ptr = slice.as_ptr();
+        let len = slice.len();
+        let external = External {
+            ref_cnt: Default::default(),
+            owner,  // TODO(amunra): Remove pointer of a pointer.
+        };
+        let external = Box::into_raw(Box::new(external));
+        Bytes {
+            ptr,
+            len,
+            data: AtomicPtr::new(external as _),
+            vtable: &EXTERNAL_VTABLE,
+        }
+    }
+
     /// Returns the number of bytes contained in this `Bytes`.
     ///
     /// # Examples
@@ -1024,18 +1041,13 @@ unsafe fn static_drop(_: &mut AtomicPtr<()>, _: *const u8, _: usize) {
 /// the memory is owned by external means such as a memory mapped file.
 pub unsafe trait ExternalBytesOwner : Drop + AsRef<[u8]> {}
 
-struct External {
-    owner: *const dyn ExternalBytesOwner,
+#[repr(C)]
+struct External<T: ExternalBytesOwner> {
     ref_cnt: AtomicUsize,
+    owner: T,
 }
 
-impl Clone for External {
-    fn clone(&self) -> Self {
-        todo!()
-    }
-}
-
-impl Drop for External {
+impl <T: ExternalBytesOwner> Drop for External<T> {
     fn drop(&mut self) {
         todo!()
     }
@@ -1043,8 +1055,19 @@ impl Drop for External {
 
 unsafe fn external_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Bytes {
     let external = data.load(Ordering::Acquire);
-    let external = &*external.cast::<External>();
-    todo!()
+    let ref_cnt = &*external.cast::<AtomicUsize>();
+    let old_size = ref_cnt.fetch_add(1, Ordering::Relaxed); // TODO(amunra): Triple-check ordering.
+
+    if old_size > usize::MAX >> 1 {
+        crate::abort()
+    }
+
+    Bytes {
+        ptr,
+        len,
+        data: AtomicPtr::new(external as _),
+        vtable: &EXTERNAL_VTABLE
+    }
 }
 
 unsafe fn external_to_vec(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Vec<u8> {
