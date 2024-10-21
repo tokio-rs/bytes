@@ -1012,6 +1012,73 @@ unsafe fn static_drop(_: &mut AtomicPtr<()>, _: *const u8, _: usize) {
     // nothing to drop for &'static [u8]
 }
 
+// ===== impl ExternalVtable =====
+
+/// Manage the lifetime of a [Bytes] buffer externally.
+///
+/// The trait is marked as `unsafe` since it needs to ensure that the slice
+/// of returned by [AsRef<[u8]>](AsRef) retains a fixed address in memory,
+/// tied the lifetime of the trait implementor.
+///
+/// A common use case for implementing the [ExternalBytesOwner] is when
+/// the memory is owned by external means such as a memory mapped file.
+pub unsafe trait ExternalBytesOwner : Drop + AsRef<[u8]> {}
+
+struct External {
+    owner: *const dyn ExternalBytesOwner,
+    ref_cnt: AtomicUsize,
+}
+
+impl Clone for External {
+    fn clone(&self) -> Self {
+        todo!()
+    }
+}
+
+impl Drop for External {
+    fn drop(&mut self) {
+        todo!()
+    }
+}
+
+unsafe fn external_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Bytes {
+    let external = data.load(Ordering::Acquire);
+    let external = &*external.cast::<External>();
+    todo!()
+}
+
+unsafe fn external_to_vec(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Vec<u8> {
+    let external = data.load(Ordering::Acquire);
+    let external = &*external.cast::<External>();
+    todo!()
+}
+
+unsafe fn external_to_mut(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> BytesMut {
+    let external = data.load(Ordering::Acquire);
+    let external = &*external.cast::<External>();
+    todo!()
+}
+
+unsafe fn external_is_unique(data: &AtomicPtr<()>) -> bool {
+    let external = data.load(Ordering::Acquire);
+    let external = &*external.cast::<External>();
+    todo!()
+}
+
+unsafe fn external_drop(data: &mut AtomicPtr<()>, ptr: *const u8, len: usize) {
+    let external = data.load(Ordering::Acquire);
+    let external = &*external.cast::<External>();
+    todo!()
+}
+
+static EXTERNAL_VTABLE: Vtable = Vtable {
+    clone: external_clone,
+    to_vec: external_to_vec,
+    to_mut: external_to_mut,
+    is_unique: external_is_unique,
+    drop: external_drop,
+};
+
 // ===== impl PromotableVtable =====
 
 static PROMOTABLE_EVEN_VTABLE: Vtable = Vtable {
