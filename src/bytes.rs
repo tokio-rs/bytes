@@ -200,11 +200,33 @@ impl Bytes {
         }
     }
 
-    pub unsafe fn from_external<T>(ptr: *const u8, len: usize, owner: T) -> Self {
-        let external = Box::into_raw(Box::new(External {
-            lifetime: ExternalLifetime {
+    /// Create [Bytes] with a buffer whose lifetime is controlled
+    /// via an explicit owner.
+    ///
+    /// A common use case is creating bytes to a memory mapped file,
+    /// allowing for zero-copy construction.
+    ///
+    /// ```no_run
+    /// use bytes::Bytes;
+    /// use std::fs::File;
+    /// use memmap2::Map;
+    ///
+    /// let mut file = File::open("upload_bundle.tar.gz");
+    /// let b = unsafe {
+    ///     let mmap = Mmap::map(&file);
+    ///     let ptr = mmap.as_ptr();
+    ///     let len = mmap.len();
+    ///     Bytes::with_owner(ptr, len, mmap)
+    /// };
+    /// ```
+    ///
+    /// Converting to a vector or a [BytesMut] will create a deep copy of
+    /// the buffer.
+    pub unsafe fn with_owner<T>(ptr: *const u8, len: usize, owner: T) -> Self {
+        let owned = Box::into_raw(Box::new(Owned {
+            lifetime: OwnedLifetime {
                 ref_cnt: Default::default(),
-                drop: external_box_and_drop::<T>,
+                drop: owned_box_and_drop::<T>,
             },
             owner,
         }));
@@ -212,8 +234,8 @@ impl Bytes {
         Bytes {
             ptr,
             len,
-            data: AtomicPtr::new(external as _),
-            vtable: &EXTERNAL_VTABLE,
+            data: AtomicPtr::new(owned as _),
+            vtable: &OWNED_VTABLE,
         }
     }
 
@@ -1029,37 +1051,28 @@ unsafe fn static_drop(_: &mut AtomicPtr<()>, _: *const u8, _: usize) {
     // nothing to drop for &'static [u8]
 }
 
-// ===== impl ExternalVtable =====
-
-/// Manage the lifetime of a [Bytes] buffer externally.
-///
-/// The trait is marked as `unsafe` since it needs to ensure that the slice
-/// of returned by [AsRef<[u8]>](AsRef) retains a fixed address in memory,
-/// tied the lifetime of the trait implementor.
-///
-/// A common use case for implementing the [ExternalBytesOwner] is when
-/// the memory is owned by external means such as a memory mapped file.
+// ===== impl OwnedVtable =====
 
 #[repr(C)]
-struct ExternalLifetime {
+struct OwnedLifetime {
     ref_cnt: AtomicUsize,
     drop: unsafe fn(*mut ()),
 }
 
 #[repr(C)]
-struct External<T> {
-    lifetime: ExternalLifetime,
+struct Owned<T> {
+    lifetime: OwnedLifetime,
     owner: T,
 }
 
-unsafe fn external_box_and_drop<T>(ptr: *mut ()) {
-    let b: Box<External<T>> = Box::from_raw(ptr as _);
+unsafe fn owned_box_and_drop<T>(ptr: *mut ()) {
+    let b: Box<Owned<T>> = Box::from_raw(ptr as _);
     drop(b);
 }
 
-unsafe fn external_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Bytes {
-    let external = data.load(Ordering::Acquire);
-    let ref_cnt = &(*external.cast::<ExternalLifetime>()).ref_cnt;
+unsafe fn owned_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Bytes {
+    let owned = data.load(Ordering::Acquire);
+    let ref_cnt = &(*owned.cast::<OwnedLifetime>()).ref_cnt;
     let old_size = ref_cnt.fetch_add(1, Ordering::Relaxed);
 
     if old_size > usize::MAX >> 1 {
@@ -1069,29 +1082,29 @@ unsafe fn external_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> By
     Bytes {
         ptr,
         len,
-        data: AtomicPtr::new(external as _),
-        vtable: &EXTERNAL_VTABLE
+        data: AtomicPtr::new(owned as _),
+        vtable: &OWNED_VTABLE
     }
 }
 
-unsafe fn external_to_vec(_data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Vec<u8> {
+unsafe fn owned_to_vec(_data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Vec<u8> {
     let slice = slice::from_raw_parts(ptr, len);
     slice.to_vec()
 }
 
-unsafe fn external_to_mut(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> BytesMut {
-    BytesMut::from_vec(external_to_vec(data, ptr, len))
+unsafe fn owned_to_mut(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> BytesMut {
+    BytesMut::from_vec(owned_to_vec(data, ptr, len))
 }
 
-unsafe fn external_is_unique(data: &AtomicPtr<()>) -> bool {
-    let external = data.load(Ordering::Acquire);
-    let ref_cnt = &(*external.cast::<ExternalLifetime>()).ref_cnt;
+unsafe fn owned_is_unique(data: &AtomicPtr<()>) -> bool {
+    let owned = data.load(Ordering::Acquire);
+    let ref_cnt = &(*owned.cast::<OwnedLifetime>()).ref_cnt;
     ref_cnt.load(Ordering::Relaxed) == 1
 }
 
-unsafe fn external_drop(data: &mut AtomicPtr<()>, _ptr: *const u8, _len: usize) {
-    let external = data.load(Ordering::Acquire);
-    let lifetime = &*external.cast::<ExternalLifetime>();
+unsafe fn owned_drop(data: &mut AtomicPtr<()>, _ptr: *const u8, _len: usize) {
+    let owned = data.load(Ordering::Acquire);
+    let lifetime = &*owned.cast::<OwnedLifetime>();
     let ref_cnt = &lifetime.ref_cnt;
 
     if ref_cnt.fetch_sub(1, Ordering::Release) != 1 {
@@ -1099,15 +1112,15 @@ unsafe fn external_drop(data: &mut AtomicPtr<()>, _ptr: *const u8, _len: usize) 
     }
 
     let drop = lifetime.drop;
-    drop(external)
+    drop(owned)
 }
 
-static EXTERNAL_VTABLE: Vtable = Vtable {
-    clone: external_clone,
-    to_vec: external_to_vec,
-    to_mut: external_to_mut,
-    is_unique: external_is_unique,
-    drop: external_drop,
+static OWNED_VTABLE: Vtable = Vtable {
+    clone: owned_clone,
+    to_vec: owned_to_vec,
+    to_mut: owned_to_mut,
+    is_unique: owned_is_unique,
+    drop: owned_drop,
 };
 
 // ===== impl PromotableVtable =====
