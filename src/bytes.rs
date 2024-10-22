@@ -204,25 +204,31 @@ impl Bytes {
     /// Create [Bytes] with a buffer whose lifetime is controlled
     /// via an explicit owner.
     ///
-    /// A common use case is creating bytes to a memory mapped file,
-    /// allowing for zero-copy construction.
+    /// A common use case is to zero-copy construct from mapped memory.
     ///
     /// ```no_run
     /// use bytes::Bytes;
     /// use std::fs::File;
     /// use memmap2::Map;
     ///
-    /// let mut file = File::open("upload_bundle.tar.gz");
+    /// let file = File::open("upload_bundle.tar.gz")?;
     /// let b = unsafe {
-    ///     let mmap = Mmap::map(&file);
+    ///     let mmap = Mmap::map(&file)?;
     ///     let ptr = mmap.as_ptr();
     ///     let len = mmap.len();
     ///     Bytes::with_owner(ptr, len, mmap)
     /// };
     /// ```
     ///
-    /// Converting to a vector or a [BytesMut] will create a deep copy of
-    /// the buffer.
+    /// The function is marked `unsafe` because it requires the caller to ensure
+    /// that the memory region specified by `ptr` and `len` remains valid and
+    /// linked to the lifetime of the provided owner.
+    /// The `owner` will be transferred to the constructed [Bytes] object which
+    /// will ensure it is dropped once all remaining clones of the constructed
+    /// object are dropped.
+    ///
+    /// Note that converting [Bytes] with an owner into a [BytesMut] will
+    /// always create a deep copy of the buffer into newly allocated memory.
     pub unsafe fn with_owner<T>(ptr: *const u8, len: usize, owner: T) -> Self {
         let owned = Box::into_raw(Box::new(Owned {
             lifetime: OwnedLifetime {
