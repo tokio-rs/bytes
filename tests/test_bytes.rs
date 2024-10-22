@@ -1,8 +1,8 @@
 #![warn(rust_2018_idioms)]
 
+use bytes::{Buf, BufMut, Bytes, BytesMut};
 use std::cell::Cell;
 use std::rc::Rc;
-use bytes::{Buf, BufMut, Bytes, BytesMut};
 
 use std::usize;
 
@@ -1500,9 +1500,7 @@ impl Drop for OwnedTester {
 fn owned_basic() {
     let drop_counter = Rc::new(Cell::new(0));
     let owner = OwnedTester(drop_counter.clone());
-    let b1 = unsafe {
-        Bytes::with_owner(SHORT.as_ptr(), SHORT.len(), owner)
-    };
+    let b1 = unsafe { Bytes::with_owner(SHORT.as_ptr(), SHORT.len(), owner) };
     assert!(b1.is_unique());
     let b2 = b1.clone();
     assert!(!b1.is_unique());
@@ -1511,7 +1509,13 @@ fn owned_basic() {
     drop(b1);
     assert_eq!(drop_counter.get(), 0);
     assert!(b2.is_unique());
+    let b3 = b2.slice(1..b2.len() - 1);
+    assert!(!b2.is_unique());
+    assert!(!b3.is_unique());
     drop(b2);
+    assert_eq!(drop_counter.get(), 0);
+    assert!(b3.is_unique());
+    drop(b3);
     assert_eq!(drop_counter.get(), 1);
 }
 
@@ -1519,9 +1523,7 @@ fn owned_basic() {
 fn owned_to_mut() {
     let drop_counter = Rc::new(Cell::new(0));
     let owner = OwnedTester(drop_counter.clone());
-    let b1 = unsafe {
-        Bytes::with_owner(SHORT.as_ptr(), SHORT.len(), owner)
-    };
+    let b1 = unsafe { Bytes::with_owner(SHORT.as_ptr(), SHORT.len(), owner) };
 
     // Holding an owner will fail converting to a BytesMut,
     // even when the bytes instance is unique.

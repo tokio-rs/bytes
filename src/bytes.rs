@@ -3,6 +3,11 @@ use core::mem::{self, ManuallyDrop};
 use core::ops::{Deref, RangeBounds};
 use core::{cmp, fmt, hash, ptr, slice, usize};
 
+use crate::buf::IntoIter;
+#[allow(unused)]
+use crate::loom::sync::atomic::AtomicMut;
+use crate::loom::sync::atomic::{AtomicPtr, AtomicUsize, Ordering};
+use crate::{offset_from, Buf, BytesMut};
 use alloc::{
     alloc::{dealloc, Layout},
     borrow::Borrow,
@@ -11,11 +16,6 @@ use alloc::{
     vec::Vec,
 };
 use std::eprintln;
-use crate::buf::IntoIter;
-#[allow(unused)]
-use crate::loom::sync::atomic::AtomicMut;
-use crate::loom::sync::atomic::{AtomicPtr, AtomicUsize, Ordering};
-use crate::{offset_from, Buf, BytesMut};
 
 /// A cheaply cloneable and sliceable chunk of contiguous memory.
 ///
@@ -1079,7 +1079,10 @@ unsafe fn owned_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Bytes
     let owned = data.load(Ordering::Acquire);
     let ref_cnt = &(*owned.cast::<OwnedLifetime>()).ref_cnt;
     let old_cnt = ref_cnt.fetch_add(1, Ordering::Relaxed);
-    eprintln!("owned_clone :: (A) owned: {owned:p}, old_cnt: {old_cnt} -> {}", old_cnt + 1);
+    eprintln!(
+        "owned_clone :: (A) owned: {owned:p}, old_cnt: {old_cnt} -> {}",
+        old_cnt + 1
+    );
 
     if old_cnt > usize::MAX >> 1 {
         crate::abort()
@@ -1089,7 +1092,7 @@ unsafe fn owned_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Bytes
         ptr,
         len,
         data: AtomicPtr::new(owned as _),
-        vtable: &OWNED_VTABLE
+        vtable: &OWNED_VTABLE,
     }
 }
 
@@ -1110,7 +1113,7 @@ unsafe fn owned_is_unique(data: &AtomicPtr<()>) -> bool {
     ref_cnt.load(Ordering::Relaxed) == 1
 }
 
-unsafe fn owned_cheap_into_mut(data: &AtomicPtr<()>) -> bool {
+unsafe fn owned_cheap_into_mut(_data: &AtomicPtr<()>) -> bool {
     // Since the memory's ownership is tied to an external owner
     // it is never zero-copy to create a BytesMut.
     false
@@ -1122,8 +1125,10 @@ unsafe fn owned_drop_impl(owned: *mut ()) {
 
     let old_cnt = ref_cnt.fetch_sub(1, Ordering::Release);
     if old_cnt != 1 {
-        eprintln!("owned_drop :: (A) owned: {owned:p}, old_cnt: {old_cnt} -> {} -- CONTINUING!",
-            old_cnt - 1);
+        eprintln!(
+            "owned_drop :: (A) owned: {owned:p}, old_cnt: {old_cnt} -> {} -- CONTINUING!",
+            old_cnt - 1
+        );
         return;
     }
 
