@@ -1057,8 +1057,6 @@ unsafe fn external_box_and_drop<T>(ptr: *mut ()) {
     drop(b);
 }
 
-
-
 unsafe fn external_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Bytes {
     let external = data.load(Ordering::Acquire);
     let ref_cnt = &(*external.cast::<ExternalLifetime>()).ref_cnt;
