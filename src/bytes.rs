@@ -10,7 +10,7 @@ use alloc::{
     string::String,
     vec::Vec,
 };
-
+use std::eprintln;
 use crate::buf::IntoIter;
 #[allow(unused)]
 use crate::loom::sync::atomic::AtomicMut;
@@ -116,6 +116,7 @@ pub(crate) struct Vtable {
     pub to_mut: unsafe fn(&AtomicPtr<()>, *const u8, usize) -> BytesMut,
     /// fn(data)
     pub is_unique: unsafe fn(&AtomicPtr<()>) -> bool,
+    pub cheap_into_mut: unsafe fn(&AtomicPtr<()>) -> bool,
     /// fn(data, ptr, len)
     pub drop: unsafe fn(&mut AtomicPtr<()>, *const u8, usize),
 }
@@ -225,7 +226,7 @@ impl Bytes {
     pub unsafe fn with_owner<T>(ptr: *const u8, len: usize, owner: T) -> Self {
         let owned = Box::into_raw(Box::new(Owned {
             lifetime: OwnedLifetime {
-                ref_cnt: Default::default(),
+                ref_cnt: AtomicUsize::new(1),
                 drop: owned_box_and_drop::<T>,
             },
             owner,
@@ -575,6 +576,9 @@ impl Bytes {
     /// If `self` is not unique for the entire original buffer, this will fail
     /// and return self.
     ///
+    /// This will also always fail if the buffer was constructed via
+    /// [with_owner](Bytes::with_owner).
+    ///
     /// # Examples
     ///
     /// ```
@@ -584,7 +588,7 @@ impl Bytes {
     /// assert_eq!(bytes.try_into_mut(), Ok(BytesMut::from(&b"hello"[..])));
     /// ```
     pub fn try_into_mut(self) -> Result<BytesMut, Bytes> {
-        if self.is_unique() {
+        if unsafe { (self.vtable.cheap_into_mut)(&self.data) } {
             Ok(self.into())
         } else {
             Err(self)
@@ -1025,6 +1029,7 @@ const STATIC_VTABLE: Vtable = Vtable {
     to_vec: static_to_vec,
     to_mut: static_to_mut,
     is_unique: static_is_unique,
+    cheap_into_mut: static_is_unique,
     drop: static_drop,
 };
 
@@ -1073,9 +1078,10 @@ unsafe fn owned_box_and_drop<T>(ptr: *mut ()) {
 unsafe fn owned_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Bytes {
     let owned = data.load(Ordering::Acquire);
     let ref_cnt = &(*owned.cast::<OwnedLifetime>()).ref_cnt;
-    let old_size = ref_cnt.fetch_add(1, Ordering::Relaxed);
+    let old_cnt = ref_cnt.fetch_add(1, Ordering::Relaxed);
+    eprintln!("owned_clone :: (A) owned: {owned:p}, old_cnt: {old_cnt} -> {}", old_cnt + 1);
 
-    if old_size > usize::MAX >> 1 {
+    if old_cnt > usize::MAX >> 1 {
         crate::abort()
     }
 
@@ -1093,7 +1099,9 @@ unsafe fn owned_to_vec(_data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Vec
 }
 
 unsafe fn owned_to_mut(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> BytesMut {
-    BytesMut::from_vec(owned_to_vec(data, ptr, len))
+    let bytes_mut = BytesMut::from_vec(owned_to_vec(data, ptr, len));
+    owned_drop_impl(data.load(Ordering::Acquire));
+    bytes_mut
 }
 
 unsafe fn owned_is_unique(data: &AtomicPtr<()>) -> bool {
@@ -1102,17 +1110,32 @@ unsafe fn owned_is_unique(data: &AtomicPtr<()>) -> bool {
     ref_cnt.load(Ordering::Relaxed) == 1
 }
 
-unsafe fn owned_drop(data: &mut AtomicPtr<()>, _ptr: *const u8, _len: usize) {
-    let owned = data.load(Ordering::Acquire);
-    let lifetime = &*owned.cast::<OwnedLifetime>();
-    let ref_cnt = &lifetime.ref_cnt;
+unsafe fn owned_cheap_into_mut(data: &AtomicPtr<()>) -> bool {
+    // Since the memory's ownership is tied to an external owner
+    // it is never zero-copy to create a BytesMut.
+    false
+}
 
-    if ref_cnt.fetch_sub(1, Ordering::Release) != 1 {
+unsafe fn owned_drop_impl(owned: *mut ()) {
+    let lifetime = owned.cast::<OwnedLifetime>();
+    let ref_cnt = &(*lifetime).ref_cnt;
+
+    let old_cnt = ref_cnt.fetch_sub(1, Ordering::Release);
+    if old_cnt != 1 {
+        eprintln!("owned_drop :: (A) owned: {owned:p}, old_cnt: {old_cnt} -> {} -- CONTINUING!",
+            old_cnt - 1);
         return;
     }
 
-    let drop = lifetime.drop;
+    eprintln!("owned_drop :: (B) owned: {owned:p}, old_cnt: {old_cnt} -> 0 -- DROPPING!");
+
+    let drop = &(*lifetime).drop;
     drop(owned)
+}
+
+unsafe fn owned_drop(data: &mut AtomicPtr<()>, _ptr: *const u8, _len: usize) {
+    let owned = data.load(Ordering::Acquire);
+    owned_drop_impl(owned);
 }
 
 static OWNED_VTABLE: Vtable = Vtable {
@@ -1120,6 +1143,7 @@ static OWNED_VTABLE: Vtable = Vtable {
     to_vec: owned_to_vec,
     to_mut: owned_to_mut,
     is_unique: owned_is_unique,
+    cheap_into_mut: owned_cheap_into_mut,
     drop: owned_drop,
 };
 
@@ -1130,6 +1154,7 @@ static PROMOTABLE_EVEN_VTABLE: Vtable = Vtable {
     to_vec: promotable_even_to_vec,
     to_mut: promotable_even_to_mut,
     is_unique: promotable_is_unique,
+    cheap_into_mut: promotable_is_unique,
     drop: promotable_even_drop,
 };
 
@@ -1138,6 +1163,7 @@ static PROMOTABLE_ODD_VTABLE: Vtable = Vtable {
     to_vec: promotable_odd_to_vec,
     to_mut: promotable_odd_to_mut,
     is_unique: promotable_is_unique,
+    cheap_into_mut: promotable_is_unique,
     drop: promotable_odd_drop,
 };
 
@@ -1314,6 +1340,7 @@ static SHARED_VTABLE: Vtable = Vtable {
     to_vec: shared_to_vec,
     to_mut: shared_to_mut,
     is_unique: shared_is_unique,
+    cheap_into_mut: shared_is_unique,
     drop: shared_drop,
 };
 

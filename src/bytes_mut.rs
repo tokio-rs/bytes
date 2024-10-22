@@ -13,7 +13,7 @@ use alloc::{
 };
 
 use crate::buf::{IntoIter, UninitSlice};
-use crate::bytes::Vtable;
+use crate::bytes::{shared_is_unique, Vtable};
 #[allow(unused)]
 use crate::loom::sync::atomic::AtomicMut;
 use crate::loom::sync::atomic::{AtomicPtr, AtomicUsize, Ordering};
@@ -1776,6 +1776,7 @@ static SHARED_VTABLE: Vtable = Vtable {
     to_vec: shared_v_to_vec,
     to_mut: shared_v_to_mut,
     is_unique: shared_v_is_unique,
+    cheap_into_mut: shared_is_unique,
     drop: shared_v_drop,
 };
 

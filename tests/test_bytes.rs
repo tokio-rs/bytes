@@ -1,5 +1,7 @@
 #![warn(rust_2018_idioms)]
 
+use std::cell::Cell;
+use std::rc::Rc;
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 
 use std::usize;
@@ -1478,4 +1480,61 @@ fn split_to_empty_addr_mut() {
     // Is miri happy about the provenance?
     let _ = &empty_start[..];
     let _ = &buf[..];
+}
+
+// N.B.: Using `Rc` and `Cell` rather than `Arc` and `usize`
+// since this forces the type to be !Send + !Sync, ensuring
+// in this test that the owner remains a generic T.
+#[derive(Clone)]
+struct OwnedTester(Rc<Cell<usize>>);
+
+impl Drop for OwnedTester {
+    fn drop(&mut self) {
+        eprintln!("OwnedTester.drop :: (A) {:p}", self as *mut Self);
+        let current = self.0.get();
+        self.0.set(current + 1)
+    }
+}
+
+#[test]
+fn owned_basic() {
+    let drop_counter = Rc::new(Cell::new(0));
+    let owner = OwnedTester(drop_counter.clone());
+    let b1 = unsafe {
+        Bytes::with_owner(SHORT.as_ptr(), SHORT.len(), owner)
+    };
+    assert!(b1.is_unique());
+    let b2 = b1.clone();
+    assert!(!b1.is_unique());
+    assert!(!b2.is_unique());
+    assert_eq!(drop_counter.get(), 0);
+    drop(b1);
+    assert_eq!(drop_counter.get(), 0);
+    assert!(b2.is_unique());
+    drop(b2);
+    assert_eq!(drop_counter.get(), 1);
+}
+
+#[test]
+fn owned_to_mut() {
+    let drop_counter = Rc::new(Cell::new(0));
+    let owner = OwnedTester(drop_counter.clone());
+    let b1 = unsafe {
+        Bytes::with_owner(SHORT.as_ptr(), SHORT.len(), owner)
+    };
+
+    // Holding an owner will fail converting to a BytesMut,
+    // even when the bytes instance is unique.
+    assert!(b1.is_unique());
+    let b1 = b1.try_into_mut().unwrap_err();
+    assert_eq!(drop_counter.get(), 0);
+
+    // That said, it's still possible, just not cheap.
+    let bm1: BytesMut = b1.into();
+    let new_buf = &bm1[..];
+    assert_eq!(new_buf, SHORT);
+
+    assert_eq!(drop_counter.get(), 1);
+    drop(bm1);
+    assert_eq!(drop_counter.get(), 1);
 }
