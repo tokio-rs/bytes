@@ -3,11 +3,6 @@ use core::mem::{self, ManuallyDrop};
 use core::ops::{Deref, RangeBounds};
 use core::{cmp, fmt, hash, ptr, slice, usize};
 
-use crate::buf::IntoIter;
-#[allow(unused)]
-use crate::loom::sync::atomic::AtomicMut;
-use crate::loom::sync::atomic::{AtomicPtr, AtomicUsize, Ordering};
-use crate::{offset_from, Buf, BytesMut};
 use alloc::{
     alloc::{dealloc, Layout},
     borrow::Borrow,
@@ -15,7 +10,12 @@ use alloc::{
     string::String,
     vec::Vec,
 };
-use std::eprintln;
+
+use crate::buf::IntoIter;
+#[allow(unused)]
+use crate::loom::sync::atomic::AtomicMut;
+use crate::loom::sync::atomic::{AtomicPtr, AtomicUsize, Ordering};
+use crate::{offset_from, Buf, BytesMut};
 
 /// A cheaply cloneable and sliceable chunk of contiguous memory.
 ///
@@ -225,7 +225,8 @@ impl Bytes {
     /// linked to the lifetime of the provided owner.
     /// The `owner` will be transferred to the constructed [Bytes] object which
     /// will ensure it is dropped once all remaining clones of the constructed
-    /// object are dropped.
+    /// object are dropped. The owner will then be responsible for dropping the
+    /// specified region of memory as part of its [Drop] implementation.
     ///
     /// Note that converting [Bytes] with an owner into a [BytesMut] will
     /// always create a deep copy of the buffer into newly allocated memory.
@@ -1085,11 +1086,6 @@ unsafe fn owned_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Bytes
     let owned = data.load(Ordering::Acquire);
     let ref_cnt = &(*owned.cast::<OwnedLifetime>()).ref_cnt;
     let old_cnt = ref_cnt.fetch_add(1, Ordering::Relaxed);
-    eprintln!(
-        "owned_clone :: (A) owned: {owned:p}, old_cnt: {old_cnt} -> {}",
-        old_cnt + 1
-    );
-
     if old_cnt > usize::MAX >> 1 {
         crate::abort()
     }
@@ -1131,14 +1127,8 @@ unsafe fn owned_drop_impl(owned: *mut ()) {
 
     let old_cnt = ref_cnt.fetch_sub(1, Ordering::Release);
     if old_cnt != 1 {
-        eprintln!(
-            "owned_drop :: (A) owned: {owned:p}, old_cnt: {old_cnt} -> {} -- CONTINUING!",
-            old_cnt - 1
-        );
         return;
     }
-
-    eprintln!("owned_drop :: (B) owned: {owned:p}, old_cnt: {old_cnt} -> 0 -- DROPPING!");
 
     let drop = &(*lifetime).drop;
     drop(owned)

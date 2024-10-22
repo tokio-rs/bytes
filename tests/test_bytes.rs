@@ -1490,7 +1490,6 @@ struct OwnedTester(Rc<Cell<usize>>);
 
 impl Drop for OwnedTester {
     fn drop(&mut self) {
-        eprintln!("OwnedTester.drop :: (A) {:p}", self as *mut Self);
         let current = self.0.get();
         self.0.set(current + 1)
     }
@@ -1538,5 +1537,20 @@ fn owned_to_mut() {
 
     assert_eq!(drop_counter.get(), 1);
     drop(bm1);
+    assert_eq!(drop_counter.get(), 1);
+}
+
+#[test]
+fn owned_to_vec() {
+    let drop_counter = Rc::new(Cell::new(0));
+    let owner = OwnedTester(drop_counter.clone());
+    let b1 = unsafe { Bytes::with_owner(LONG.as_ptr(), LONG.len(), owner) };
+    assert!(b1.is_unique());
+
+    let v1 = b1.to_vec();
+    assert!(b1.is_unique());
+    assert_eq!(&v1[..], &b1[..]);
+
+    drop(b1);
     assert_eq!(drop_counter.get(), 1);
 }
