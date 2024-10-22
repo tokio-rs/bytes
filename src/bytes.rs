@@ -200,15 +200,15 @@ impl Bytes {
         }
     }
 
-    pub unsafe fn from_external(owner: impl ExternalBytesOwner) -> Self {
-        let slice = owner.as_ref();
-        let ptr = slice.as_ptr();
-        let len = slice.len();
-        let external = External {
-            ref_cnt: Default::default(),
-            owner,  // TODO(amunra): Remove pointer of a pointer.
-        };
-        let external = Box::into_raw(Box::new(external));
+    pub unsafe fn from_external<T>(ptr: *const u8, len: usize, owner: T) -> Self {
+        let external = Box::into_raw(Box::new(External {
+            lifetime: ExternalLifetime {
+                ref_cnt: Default::default(),
+                drop: external_box_and_drop::<T>,
+            },
+            owner,
+        }));
+
         Bytes {
             ptr,
             len,
@@ -1039,24 +1039,30 @@ unsafe fn static_drop(_: &mut AtomicPtr<()>, _: *const u8, _: usize) {
 ///
 /// A common use case for implementing the [ExternalBytesOwner] is when
 /// the memory is owned by external means such as a memory mapped file.
-pub unsafe trait ExternalBytesOwner : Drop + AsRef<[u8]> {}
 
 #[repr(C)]
-struct External<T: ExternalBytesOwner> {
+struct ExternalLifetime {
     ref_cnt: AtomicUsize,
+    drop: unsafe fn(*mut ()),
+}
+
+#[repr(C)]
+struct External<T> {
+    lifetime: ExternalLifetime,
     owner: T,
 }
 
-impl <T: ExternalBytesOwner> Drop for External<T> {
-    fn drop(&mut self) {
-        todo!()
-    }
+unsafe fn external_box_and_drop<T>(ptr: *mut ()) {
+    let b: Box<External<T>> = Box::from_raw(ptr as _);
+    drop(b);
 }
+
+
 
 unsafe fn external_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Bytes {
     let external = data.load(Ordering::Acquire);
-    let ref_cnt = &*external.cast::<AtomicUsize>();
-    let old_size = ref_cnt.fetch_add(1, Ordering::Relaxed); // TODO(amunra): Triple-check ordering.
+    let ref_cnt = &(*external.cast::<ExternalLifetime>()).ref_cnt;
+    let old_size = ref_cnt.fetch_add(1, Ordering::Relaxed);
 
     if old_size > usize::MAX >> 1 {
         crate::abort()
@@ -1070,28 +1076,32 @@ unsafe fn external_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> By
     }
 }
 
-unsafe fn external_to_vec(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Vec<u8> {
-    let external = data.load(Ordering::Acquire);
-    let external = &*external.cast::<External>();
-    todo!()
+unsafe fn external_to_vec(_data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Vec<u8> {
+    let slice = slice::from_raw_parts(ptr, len);
+    slice.to_vec()
 }
 
 unsafe fn external_to_mut(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> BytesMut {
-    let external = data.load(Ordering::Acquire);
-    let external = &*external.cast::<External>();
-    todo!()
+    BytesMut::from_vec(external_to_vec(data, ptr, len))
 }
 
 unsafe fn external_is_unique(data: &AtomicPtr<()>) -> bool {
     let external = data.load(Ordering::Acquire);
-    let external = &*external.cast::<External>();
-    todo!()
+    let ref_cnt = &(*external.cast::<ExternalLifetime>()).ref_cnt;
+    ref_cnt.load(Ordering::Relaxed) == 1
 }
 
-unsafe fn external_drop(data: &mut AtomicPtr<()>, ptr: *const u8, len: usize) {
+unsafe fn external_drop(data: &mut AtomicPtr<()>, _ptr: *const u8, _len: usize) {
     let external = data.load(Ordering::Acquire);
-    let external = &*external.cast::<External>();
-    todo!()
+    let lifetime = &*external.cast::<ExternalLifetime>();
+    let ref_cnt = &lifetime.ref_cnt;
+
+    if ref_cnt.fetch_sub(1, Ordering::Release) != 1 {
+        return;
+    }
+
+    let drop = lifetime.drop;
+    drop(external)
 }
 
 static EXTERNAL_VTABLE: Vtable = Vtable {
