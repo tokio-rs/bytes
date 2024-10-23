@@ -1,5 +1,7 @@
 #![warn(rust_2018_idioms)]
 
+use std::collections::VecDeque;
+
 use bytes::Buf;
 #[cfg(feature = "std")]
 use std::io::IoSlice;
@@ -71,9 +73,7 @@ fn test_bufs_vec() {
 
 #[test]
 fn test_vec_deque() {
-    use std::collections::VecDeque;
-
-    let mut buffer: VecDeque<u8> = VecDeque::new();
+    let mut buffer = VecDeque::new();
     buffer.extend(b"hello world");
     assert_eq!(11, buffer.remaining());
     assert_eq!(b"hello world", buffer.chunk());
@@ -83,6 +83,41 @@ fn test_vec_deque() {
     let mut out = [0; 11];
     buffer.copy_to_slice(&mut out);
     assert_eq!(b"world piece", &out[..]);
+}
+
+#[cfg(feature = "std")]
+#[test]
+fn test_vec_deque_vectored() {
+    let mut buffer = VecDeque::new();
+    buffer.reserve_exact(128);
+    assert_eq!(buffer.chunks_vectored(&mut [IoSlice::new(&[])]), 0);
+
+    buffer.extend(0..64);
+    buffer.drain(..32);
+    buffer.extend(64..150);
+
+    assert_eq!(buffer.chunks_vectored(&mut []), 0);
+
+    let mut chunks = [IoSlice::new(&[]); 1];
+    assert_eq!(buffer.chunks_vectored(&mut chunks), 1);
+    assert!(!chunks[0].is_empty());
+    let combined = chunks[0].iter().copied().collect::<Vec<u8>>();
+    let expected = (32..150).take(chunks[0].len()).collect::<Vec<_>>();
+    assert_eq!(combined, expected);
+
+    let mut chunks = [IoSlice::new(&[]); 2];
+    assert_eq!(buffer.chunks_vectored(&mut chunks), 2);
+    assert!(!chunks[0].is_empty());
+    assert!(!chunks[1].is_empty());
+    let combined = chunks
+        .iter()
+        .flat_map(|chunk| chunk.iter())
+        .copied()
+        .collect::<Vec<u8>>();
+    let expected = (32..150).collect::<Vec<u8>>();
+    assert_eq!(combined, expected);
+
+    assert_eq!(buffer.chunks_vectored(&mut [IoSlice::new(&[]); 8]), 2);
 }
 
 #[allow(unused_allocation)] // This is intentional.
