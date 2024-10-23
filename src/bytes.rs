@@ -223,7 +223,10 @@ impl Bytes {
     ///
     /// Note that converting [Bytes] constructed from an owner into a [BytesMut]
     /// will always create a deep copy of the buffer into newly allocated memory.
-    pub fn from_owner<T: AsRef<[u8]>>(owner: T) -> Self {
+    pub fn from_owner<T>(owner: T) -> Self
+    where
+        T: AsRef<[u8]> + Send + 'static,
+    {
         let owned = Box::new(Owned {
             lifetime: OwnedLifetime {
                 ref_cnt: AtomicUsize::new(1),

@@ -1,8 +1,8 @@
 #![warn(rust_2018_idioms)]
 
 use bytes::{Buf, BufMut, Bytes, BytesMut};
-use std::cell::Cell;
-use std::rc::Rc;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 
 use std::usize;
 
@@ -1482,17 +1482,14 @@ fn split_to_empty_addr_mut() {
     let _ = &buf[..];
 }
 
-// N.B.: Using `Rc` and `Cell` rather than `Arc` and `usize`
-// since this forces the type to be !Send + !Sync, ensuring
-// in this test that the owner remains a generic T.
 #[derive(Clone)]
 struct OwnedTester<const L: usize> {
     buf: [u8; L],
-    drop_count: Rc<Cell<usize>>,
+    drop_count: Arc<AtomicUsize>,
 }
 
 impl<const L: usize> OwnedTester<L> {
-    fn new(buf: [u8; L], drop_count: Rc<Cell<usize>>) -> Self {
+    fn new(buf: [u8; L], drop_count: Arc<AtomicUsize>) -> Self {
         Self { buf, drop_count }
     }
 }
@@ -1505,15 +1502,14 @@ impl<const L: usize> AsRef<[u8]> for OwnedTester<L> {
 
 impl<const L: usize> Drop for OwnedTester<L> {
     fn drop(&mut self) {
-        let current = self.drop_count.get();
-        self.drop_count.set(current + 1)
+        self.drop_count.fetch_add(1, Ordering::AcqRel);
     }
 }
 
 #[test]
 fn owned_basic() {
     let buf: [u8; 5] = [1, 2, 3, 4, 5];
-    let drop_counter = Rc::new(Cell::new(0));
+    let drop_counter = Arc::new(AtomicUsize::new(0));
     let owner = OwnedTester::new(buf, drop_counter.clone());
     let b1 = Bytes::from_owner(owner);
     assert_eq!(&buf[..], &b1[..]);
@@ -1521,24 +1517,24 @@ fn owned_basic() {
     let b2 = b1.clone();
     assert!(!b1.is_unique());
     assert!(!b2.is_unique());
-    assert_eq!(drop_counter.get(), 0);
+    assert_eq!(drop_counter.load(Ordering::Acquire), 0);
     drop(b1);
-    assert_eq!(drop_counter.get(), 0);
+    assert_eq!(drop_counter.load(Ordering::Acquire), 0);
     assert!(b2.is_unique());
     let b3 = b2.slice(1..b2.len() - 1);
     assert!(!b2.is_unique());
     assert!(!b3.is_unique());
     drop(b2);
-    assert_eq!(drop_counter.get(), 0);
+    assert_eq!(drop_counter.load(Ordering::Acquire), 0);
     assert!(b3.is_unique());
     drop(b3);
-    assert_eq!(drop_counter.get(), 1);
+    assert_eq!(drop_counter.load(Ordering::Acquire), 1);
 }
 
 #[test]
 fn owned_to_mut() {
     let buf: [u8; 10] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-    let drop_counter = Rc::new(Cell::new(0));
+    let drop_counter = Arc::new(AtomicUsize::new(0));
     let owner = OwnedTester::new(buf, drop_counter.clone());
     let b1 = Bytes::from_owner(owner);
 
@@ -1546,22 +1542,22 @@ fn owned_to_mut() {
     // even when the bytes instance is unique.
     assert!(b1.is_unique());
     let b1 = b1.try_into_mut().unwrap_err();
-    assert_eq!(drop_counter.get(), 0);
+    assert_eq!(drop_counter.load(Ordering::Acquire), 0);
 
     // That said, it's still possible, just not cheap.
     let bm1: BytesMut = b1.into();
     let new_buf = &bm1[..];
     assert_eq!(new_buf, &buf[..]);
 
-    assert_eq!(drop_counter.get(), 1);
+    assert_eq!(drop_counter.load(Ordering::Acquire), 1);
     drop(bm1);
-    assert_eq!(drop_counter.get(), 1);
+    assert_eq!(drop_counter.load(Ordering::Acquire), 1);
 }
 
 #[test]
 fn owned_to_vec() {
     let buf: [u8; 10] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-    let drop_counter = Rc::new(Cell::new(0));
+    let drop_counter = Arc::new(AtomicUsize::new(0));
     let owner = OwnedTester::new(buf, drop_counter.clone());
     let b1 = Bytes::from_owner(owner);
     assert!(b1.is_unique());
@@ -1572,5 +1568,5 @@ fn owned_to_vec() {
     assert_eq!(&v1[..], &b1[..]);
 
     drop(b1);
-    assert_eq!(drop_counter.get(), 1);
+    assert_eq!(drop_counter.load(Ordering::Acquire), 1);
 }
