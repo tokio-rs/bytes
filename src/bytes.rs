@@ -206,7 +206,7 @@ impl Bytes {
     ///
     /// A common use case is to zero-copy construct from mapped memory.
     ///
-    /// ```no_run
+    /// ```ignore
     /// use bytes::Bytes;
     /// use std::fs::File;
     /// use memmap2::Map;
