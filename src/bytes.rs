@@ -224,26 +224,25 @@ impl Bytes {
     /// Note that converting [Bytes] constructed from an owner into a [BytesMut]
     /// will always create a deep copy of the buffer into newly allocated memory.
     pub fn from_owner<T: AsRef<[u8]>>(owner: T) -> Self {
-        let owned = Box::into_raw(Box::new(Owned {
+        let owned = Box::new(Owned {
             lifetime: OwnedLifetime {
                 ref_cnt: AtomicUsize::new(1),
                 drop: owned_box_and_drop::<T>,
             },
             owner,
-        }));
+        });
 
         // Now that the ownership is moved to the Box its memory location is pinned.
         // It's therefore safe to access the memory region, which will remain valid,
         // even if the slice returned refers to memory within the owner object itself.
-        let owned_ref = unsafe { &(*owned) };
-        let buf = owned_ref.owner.as_ref();
+        let buf = owned.owner.as_ref();
         let ptr = buf.as_ptr();
         let len = buf.len();
 
         Bytes {
             ptr,
             len,
-            data: AtomicPtr::new(owned as _),
+            data: AtomicPtr::new(Box::into_raw(owned) as _),
             vtable: &OWNED_VTABLE,
         }
     }
