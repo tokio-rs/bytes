@@ -212,25 +212,18 @@ impl Bytes {
     /// use memmap2::Map;
     ///
     /// let file = File::open("upload_bundle.tar.gz")?;
-    /// let b = unsafe {
-    ///     let mmap = Mmap::map(&file)?;
-    ///     let ptr = mmap.as_ptr();
-    ///     let len = mmap.len();
-    ///     Bytes::with_owner(ptr, len, mmap)
-    /// };
+    /// let mmap = unsafe { Mmap::map(&file) }?;
+    /// let b = Bytes::from_owner(mmap);
     /// ```
     ///
-    /// The function is marked `unsafe` because it requires the caller to ensure
-    /// that the memory region specified by `ptr` and `len` remains valid and
-    /// linked to the lifetime of the provided owner.
-    /// The `owner` will be transferred to the constructed [Bytes] object which
+    /// The `owner` will be transferred to the constructed [Bytes] object, which
     /// will ensure it is dropped once all remaining clones of the constructed
     /// object are dropped. The owner will then be responsible for dropping the
     /// specified region of memory as part of its [Drop] implementation.
     ///
-    /// Note that converting [Bytes] with an owner into a [BytesMut] will
-    /// always create a deep copy of the buffer into newly allocated memory.
-    pub unsafe fn with_owner<T>(ptr: *const u8, len: usize, owner: T) -> Self {
+    /// Note that converting [Bytes] constructed from an owner into a [BytesMut]
+    /// will always create a deep copy of the buffer into newly allocated memory.
+    pub fn from_owner<T: AsRef<[u8]>>(owner: T) -> Self {
         let owned = Box::into_raw(Box::new(Owned {
             lifetime: OwnedLifetime {
                 ref_cnt: AtomicUsize::new(1),
@@ -238,6 +231,14 @@ impl Bytes {
             },
             owner,
         }));
+
+        // Now that the ownership is moved to the Box its memory location is pinned.
+        // It's therefore safe to access the memory region, which will remain valid,
+        // even if the slice returned refers to memory within the owner object itself.
+        let owned_ref = unsafe { &(*owned) };
+        let buf = owned_ref.owner.as_ref();
+        let ptr = buf.as_ptr();
+        let len = buf.len();
 
         Bytes {
             ptr,
@@ -584,7 +585,7 @@ impl Bytes {
     /// and return self.
     ///
     /// This will also always fail if the buffer was constructed via
-    /// [with_owner](Bytes::with_owner).
+    /// [from_owner](Bytes::from_owner).
     ///
     /// # Examples
     ///

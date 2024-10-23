@@ -1486,20 +1486,37 @@ fn split_to_empty_addr_mut() {
 // since this forces the type to be !Send + !Sync, ensuring
 // in this test that the owner remains a generic T.
 #[derive(Clone)]
-struct OwnedTester(Rc<Cell<usize>>);
+struct OwnedTester<const L: usize> {
+    buf: [u8; L],
+    drop_count: Rc<Cell<usize>>,
+}
 
-impl Drop for OwnedTester {
+impl<const L: usize> OwnedTester<L> {
+    fn new(buf: [u8; L], drop_count: Rc<Cell<usize>>) -> Self {
+        Self { buf, drop_count }
+    }
+}
+
+impl<const L: usize> AsRef<[u8]> for OwnedTester<L> {
+    fn as_ref(&self) -> &[u8] {
+        self.buf.as_slice()
+    }
+}
+
+impl<const L: usize> Drop for OwnedTester<L> {
     fn drop(&mut self) {
-        let current = self.0.get();
-        self.0.set(current + 1)
+        let current = self.drop_count.get();
+        self.drop_count.set(current + 1)
     }
 }
 
 #[test]
 fn owned_basic() {
+    let buf: [u8; 5] = [1, 2, 3, 4, 5];
     let drop_counter = Rc::new(Cell::new(0));
-    let owner = OwnedTester(drop_counter.clone());
-    let b1 = unsafe { Bytes::with_owner(SHORT.as_ptr(), SHORT.len(), owner) };
+    let owner = OwnedTester::new(buf, drop_counter.clone());
+    let b1 = Bytes::from_owner(owner);
+    assert_eq!(&buf[..], &b1[..]);
     assert!(b1.is_unique());
     let b2 = b1.clone();
     assert!(!b1.is_unique());
@@ -1520,9 +1537,10 @@ fn owned_basic() {
 
 #[test]
 fn owned_to_mut() {
+    let buf: [u8; 10] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
     let drop_counter = Rc::new(Cell::new(0));
-    let owner = OwnedTester(drop_counter.clone());
-    let b1 = unsafe { Bytes::with_owner(SHORT.as_ptr(), SHORT.len(), owner) };
+    let owner = OwnedTester::new(buf, drop_counter.clone());
+    let b1 = Bytes::from_owner(owner);
 
     // Holding an owner will fail converting to a BytesMut,
     // even when the bytes instance is unique.
@@ -1533,7 +1551,7 @@ fn owned_to_mut() {
     // That said, it's still possible, just not cheap.
     let bm1: BytesMut = b1.into();
     let new_buf = &bm1[..];
-    assert_eq!(new_buf, SHORT);
+    assert_eq!(new_buf, &buf[..]);
 
     assert_eq!(drop_counter.get(), 1);
     drop(bm1);
@@ -1542,13 +1560,15 @@ fn owned_to_mut() {
 
 #[test]
 fn owned_to_vec() {
+    let buf: [u8; 10] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
     let drop_counter = Rc::new(Cell::new(0));
-    let owner = OwnedTester(drop_counter.clone());
-    let b1 = unsafe { Bytes::with_owner(LONG.as_ptr(), LONG.len(), owner) };
+    let owner = OwnedTester::new(buf, drop_counter.clone());
+    let b1 = Bytes::from_owner(owner);
     assert!(b1.is_unique());
 
     let v1 = b1.to_vec();
     assert!(b1.is_unique());
+    assert_eq!(&v1[..], &buf[..]);
     assert_eq!(&v1[..], &b1[..]);
 
     drop(b1);
