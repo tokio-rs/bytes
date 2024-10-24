@@ -1,6 +1,7 @@
 use core::iter::FromIterator;
 use core::mem::{self, ManuallyDrop};
 use core::ops::{Deref, RangeBounds};
+use core::ptr::NonNull;
 use core::{cmp, fmt, hash, ptr, slice, usize};
 
 use alloc::{
@@ -227,27 +228,26 @@ impl Bytes {
     where
         T: AsRef<[u8]> + Send + 'static,
     {
-        let owned = Box::new(Owned {
+        let owned = Box::into_raw(Box::new(Owned {
             lifetime: OwnedLifetime {
                 ref_cnt: AtomicUsize::new(1),
                 drop: owned_box_and_drop::<T>,
             },
             owner,
-        });
+        }));
 
-        // Now that the ownership is moved to the Box its memory location is pinned.
-        // It's therefore safe to access the memory region, which will remain valid,
-        // even if the slice returned refers to memory within the owner object itself.
-        let buf = owned.owner.as_ref();
-        let ptr = buf.as_ptr();
-        let len = buf.len();
-
-        Bytes {
-            ptr,
-            len,
-            data: AtomicPtr::new(Box::into_raw(owned) as _),
+        let mut ret = Bytes {
+            ptr: NonNull::dangling().as_ptr(),
+            len: 0,
+            data: AtomicPtr::new(owned.cast()),
             vtable: &OWNED_VTABLE,
-        }
+        };
+
+        let buf = unsafe { &*owned }.owner.as_ref();
+        ret.ptr = buf.as_ptr();
+        ret.len = buf.len();
+
+        ret
     }
 
     /// Returns the number of bytes contained in this `Bytes`.
