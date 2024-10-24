@@ -1,6 +1,7 @@
 use core::iter::FromIterator;
 use core::mem::{self, ManuallyDrop};
 use core::ops::{Deref, RangeBounds};
+use core::ptr::NonNull;
 use core::{cmp, fmt, hash, ptr, slice, usize};
 
 use alloc::{
@@ -116,6 +117,7 @@ pub(crate) struct Vtable {
     pub to_mut: unsafe fn(&AtomicPtr<()>, *const u8, usize) -> BytesMut,
     /// fn(data)
     pub is_unique: unsafe fn(&AtomicPtr<()>) -> bool,
+    pub cheap_into_mut: unsafe fn(&AtomicPtr<()>) -> bool,
     /// fn(data, ptr, len)
     pub drop: unsafe fn(&mut AtomicPtr<()>, *const u8, usize),
 }
@@ -198,6 +200,69 @@ impl Bytes {
             data: AtomicPtr::new(ptr::null_mut()),
             vtable: &STATIC_VTABLE,
         }
+    }
+
+    /// Create [Bytes] with a buffer whose lifetime is controlled
+    /// via an explicit owner.
+    ///
+    /// A common use case is to zero-copy construct from mapped memory.
+    ///
+    /// ```ignore
+    /// use bytes::Bytes;
+    /// use std::fs::File;
+    /// use memmap2::Map;
+    ///
+    /// let file = File::open("upload_bundle.tar.gz")?;
+    /// let mmap = unsafe { Mmap::map(&file) }?;
+    /// let b = Bytes::from_owner(mmap);
+    /// ```
+    ///
+    /// The `owner` will be transferred to the constructed [Bytes] object, which
+    /// will ensure it is dropped once all remaining clones of the constructed
+    /// object are dropped. The owner will then be responsible for dropping the
+    /// specified region of memory as part of its [Drop] implementation.
+    ///
+    /// Note that converting [Bytes] constructed from an owner into a [BytesMut]
+    /// will always create a deep copy of the buffer into newly allocated memory.
+    pub fn from_owner<T>(owner: T) -> Self
+    where
+        T: AsRef<[u8]> + Send + 'static,
+    {
+        // Safety & Miri:
+        // The ownership of `owner` is first transferred to the `Owned` wrapper and `Bytes` object.
+        // This ensures that the owner is pinned in memory, allowing us to call `.as_ref()` safely
+        // since the lifetime of the owner is controlled by the lifetime of the new `Bytes` object,
+        // and the lifetime of the resulting borrowed `&[u8]` matches that of the owner.
+        // Note that this remains safe so long as we only call `.as_ref()` once.
+        //
+        // There are some additional special considerations here:
+        //   * We rely on Bytes's Drop impl to clean up memory should `.as_ref()` panic.
+        //   * Setting the `ptr` and `len` on the bytes object last (after moving the owner to
+        //     Bytes) allows Miri checks to pass since it avoids obtaining the `&[u8]` slice
+        //     from a stack-owned Box.
+        // More details on this: https://github.com/tokio-rs/bytes/pull/742/#discussion_r1813375863
+        //                  and: https://github.com/tokio-rs/bytes/pull/742/#discussion_r1813316032
+
+        let owned = Box::into_raw(Box::new(Owned {
+            lifetime: OwnedLifetime {
+                ref_cnt: AtomicUsize::new(1),
+                drop: owned_box_and_drop::<T>,
+            },
+            owner,
+        }));
+
+        let mut ret = Bytes {
+            ptr: NonNull::dangling().as_ptr(),
+            len: 0,
+            data: AtomicPtr::new(owned.cast()),
+            vtable: &OWNED_VTABLE,
+        };
+
+        let buf = unsafe { &*owned }.owner.as_ref();
+        ret.ptr = buf.as_ptr();
+        ret.len = buf.len();
+
+        ret
     }
 
     /// Returns the number of bytes contained in this `Bytes`.
@@ -536,6 +601,9 @@ impl Bytes {
     /// If `self` is not unique for the entire original buffer, this will fail
     /// and return self.
     ///
+    /// This will also always fail if the buffer was constructed via
+    /// [from_owner](Bytes::from_owner).
+    ///
     /// # Examples
     ///
     /// ```
@@ -545,7 +613,7 @@ impl Bytes {
     /// assert_eq!(bytes.try_into_mut(), Ok(BytesMut::from(&b"hello"[..])));
     /// ```
     pub fn try_into_mut(self) -> Result<BytesMut, Bytes> {
-        if self.is_unique() {
+        if unsafe { (self.vtable.cheap_into_mut)(&self.data) } {
             Ok(self.into())
         } else {
             Err(self)
@@ -986,6 +1054,7 @@ const STATIC_VTABLE: Vtable = Vtable {
     to_vec: static_to_vec,
     to_mut: static_to_mut,
     is_unique: static_is_unique,
+    cheap_into_mut: static_is_unique,
     drop: static_drop,
 };
 
@@ -1012,6 +1081,91 @@ unsafe fn static_drop(_: &mut AtomicPtr<()>, _: *const u8, _: usize) {
     // nothing to drop for &'static [u8]
 }
 
+// ===== impl OwnedVtable =====
+
+#[repr(C)]
+struct OwnedLifetime {
+    ref_cnt: AtomicUsize,
+    drop: unsafe fn(*mut ()),
+}
+
+#[repr(C)]
+struct Owned<T> {
+    lifetime: OwnedLifetime,
+    owner: T,
+}
+
+unsafe fn owned_box_and_drop<T>(ptr: *mut ()) {
+    let b: Box<Owned<T>> = Box::from_raw(ptr as _);
+    drop(b);
+}
+
+unsafe fn owned_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Bytes {
+    let owned = data.load(Ordering::Acquire);
+    let ref_cnt = &(*owned.cast::<OwnedLifetime>()).ref_cnt;
+    let old_cnt = ref_cnt.fetch_add(1, Ordering::Relaxed);
+    if old_cnt > usize::MAX >> 1 {
+        crate::abort()
+    }
+
+    Bytes {
+        ptr,
+        len,
+        data: AtomicPtr::new(owned as _),
+        vtable: &OWNED_VTABLE,
+    }
+}
+
+unsafe fn owned_to_vec(_data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Vec<u8> {
+    let slice = slice::from_raw_parts(ptr, len);
+    slice.to_vec()
+}
+
+unsafe fn owned_to_mut(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> BytesMut {
+    let bytes_mut = BytesMut::from_vec(owned_to_vec(data, ptr, len));
+    owned_drop_impl(data.load(Ordering::Acquire));
+    bytes_mut
+}
+
+unsafe fn owned_is_unique(data: &AtomicPtr<()>) -> bool {
+    let owned = data.load(Ordering::Acquire);
+    let ref_cnt = &(*owned.cast::<OwnedLifetime>()).ref_cnt;
+    ref_cnt.load(Ordering::Relaxed) == 1
+}
+
+unsafe fn owned_cheap_into_mut(_data: &AtomicPtr<()>) -> bool {
+    // Since the memory's ownership is tied to an external owner
+    // it is never zero-copy to create a BytesMut.
+    false
+}
+
+unsafe fn owned_drop_impl(owned: *mut ()) {
+    let lifetime = owned.cast::<OwnedLifetime>();
+    let ref_cnt = &(*lifetime).ref_cnt;
+
+    let old_cnt = ref_cnt.fetch_sub(1, Ordering::Acquire);
+    if old_cnt != 1 {
+        return;
+    }
+
+    let drop = &(*lifetime).drop;
+    drop(owned)
+}
+
+unsafe fn owned_drop(data: &mut AtomicPtr<()>, _ptr: *const u8, _len: usize) {
+    let owned = data.load(Ordering::Acquire);
+    owned_drop_impl(owned);
+}
+
+static OWNED_VTABLE: Vtable = Vtable {
+    clone: owned_clone,
+    to_vec: owned_to_vec,
+    to_mut: owned_to_mut,
+    is_unique: owned_is_unique,
+    cheap_into_mut: owned_cheap_into_mut,
+    drop: owned_drop,
+};
+
 // ===== impl PromotableVtable =====
 
 static PROMOTABLE_EVEN_VTABLE: Vtable = Vtable {
@@ -1019,6 +1173,7 @@ static PROMOTABLE_EVEN_VTABLE: Vtable = Vtable {
     to_vec: promotable_even_to_vec,
     to_mut: promotable_even_to_mut,
     is_unique: promotable_is_unique,
+    cheap_into_mut: promotable_is_unique,
     drop: promotable_even_drop,
 };
 
@@ -1027,6 +1182,7 @@ static PROMOTABLE_ODD_VTABLE: Vtable = Vtable {
     to_vec: promotable_odd_to_vec,
     to_mut: promotable_odd_to_mut,
     is_unique: promotable_is_unique,
+    cheap_into_mut: promotable_is_unique,
     drop: promotable_odd_drop,
 };
 
@@ -1203,6 +1359,7 @@ static SHARED_VTABLE: Vtable = Vtable {
     to_vec: shared_to_vec,
     to_mut: shared_to_mut,
     is_unique: shared_is_unique,
+    cheap_into_mut: shared_is_unique,
     drop: shared_drop,
 };
 
