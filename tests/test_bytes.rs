@@ -4,6 +4,7 @@ use bytes::{Buf, BufMut, Bytes, BytesMut};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
+use std::panic::{self, AssertUnwindSafe};
 use std::usize;
 
 const LONG: &[u8] = b"mary had a little lamb, little lamb, little lamb";
@@ -1486,16 +1487,24 @@ fn split_to_empty_addr_mut() {
 struct OwnedTester<const L: usize> {
     buf: [u8; L],
     drop_count: Arc<AtomicUsize>,
+    pub panic_as_ref: bool,
 }
 
 impl<const L: usize> OwnedTester<L> {
     fn new(buf: [u8; L], drop_count: Arc<AtomicUsize>) -> Self {
-        Self { buf, drop_count }
+        Self {
+            buf,
+            drop_count,
+            panic_as_ref: false,
+        }
     }
 }
 
 impl<const L: usize> AsRef<[u8]> for OwnedTester<L> {
     fn as_ref(&self) -> &[u8] {
+        if self.panic_as_ref {
+            panic!("test-triggered panic in `AsRef<[u8]> for OwnedTester`");
+        }
         self.buf.as_slice()
     }
 }
@@ -1568,5 +1577,20 @@ fn owned_to_vec() {
     assert_eq!(&v1[..], &b1[..]);
 
     drop(b1);
+    assert_eq!(drop_counter.load(Ordering::Acquire), 1);
+}
+
+#[test]
+fn owned_safe_drop_on_as_ref_panic() {
+    let buf: [u8; 10] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+    let drop_counter = Arc::new(AtomicUsize::new(0));
+    let mut owner = OwnedTester::new(buf, drop_counter.clone());
+    owner.panic_as_ref = true;
+
+    let result = panic::catch_unwind(AssertUnwindSafe(|| {
+        let _ = Bytes::from_owner(owner);
+    }));
+
+    assert!(result.is_err());
     assert_eq!(drop_counter.load(Ordering::Acquire), 1);
 }
