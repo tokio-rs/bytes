@@ -1516,23 +1516,49 @@ impl<const L: usize> Drop for OwnedTester<L> {
 }
 
 #[test]
-fn owned_basic() {
-    let buf: [u8; 5] = [1, 2, 3, 4, 5];
-    let drop_counter = Arc::new(AtomicUsize::new(0));
-    let owner = OwnedTester::new(buf, drop_counter.clone());
-    let b1 = Bytes::from_owner(owner);
-    assert_eq!(&buf[..], &b1[..]);
+fn owned_is_unique() {
+    let b1 = Bytes::from_owner([1, 2, 3, 4, 5, 6, 7]);
     assert!(b1.is_unique());
     let b2 = b1.clone();
     assert!(!b1.is_unique());
     assert!(!b2.is_unique());
+    drop(b1);
+    assert!(b2.is_unique());
+}
+
+#[test]
+fn owned_buf_sharing() {
+    let buf = [1, 2, 3, 4, 5, 6, 7];
+    let b1 = Bytes::from_owner(buf);
+    let b2 = b1.clone();
+    assert_eq!(&buf[..], &b1[..]);
+    assert_eq!(&buf[..], &b2[..]);
+    assert_eq!(b1.as_ptr(), b2.as_ptr());
+    assert_eq!(b1.len(), b2.len());
+    assert_eq!(b1.len(), buf.len());
+}
+
+#[test]
+fn owned_buf_slicing() {
+    let b1 = Bytes::from_owner(SHORT);
+    assert_eq!(SHORT, &b1[..]);
+    let b2 = b1.slice(1..(b1.len() - 1));
+    assert_eq!(&SHORT[1..(SHORT.len() - 1)], b2);
+    assert_eq!(unsafe { SHORT.as_ptr().add(1) }, b2.as_ptr());
+    assert_eq!(SHORT.len() - 2, b2.len());
+}
+
+#[test]
+fn owned_dropped_exactly_once() {
+    let buf: [u8; 5] = [1, 2, 3, 4, 5];
+    let drop_counter = Arc::new(AtomicUsize::new(0));
+    let owner = OwnedTester::new(buf, drop_counter.clone());
+    let b1 = Bytes::from_owner(owner);
+    let b2 = b1.clone();
     assert_eq!(drop_counter.load(Ordering::Acquire), 0);
     drop(b1);
     assert_eq!(drop_counter.load(Ordering::Acquire), 0);
-    assert!(b2.is_unique());
     let b3 = b2.slice(1..b2.len() - 1);
-    assert!(!b2.is_unique());
-    assert!(!b3.is_unique());
     drop(b2);
     assert_eq!(drop_counter.load(Ordering::Acquire), 0);
     assert!(b3.is_unique());
@@ -1551,15 +1577,13 @@ fn owned_to_mut() {
     // even when the bytes instance is unique.
     assert!(b1.is_unique());
     let b1 = b1.try_into_mut().unwrap_err();
-    assert_eq!(drop_counter.load(Ordering::Acquire), 0);
 
     // That said, it's still possible, just not cheap.
     let bm1: BytesMut = b1.into();
     let new_buf = &bm1[..];
     assert_eq!(new_buf, &buf[..]);
 
-    assert_eq!(drop_counter.load(Ordering::Acquire), 1);
-    drop(bm1);
+    // `.into::<BytesMut>()` has correctly dropped the owner
     assert_eq!(drop_counter.load(Ordering::Acquire), 1);
 }
 
