@@ -8,9 +8,7 @@ macro_rules! fmt_impl {
     };
 }
 
-#[macro_use]
 mod debug;
-#[macro_use]
 mod hex;
 
 /// `BytesRef` is not a part of public API of bytes crate.
