@@ -1533,14 +1533,14 @@ impl<const L: usize> Drop for OwnedTester<L> {
 }
 
 #[test]
-fn owned_is_unique() {
+fn owned_is_unique_always_false() {
     let b1 = Bytes::from_owner([1, 2, 3, 4, 5, 6, 7]);
-    assert!(b1.is_unique());
+    assert!(!b1.is_unique()); // even if ref_cnt == 1
     let b2 = b1.clone();
     assert!(!b1.is_unique());
     assert!(!b2.is_unique());
     drop(b1);
-    assert!(b2.is_unique());
+    assert!(!b2.is_unique()); // even if ref_cnt == 1
 }
 
 #[test]
@@ -1578,7 +1578,6 @@ fn owned_dropped_exactly_once() {
     let b3 = b2.slice(1..b2.len() - 1);
     drop(b2);
     assert_eq!(drop_counter.get(), 0);
-    assert!(b3.is_unique());
     drop(b3);
     assert_eq!(drop_counter.get(), 1);
 }
@@ -1591,8 +1590,7 @@ fn owned_to_mut() {
     let b1 = Bytes::from_owner(owner);
 
     // Holding an owner will fail converting to a BytesMut,
-    // even when the bytes instance is unique.
-    assert!(b1.is_unique());
+    // even when the bytes instance has a ref_cnt == 1.
     let b1 = b1.try_into_mut().unwrap_err();
 
     // That said, it's still possible, just not cheap.
@@ -1610,10 +1608,8 @@ fn owned_to_vec() {
     let drop_counter = SharedAtomicCounter::new();
     let owner = OwnedTester::new(buf, drop_counter.clone());
     let b1 = Bytes::from_owner(owner);
-    assert!(b1.is_unique());
 
     let v1 = b1.to_vec();
-    assert!(b1.is_unique());
     assert_eq!(&v1[..], &buf[..]);
     assert_eq!(&v1[..], &b1[..]);
 

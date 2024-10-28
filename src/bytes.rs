@@ -117,7 +117,6 @@ pub(crate) struct Vtable {
     pub to_mut: unsafe fn(&AtomicPtr<()>, *const u8, usize) -> BytesMut,
     /// fn(data)
     pub is_unique: unsafe fn(&AtomicPtr<()>) -> bool,
-    pub cheap_into_mut: unsafe fn(&AtomicPtr<()>) -> bool,
     /// fn(data, ptr, len)
     pub drop: unsafe fn(&mut AtomicPtr<()>, *const u8, usize),
 }
@@ -320,14 +319,16 @@ impl Bytes {
         self.len == 0
     }
 
-    /// Returns true if this is the only reference to the data.
+    /// Returns true if this is the only reference to the data and
+    /// `Into<BytesMut>` would avoid cloning the underlying buffer.
     ///
-    /// Always returns false if the data is backed by a static slice.
+    /// Always returns false if the data is backed by a [static slice](Bytes::from_static),
+    /// or an [owner](Bytes::from_owner).
     ///
     /// The result of this method may be invalidated immediately if another
     /// thread clones this value while this is being called. Ensure you have
     /// unique access to this value (`&mut Bytes`) first if you need to be
-    /// certain the result is valid (i.e. for safety reasons)
+    /// certain the result is valid (i.e. for safety reasons).
     /// # Examples
     ///
     /// ```
@@ -626,8 +627,8 @@ impl Bytes {
     /// If `self` is not unique for the entire original buffer, this will fail
     /// and return self.
     ///
-    /// This will also always fail if the buffer was constructed via
-    /// [from_owner](Bytes::from_owner).
+    /// This will also always fail if the buffer was constructed via either
+    /// [from_owner](Bytes::from_owner) or [from_static](Bytes::from_static).
     ///
     /// # Examples
     ///
@@ -638,7 +639,7 @@ impl Bytes {
     /// assert_eq!(bytes.try_into_mut(), Ok(BytesMut::from(&b"hello"[..])));
     /// ```
     pub fn try_into_mut(self) -> Result<BytesMut, Bytes> {
-        if unsafe { (self.vtable.cheap_into_mut)(&self.data) } {
+        if self.is_unique() {
             Ok(self.into())
         } else {
             Err(self)
@@ -1079,7 +1080,6 @@ const STATIC_VTABLE: Vtable = Vtable {
     to_vec: static_to_vec,
     to_mut: static_to_mut,
     is_unique: static_is_unique,
-    cheap_into_mut: static_is_unique,
     drop: static_drop,
 };
 
@@ -1152,15 +1152,7 @@ unsafe fn owned_to_mut(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Byte
     bytes_mut
 }
 
-unsafe fn owned_is_unique(data: &AtomicPtr<()>) -> bool {
-    let owned = data.load(Ordering::Relaxed);
-    let ref_cnt = &(*owned.cast::<OwnedLifetime>()).ref_cnt;
-    ref_cnt.load(Ordering::Acquire) == 1
-}
-
-unsafe fn owned_cheap_into_mut(_data: &AtomicPtr<()>) -> bool {
-    // Since the memory's ownership is tied to an external owner
-    // it is never zero-copy to create a BytesMut.
+unsafe fn owned_is_unique(_data: &AtomicPtr<()>) -> bool {
     false
 }
 
@@ -1188,7 +1180,6 @@ static OWNED_VTABLE: Vtable = Vtable {
     to_vec: owned_to_vec,
     to_mut: owned_to_mut,
     is_unique: owned_is_unique,
-    cheap_into_mut: owned_cheap_into_mut,
     drop: owned_drop,
 };
 
@@ -1199,7 +1190,6 @@ static PROMOTABLE_EVEN_VTABLE: Vtable = Vtable {
     to_vec: promotable_even_to_vec,
     to_mut: promotable_even_to_mut,
     is_unique: promotable_is_unique,
-    cheap_into_mut: promotable_is_unique,
     drop: promotable_even_drop,
 };
 
@@ -1208,7 +1198,6 @@ static PROMOTABLE_ODD_VTABLE: Vtable = Vtable {
     to_vec: promotable_odd_to_vec,
     to_mut: promotable_odd_to_mut,
     is_unique: promotable_is_unique,
-    cheap_into_mut: promotable_is_unique,
     drop: promotable_odd_drop,
 };
 
@@ -1385,7 +1374,6 @@ static SHARED_VTABLE: Vtable = Vtable {
     to_vec: shared_to_vec,
     to_mut: shared_to_mut,
     is_unique: shared_is_unique,
-    cheap_into_mut: shared_is_unique,
     drop: shared_drop,
 };
 
