@@ -1155,7 +1155,7 @@ unsafe fn owned_to_mut(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Byte
 unsafe fn owned_is_unique(data: &AtomicPtr<()>) -> bool {
     let owned = data.load(Ordering::Relaxed);
     let ref_cnt = &(*owned.cast::<OwnedLifetime>()).ref_cnt;
-    ref_cnt.load(Ordering::Relaxed) == 1
+    ref_cnt.load(Ordering::Acquire) == 1
 }
 
 unsafe fn owned_cheap_into_mut(_data: &AtomicPtr<()>) -> bool {
