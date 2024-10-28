@@ -1173,8 +1173,8 @@ unsafe fn owned_drop_impl(owned: *mut ()) {
         return;
     }
 
-    let drop = &(*lifetime).drop;
-    drop(owned)
+    let drop_fn = &(*lifetime).drop;
+    drop_fn(owned)
 }
 
 unsafe fn owned_drop(data: &mut AtomicPtr<()>, _ptr: *const u8, _len: usize) {
