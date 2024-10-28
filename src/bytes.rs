@@ -1148,7 +1148,7 @@ unsafe fn owned_to_vec(_data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Vec
 
 unsafe fn owned_to_mut(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> BytesMut {
     let bytes_mut = BytesMut::from_vec(owned_to_vec(data, ptr, len));
-    owned_drop_impl(data.load(Ordering::Acquire));
+    owned_drop_impl(data.load(Ordering::Relaxed));
     bytes_mut
 }
 
