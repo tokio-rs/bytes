@@ -1126,7 +1126,7 @@ unsafe fn owned_box_and_drop<T>(ptr: *mut ()) {
 }
 
 unsafe fn owned_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Bytes {
-    let owned = data.load(Ordering::Acquire);
+    let owned = data.load(Ordering::Relaxed);
     let ref_cnt = &(*owned.cast::<OwnedLifetime>()).ref_cnt;
     let old_cnt = ref_cnt.fetch_add(1, Ordering::Relaxed);
     if old_cnt > usize::MAX >> 1 {
