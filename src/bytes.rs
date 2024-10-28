@@ -1178,7 +1178,7 @@ unsafe fn owned_drop_impl(owned: *mut ()) {
 }
 
 unsafe fn owned_drop(data: &mut AtomicPtr<()>, _ptr: *const u8, _len: usize) {
-    let owned = data.load(Ordering::Acquire);
+    let owned = data.load(Ordering::Relaxed);
     owned_drop_impl(owned);
 }
 
