@@ -1484,14 +1484,31 @@ fn split_to_empty_addr_mut() {
 }
 
 #[derive(Clone)]
+struct SharedAtomicCounter(Arc<AtomicUsize>);
+
+impl SharedAtomicCounter {
+    pub fn new() -> Self {
+        SharedAtomicCounter(Arc::new(AtomicUsize::new(0)))
+    }
+
+    pub fn increment(&self) {
+        self.0.fetch_add(1, Ordering::AcqRel);
+    }
+
+    pub fn get(&self) -> usize {
+        self.0.load(Ordering::Acquire)
+    }
+}
+
+#[derive(Clone)]
 struct OwnedTester<const L: usize> {
     buf: [u8; L],
-    drop_count: Arc<AtomicUsize>,
+    drop_count: SharedAtomicCounter,
     pub panic_as_ref: bool,
 }
 
 impl<const L: usize> OwnedTester<L> {
-    fn new(buf: [u8; L], drop_count: Arc<AtomicUsize>) -> Self {
+    fn new(buf: [u8; L], drop_count: SharedAtomicCounter) -> Self {
         Self {
             buf,
             drop_count,
@@ -1511,7 +1528,7 @@ impl<const L: usize> AsRef<[u8]> for OwnedTester<L> {
 
 impl<const L: usize> Drop for OwnedTester<L> {
     fn drop(&mut self) {
-        self.drop_count.fetch_add(1, Ordering::AcqRel);
+        self.drop_count.increment();
     }
 }
 
@@ -1551,25 +1568,25 @@ fn owned_buf_slicing() {
 #[test]
 fn owned_dropped_exactly_once() {
     let buf: [u8; 5] = [1, 2, 3, 4, 5];
-    let drop_counter = Arc::new(AtomicUsize::new(0));
+    let drop_counter = SharedAtomicCounter::new();
     let owner = OwnedTester::new(buf, drop_counter.clone());
     let b1 = Bytes::from_owner(owner);
     let b2 = b1.clone();
-    assert_eq!(drop_counter.load(Ordering::Acquire), 0);
+    assert_eq!(drop_counter.get(), 0);
     drop(b1);
-    assert_eq!(drop_counter.load(Ordering::Acquire), 0);
+    assert_eq!(drop_counter.get(), 0);
     let b3 = b2.slice(1..b2.len() - 1);
     drop(b2);
-    assert_eq!(drop_counter.load(Ordering::Acquire), 0);
+    assert_eq!(drop_counter.get(), 0);
     assert!(b3.is_unique());
     drop(b3);
-    assert_eq!(drop_counter.load(Ordering::Acquire), 1);
+    assert_eq!(drop_counter.get(), 1);
 }
 
 #[test]
 fn owned_to_mut() {
     let buf: [u8; 10] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-    let drop_counter = Arc::new(AtomicUsize::new(0));
+    let drop_counter = SharedAtomicCounter::new();
     let owner = OwnedTester::new(buf, drop_counter.clone());
     let b1 = Bytes::from_owner(owner);
 
@@ -1584,13 +1601,13 @@ fn owned_to_mut() {
     assert_eq!(new_buf, &buf[..]);
 
     // `.into::<BytesMut>()` has correctly dropped the owner
-    assert_eq!(drop_counter.load(Ordering::Acquire), 1);
+    assert_eq!(drop_counter.get(), 1);
 }
 
 #[test]
 fn owned_to_vec() {
     let buf: [u8; 10] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-    let drop_counter = Arc::new(AtomicUsize::new(0));
+    let drop_counter = SharedAtomicCounter::new();
     let owner = OwnedTester::new(buf, drop_counter.clone());
     let b1 = Bytes::from_owner(owner);
     assert!(b1.is_unique());
@@ -1601,13 +1618,13 @@ fn owned_to_vec() {
     assert_eq!(&v1[..], &b1[..]);
 
     drop(b1);
-    assert_eq!(drop_counter.load(Ordering::Acquire), 1);
+    assert_eq!(drop_counter.get(), 1);
 }
 
 #[test]
 fn owned_safe_drop_on_as_ref_panic() {
     let buf: [u8; 10] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-    let drop_counter = Arc::new(AtomicUsize::new(0));
+    let drop_counter = SharedAtomicCounter::new();
     let mut owner = OwnedTester::new(buf, drop_counter.clone());
     owner.panic_as_ref = true;
 
@@ -1616,5 +1633,5 @@ fn owned_safe_drop_on_as_ref_panic() {
     }));
 
     assert!(result.is_err());
-    assert_eq!(drop_counter.load(Ordering::Acquire), 1);
+    assert_eq!(drop_counter.get(), 1);
 }
