@@ -207,14 +207,39 @@ impl Bytes {
     ///
     /// A common use case is to zero-copy construct from mapped memory.
     ///
-    /// ```ignore
+    /// ```
+    /// # struct File;
+    /// #
+    /// # impl File {
+    /// #     pub fn open(_: &str) -> Result<Self, ()> {
+    /// #         Ok(Self)
+    /// #     }
+    /// # }
+    /// #
+    /// # mod memmap2 {
+    /// #     pub struct Mmap;
+    /// #
+    /// #     impl Mmap {
+    /// #         pub unsafe fn map(_file: &super::File) -> Result<Self, ()> {
+    /// #             Ok(Self)
+    /// #         }
+    /// #     }
+    /// #
+    /// #     impl AsRef<[u8]> for Mmap {
+    /// #         fn as_ref(&self) -> &[u8] {
+    /// #             b"buf"
+    /// #         }
+    /// #     }
+    /// # }
     /// use bytes::Bytes;
-    /// use std::fs::File;
-    /// use memmap2::Map;
+    /// use memmap2::Mmap;
     ///
+    /// # fn main() -> Result<(), ()> {
     /// let file = File::open("upload_bundle.tar.gz")?;
     /// let mmap = unsafe { Mmap::map(&file) }?;
     /// let b = Bytes::from_owner(mmap);
+    /// # Ok(())
+    /// # }
     /// ```
     ///
     /// The `owner` will be transferred to the constructed [Bytes] object, which
