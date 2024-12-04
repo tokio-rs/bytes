@@ -291,7 +291,7 @@ fn split_to_uninitialized() {
 }
 
 #[test]
-#[cfg(panic = "unwind")]
+#[cfg_attr(not(panic = "unwind"), ignore)]
 fn split_off_to_at_gt_len() {
     fn make_bytes() -> Bytes {
         let mut bytes = BytesMut::with_capacity(100);
@@ -1619,7 +1619,7 @@ fn owned_to_vec() {
 }
 
 #[test]
-#[cfg(panic = "unwind")]
+#[cfg_attr(not(panic = "unwind"), ignore)]
 fn owned_safe_drop_on_as_ref_panic() {
     let buf: [u8; 10] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
     let drop_counter = SharedAtomicCounter::new();
