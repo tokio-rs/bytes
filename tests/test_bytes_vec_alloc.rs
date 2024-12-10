@@ -7,7 +7,7 @@ use bytes::{Buf, Bytes};
 #[global_allocator]
 static LEDGER: Ledger = Ledger::new();
 
-const LEDGER_LENGTH: usize = 2048;
+const LEDGER_LENGTH: usize = 1024 * 1024;
 
 struct Ledger {
     alloc_table: [(AtomicPtr<u8>, AtomicUsize); LEDGER_LENGTH],
@@ -31,9 +31,11 @@ impl Ledger {
                 .is_ok()
             {
                 entry_size.store(size, Ordering::SeqCst);
-                break;
+                return;
             }
         }
+
+        panic!("Ledger ran out of space.");
     }
 
     fn remove(&self, ptr: *mut u8) -> usize {

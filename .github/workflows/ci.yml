@@ -89,6 +89,16 @@ jobs:
       - name: Test
         run: ci/test-stable.sh test
 
+  panic-abort:
+    name: panic=abort tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        run: rustup update $nightly && rustup default $nightly
+      - name: Run tests with -Cpanic=abort
+        run: ci/panic-abort.sh
+
   # Run tests on some extra platforms
   cross:
     name: cross
