@@ -85,7 +85,6 @@ unsafe impl GlobalAlloc for Ledger {
 }
 
 #[test]
-#[ignore]
 fn test_bytes_advance() {
     let mut bytes = Bytes::from(vec![10, 20, 30]);
     bytes.advance(1);
