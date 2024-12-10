@@ -116,7 +116,6 @@ fn invalid_ptr<T>(addr: usize) -> *mut T {
 }
 
 #[test]
-#[ignore]
 fn test_bytes_into_vec() {
     let vec = vec![33u8; 1024];
 
