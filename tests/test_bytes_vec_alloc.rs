@@ -7,7 +7,7 @@ use bytes::{Buf, Bytes};
 #[global_allocator]
 static LEDGER: Ledger = Ledger::new();
 
-const LEDGER_LENGTH: usize = 2048;
+const LEDGER_LENGTH: usize = 1024*1024;
 
 struct Ledger {
     alloc_table: [(AtomicPtr<u8>, AtomicUsize); LEDGER_LENGTH],
