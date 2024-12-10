@@ -98,8 +98,8 @@ jobs:
         run: rustup update $nightly && rustup default $nightly
       - name: Install cargo-hack
         uses: taiki-e/install-action@cargo-hack
-      - name: Test
-        run: RUSTFLAGS="$RUSTFLAGS -Cpanic=abort -Zpanic-abort-tests" ci/test-stable.sh test
+      - name: Run tests with -Cpanic=abort
+        run: ci/panic-abort.sh
 
   # Run tests on some extra platforms
   cross:
