@@ -99,7 +99,6 @@ fn test_bytes_truncate() {
 }
 
 #[test]
-#[ignore]
 fn test_bytes_truncate_and_advance() {
     let mut bytes = Bytes::from(vec![10, 20, 30]);
     bytes.truncate(2);
