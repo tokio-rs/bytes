@@ -21,9 +21,14 @@ categories = ["network-programming", "data-structures"]
 [features]
 default = ["std"]
 std = []
+# Use portable-atomic crate to support platforms without atomic CAS.
+# See https://docs.rs/portable-atomic for more information.
+extra-platforms = ["portable-atomic"]
 
 [dependencies]
 serde = { version = "1.0.60", optional = true, default-features = false, features = ["alloc"] }
+# Enable require-cas feature to provide a better error message if the end user forgets to use the cfg or feature.
+portable-atomic = { version = "1.10", optional = true, default-features = false, features = ["require-cas"] }
 
 [dev-dependencies]
 serde_test = "1.0"
