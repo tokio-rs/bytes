@@ -63,6 +63,7 @@ pub struct BytesMut {
     len: usize,
     cap: usize,
     data: *mut Shared,
+    marker_ptr: *const u8,
 }
 
 // Thread-safe reference-counted container for the shared storage. This mostly
@@ -935,6 +936,7 @@ impl BytesMut {
             len,
             cap,
             data: invalid_ptr(data),
+            marker_ptr: ptr::null(),
         }
     }
 
@@ -1118,6 +1120,28 @@ impl BytesMut {
             slice::from_raw_parts_mut(ptr.cast(), len)
         }
     }
+
+    /// mark the current position in the buffer
+    #[inline]
+    fn mark(&mut self){
+        self.marker_ptr = self.ptr.as_ptr();
+    }
+
+    /// reset the current position to the marked position
+    #[inline]
+    fn reset(&mut self){
+        if self.marker_ptr.is_null() {
+            return;
+        }
+        let offset=offset_from(self.ptr.as_ptr(), self.marker_ptr);
+        if offset>0 {
+            unsafe {
+                self.ptr=self.ptr.sub(offset);                
+            }
+            self.len+=offset;
+        }
+        
+    }
 }
 
 impl Drop for BytesMut {
@@ -1162,6 +1186,8 @@ impl Buf for BytesMut {
             self.advance_unchecked(cnt);
         }
     }
+
+    
 
     fn copy_to_bytes(&mut self, len: usize) -> Bytes {
         self.split_to(len).freeze()
@@ -1830,6 +1856,7 @@ unsafe fn shared_v_to_mut(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> B
             len,
             cap,
             data: shared,
+            marker_ptr: ptr::null(),
         }
     } else {
         let v = slice::from_raw_parts(ptr, len).to_vec();

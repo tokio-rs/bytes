@@ -105,6 +105,7 @@ pub struct Bytes {
     // inlined "trait object"
     data: AtomicPtr<()>,
     vtable: &'static Vtable,
+    marker_ptr: *const u8,
 }
 
 pub(crate) struct Vtable {
@@ -171,6 +172,7 @@ impl Bytes {
             len: bytes.len(),
             data: AtomicPtr::new(ptr::null_mut()),
             vtable: &STATIC_VTABLE,
+            marker_ptr: ptr::null(),
         }
     }
 
@@ -198,6 +200,7 @@ impl Bytes {
             len: 0,
             data: AtomicPtr::new(ptr::null_mut()),
             vtable: &STATIC_VTABLE,
+            marker_ptr: ptr::null(),
         }
     }
 
@@ -280,6 +283,7 @@ impl Bytes {
             len: 0,
             data: AtomicPtr::new(owned.cast()),
             vtable: &OWNED_VTABLE,
+            marker_ptr: ptr::null(),
         };
 
         let buf = unsafe { &*owned }.owner.as_ref();
@@ -658,6 +662,7 @@ impl Bytes {
             len,
             data,
             vtable,
+            marker_ptr: ptr::null(),
         }
     }
 
@@ -674,6 +679,28 @@ impl Bytes {
         debug_assert!(self.len >= by, "internal: inc_start out of bounds");
         self.len -= by;
         self.ptr = self.ptr.add(by);
+    }
+
+    /// mark the current position in the buffer
+    #[inline]
+    fn mark(&mut self){
+        self.marker_ptr = self.ptr;
+    }
+
+    /// reset the current position to the marked position
+    #[inline]
+    fn reset(&mut self){
+        if self.marker_ptr.is_null() {
+            return;
+        }
+        let offset=offset_from(self.ptr, self.marker_ptr);
+        if offset>0 {
+            unsafe {
+                self.ptr=self.ptr.sub(offset);                
+            }
+            self.len+=offset;
+        }
+        
     }
 }
 
@@ -992,6 +1019,7 @@ impl From<Vec<u8>> for Bytes {
             len,
             data: AtomicPtr::new(shared as _),
             vtable: &SHARED_VTABLE,
+            marker_ptr: ptr::null(),
         }
     }
 }
@@ -1015,6 +1043,7 @@ impl From<Box<[u8]>> for Bytes {
                 len,
                 data: AtomicPtr::new(data.cast()),
                 vtable: &PROMOTABLE_EVEN_VTABLE,
+                marker_ptr: ptr::null(),
             }
         } else {
             Bytes {
@@ -1022,6 +1051,7 @@ impl From<Box<[u8]>> for Bytes {
                 len,
                 data: AtomicPtr::new(ptr.cast()),
                 vtable: &PROMOTABLE_ODD_VTABLE,
+                marker_ptr: ptr::null(),
             }
         }
     }
@@ -1138,6 +1168,7 @@ unsafe fn owned_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Bytes
         len,
         data: AtomicPtr::new(owned as _),
         vtable: &OWNED_VTABLE,
+        marker_ptr: ptr::null(),
     }
 }
 
@@ -1482,6 +1513,7 @@ unsafe fn shallow_clone_arc(shared: *mut Shared, ptr: *const u8, len: usize) -> 
         len,
         data: AtomicPtr::new(shared as _),
         vtable: &SHARED_VTABLE,
+        marker_ptr: ptr::null(),
     }
 }
 
@@ -1541,6 +1573,7 @@ unsafe fn shallow_clone_vec(
                 len,
                 data: AtomicPtr::new(shared as _),
                 vtable: &SHARED_VTABLE,
+                marker_ptr: ptr::null(),
             }
         }
         Err(actual) => {
