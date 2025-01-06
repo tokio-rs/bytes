@@ -110,6 +110,33 @@ macro_rules! buf_try_get_impl {
             return Ok($typ::$conv(buf));
         }
     }};
+    (le => $this:ident, $typ:tt, $len_to_read:expr) => {{
+        const SIZE: usize = core::mem::size_of::<$typ>();
+
+        // The same trick as above does not improve the best case speed.
+        // It seems to be linked to the way the method is optimised by the compiler
+        let mut buf = [0; SIZE];
+
+        let subslice = match buf.get_mut(..$len_to_read) {
+            Some(subslice) => subslice,
+            None => panic_does_not_fit(SIZE, $len_to_read),
+        };
+
+        $this.try_copy_to_slice(subslice)?;
+        return Ok($typ::from_le_bytes(buf));
+    }};
+    (be => $this:ident, $typ:tt, $len_to_read:expr) => {{
+        const SIZE: usize = core::mem::size_of::<$typ>();
+
+        let slice_at = match SIZE.checked_sub($len_to_read) {
+            Some(slice_at) => slice_at,
+            None => panic_does_not_fit(SIZE, $len_to_read),
+        };
+
+        let mut buf = [0; SIZE];
+        $this.try_copy_to_slice(&mut buf[slice_at..])?;
+        return Ok($typ::from_be_bytes(buf));
+    }};
 }
 
 // https://en.wikipedia.org/wiki/Sign_extension
@@ -1903,6 +1930,182 @@ pub trait Buf {
     /// ```
     fn try_get_i128_ne(&mut self) -> Result<i128, TryGetError> {
         buf_try_get_impl!(self, i128::from_ne_bytes)
+    }
+
+    /// Gets an unsigned n-byte integer from `self` in big-endian byte order.
+    ///
+    /// The current position is advanced by `nbytes`.
+    ///
+    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// remaining bytes to read the value.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Buf;
+    ///
+    /// let mut buf = &b"\x01\x02\x03 hello"[..];
+    /// assert_eq!(Ok(0x010203_u64), buf.try_get_uint(3));
+    /// ```
+    ///
+    /// ```
+    /// use bytes::{Buf, TryGetError};
+    ///
+    /// let mut buf = &b"\x01\x02\x03"[..];
+    /// assert_eq!(Err(TryGetError::NotEnoughBytes), buf.try_get_uint(4));
+    /// ```
+    fn try_get_uint(&mut self, nbytes: usize) -> Result<u64, TryGetError> {
+        buf_try_get_impl!(be => self, u64, nbytes);
+    }
+
+    /// Gets an unsigned n-byte integer from `self` in little-endian byte order.
+    ///
+    /// The current position is advanced by `nbytes`.
+    ///
+    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// remaining bytes to read the value.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Buf;
+    ///
+    /// let mut buf = &b"\x03\x02\x01 hello"[..];
+    /// assert_eq!(Ok(0x010203_u64), buf.try_get_uint_le(3));
+    /// ```
+    ///
+    /// ```
+    /// use bytes::{Buf, TryGetError};
+    ///
+    /// let mut buf = &b"\x01\x02\x03"[..];
+    /// assert_eq!(Err(TryGetError::NotEnoughBytes), buf.try_get_uint_le(4));
+    /// ```
+    fn try_get_uint_le(&mut self, nbytes: usize) -> Result<u64, TryGetError> {
+        buf_try_get_impl!(le => self, u64, nbytes);
+    }
+
+    /// Gets an unsigned n-byte integer from `self` in native-endian byte order.
+    ///
+    /// The current position is advanced by `nbytes`.
+    ///
+    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// remaining bytes to read the value.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Buf;
+    ///
+    /// let mut buf: &[u8] = match cfg!(target_endian = "big") {
+    ///     true => b"\x01\x02\x03 hello",
+    ///     false => b"\x03\x02\x01 hello",
+    /// };
+    /// assert_eq!(Ok(0x010203_u64), buf.try_get_uint_ne(3));
+    /// ```
+    ///
+    /// ```
+    /// use bytes::{Buf, TryGetError};
+    ///
+    /// let mut buf: &[u8] = match cfg!(target_endian = "big") {
+    ///     true => b"\x01\x02\x03",
+    ///     false => b"\x03\x02\x01",
+    /// };
+    /// assert_eq!(Err(TryGetError::NotEnoughBytes), buf.try_get_uint_ne(4));
+    /// ```
+    fn try_get_uint_ne(&mut self, nbytes: usize) -> Result<u64, TryGetError> {
+        if cfg!(target_endian = "big") {
+            self.try_get_uint(nbytes)
+        } else {
+            self.try_get_uint_le(nbytes)
+        }
+    }
+
+    /// Gets a signed n-byte integer from `self` in big-endian byte order.
+    ///
+    /// The current position is advanced by `nbytes`.
+    ///
+    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// remaining bytes to read the value.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Buf;
+    ///
+    /// let mut buf = &b"\x01\x02\x03 hello"[..];
+    /// assert_eq!(Ok(0x010203_i64), buf.try_get_int(3));
+    /// ```
+    ///
+    /// ```
+    /// use bytes::{Buf, TryGetError};
+    ///
+    /// let mut buf = &b"\x01\x02\x03"[..];
+    /// assert_eq!(Err(TryGetError::NotEnoughBytes), buf.try_get_int(4));
+    /// ```
+    fn try_get_int(&mut self, nbytes: usize) -> Result<i64, TryGetError> {
+        buf_try_get_impl!(be => self, i64, nbytes);
+    }
+
+    /// Gets a signed n-byte integer from `self` in little-endian byte order.
+    ///
+    /// The current position is advanced by `nbytes`.
+    ///
+    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// remaining bytes to read the value.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Buf;
+    ///
+    /// let mut buf = &b"\x03\x02\x01 hello"[..];
+    /// assert_eq!(Ok(0x010203_i64), buf.try_get_int_le(3));
+    /// ```
+    ///
+    /// ```
+    /// use bytes::{Buf, TryGetError};
+    ///
+    /// let mut buf = &b"\x01\x02\x03"[..];
+    /// assert_eq!(Err(TryGetError::NotEnoughBytes), buf.try_get_int_le(4));
+    /// ```
+    fn try_get_int_le(&mut self, nbytes: usize) -> Result<i64, TryGetError> {
+        buf_try_get_impl!(le => self, i64, nbytes);
+    }
+
+    /// Gets a signed n-byte integer from `self` in native-endian byte order.
+    ///
+    /// The current position is advanced by `nbytes`.
+    ///
+    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// remaining bytes to read the value.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Buf;
+    ///
+    /// let mut buf: &[u8] = match cfg!(target_endian = "big") {
+    ///     true => b"\x01\x02\x03 hello",
+    ///     false => b"\x03\x02\x01 hello",
+    /// };
+    /// assert_eq!(Ok(0x010203_i64), buf.try_get_int_ne(3));
+    /// ```
+    ///
+    /// ```
+    /// use bytes::{Buf, TryGetError};
+    ///
+    /// let mut buf: &[u8] = match cfg!(target_endian = "big") {
+    ///     true => b"\x01\x02\x03",
+    ///     false => b"\x03\x02\x01",
+    /// };
+    /// assert_eq!(Err(TryGetError::NotEnoughBytes), buf.try_get_int_ne(4));
+    /// ```
+    fn try_get_int_ne(&mut self, nbytes: usize) -> Result<i64, TryGetError> {
+        if cfg!(target_endian = "big") {
+            self.try_get_int(nbytes)
+        } else {
+            self.try_get_int_le(nbytes)
+        }
     }
 
     /// Gets an IEEE754 single-precision (4 bytes) floating point number from
