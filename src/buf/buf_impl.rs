@@ -914,7 +914,8 @@ pub trait Buf {
     ///
     /// # Panics
     ///
-    /// This function panics if there is not enough remaining data in `self`.
+    /// This function panics if there is not enough remaining data in `self`, or
+    /// if `nbytes` is greater than 8.
     fn get_uint(&mut self, nbytes: usize) -> u64 {
         buf_get_impl!(be => self, u64, nbytes);
     }
@@ -934,7 +935,8 @@ pub trait Buf {
     ///
     /// # Panics
     ///
-    /// This function panics if there is not enough remaining data in `self`.
+    /// This function panics if there is not enough remaining data in `self`, or
+    /// if `nbytes` is greater than 8.
     fn get_uint_le(&mut self, nbytes: usize) -> u64 {
         buf_get_impl!(le => self, u64, nbytes);
     }
@@ -1937,6 +1939,10 @@ pub trait Buf {
     /// let mut buf = &b"\x01\x02\x03"[..];
     /// assert_eq!(Err(Error::OutOfBytes), buf.try_get_uint(4));
     /// ```
+    ///
+    /// # Panics
+    ///
+    /// This function panics if `nbytes` > 8.
     fn try_get_uint(&mut self, nbytes: usize) -> Result<u64, Error> {
         buf_try_get_impl!(be => self, u64, nbytes);
     }
@@ -1963,6 +1969,10 @@ pub trait Buf {
     /// let mut buf = &b"\x01\x02\x03"[..];
     /// assert_eq!(Err(Error::OutOfBytes), buf.try_get_uint_le(4));
     /// ```
+    ///
+    /// # Panics
+    ///
+    /// This function panics if `nbytes` > 8.
     fn try_get_uint_le(&mut self, nbytes: usize) -> Result<u64, Error> {
         buf_try_get_impl!(le => self, u64, nbytes);
     }
@@ -1995,6 +2005,10 @@ pub trait Buf {
     /// };
     /// assert_eq!(Err(Error::OutOfBytes), buf.try_get_uint_ne(4));
     /// ```
+    ///
+    /// # Panics
+    ///
+    /// This function panics if `nbytes` is greater than 8.
     fn try_get_uint_ne(&mut self, nbytes: usize) -> Result<u64, Error> {
         if cfg!(target_endian = "big") {
             self.try_get_uint(nbytes)
@@ -2025,6 +2039,10 @@ pub trait Buf {
     /// let mut buf = &b"\x01\x02\x03"[..];
     /// assert_eq!(Err(Error::OutOfBytes), buf.try_get_int(4));
     /// ```
+    ///
+    /// # Panics
+    ///
+    /// This function panics if `nbytes` is greater than 8.
     fn try_get_int(&mut self, nbytes: usize) -> Result<i64, Error> {
         buf_try_get_impl!(be => self, i64, nbytes);
     }
@@ -2051,6 +2069,10 @@ pub trait Buf {
     /// let mut buf = &b"\x01\x02\x03"[..];
     /// assert_eq!(Err(Error::OutOfBytes), buf.try_get_int_le(4));
     /// ```
+    ///
+    /// # Panics
+    ///
+    /// This function panics if `nbytes` is greater than 8.
     fn try_get_int_le(&mut self, nbytes: usize) -> Result<i64, Error> {
         buf_try_get_impl!(le => self, i64, nbytes);
     }
@@ -2083,6 +2105,10 @@ pub trait Buf {
     /// };
     /// assert_eq!(Err(Error::OutOfBytes), buf.try_get_int_ne(4));
     /// ```
+    ///
+    /// # Panics
+    ///
+    /// This function panics if `nbytes` is greater than 8.
     fn try_get_int_ne(&mut self, nbytes: usize) -> Result<i64, Error> {
         if cfg!(target_endian = "big") {
             self.try_get_int(nbytes)
