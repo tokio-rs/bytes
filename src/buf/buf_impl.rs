@@ -10,7 +10,6 @@ use std::io::IoSlice;
 
 use alloc::boxed::Box;
 
-
 /// Error type for the `try_get_` methods of [`Buf`].
 #[derive(Debug, PartialEq, Eq)]
 pub enum TryGetError {
@@ -25,14 +24,15 @@ pub enum TryGetError {
 impl std::fmt::Display for TryGetError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
         match self {
-            TryGetError::OutOfBytes => write!(f, "Not enough bytes remaining in buffer to read value"),
+            TryGetError::OutOfBytes => {
+                write!(f, "Not enough bytes remaining in buffer to read value")
+            }
         }
     }
 }
 
 #[cfg(feature = "std")]
-impl std::error::Error for TryGetError {
-}
+impl std::error::Error for TryGetError {}
 
 macro_rules! buf_get_impl {
     ($this:ident, $typ:tt::$conv:tt) => {{
