@@ -793,7 +793,7 @@ pub trait Buf {
         buf_get_impl!(self, u128::from_be_bytes);
     }
 
-    /// Gets a signed 128 bit integer from `self` in little-endian byte order.
+    /// Gets an unsigned 128 bit integer from `self` in little-endian byte order.
     ///
     /// The current position is advanced by 16.
     ///
@@ -1176,7 +1176,7 @@ pub trait Buf {
     /// The cursor is advanced by the number of bytes copied. `self` must have
     /// enough remaining bytes to fill `dst`.
     ///
-    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// Returns `Err(Error::OutOfBytes)` when there are not enough
     /// remaining bytes to read the value.
     ///
     /// # Examples
@@ -1199,6 +1199,7 @@ pub trait Buf {
     /// let mut dst = [0; 12];
     ///
     /// assert_eq!(Err(Error::OutOfBytes), buf.try_copy_to_slice(&mut dst));
+    /// assert_eq!(11, buf.remaining());
     /// ```
     fn try_copy_to_slice(&mut self, mut dst: &mut [u8]) -> Result<(), Error> {
         if self.remaining() < dst.len() {
@@ -1217,11 +1218,11 @@ pub trait Buf {
         Ok(())
     }
 
-    /// Gets an unsigned 8 bit integer from `self` in big-endian byte order.
+    /// Gets an unsigned 8 bit integer from `self`.
     ///
     /// The current position is advanced by 1.
     ///
-    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// Returns `Err(Error::OutOfBytes)` when there are not enough
     /// remaining bytes to read the value.
     ///
     /// # Examples
@@ -1231,6 +1232,7 @@ pub trait Buf {
     ///
     /// let mut buf = &b"\x08 hello"[..];
     /// assert_eq!(Ok(0x08_u8), buf.try_get_u8());
+    /// assert_eq!(6, buf.remaining());
     /// ```
     ///
     /// ```
@@ -1240,14 +1242,19 @@ pub trait Buf {
     /// assert_eq!(Err(Error::OutOfBytes), buf.try_get_u8());
     /// ```
     fn try_get_u8(&mut self) -> Result<u8, Error> {
-        buf_try_get_impl!(self, u8::from_be_bytes)
+        if self.remaining() < 1 {
+            return Err(Error::OutOfBytes);
+        }
+        let ret = self.chunk()[0];
+        self.advance(1);
+        Ok(ret)
     }
 
-    /// Gets a signed 8 bit integer from `self` in big-endian byte order.
+    /// Gets a signed 8 bit integer from `self`.
     ///
     /// The current position is advanced by 1.
     ///
-    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// Returns `Err(Error::OutOfBytes)` when there are not enough
     /// remaining bytes to read the value.
     ///
     /// # Examples
@@ -1257,6 +1264,7 @@ pub trait Buf {
     ///
     /// let mut buf = &b"\x08 hello"[..];
     /// assert_eq!(Ok(0x08_i8), buf.try_get_i8());
+    /// assert_eq!(6, buf.remaining());
     /// ```
     ///
     /// ```
@@ -1266,14 +1274,19 @@ pub trait Buf {
     /// assert_eq!(Err(Error::OutOfBytes), buf.try_get_i8());
     /// ```
     fn try_get_i8(&mut self) -> Result<i8, Error> {
-        buf_try_get_impl!(self, i8::from_be_bytes)
+        if self.remaining() < 1 {
+            return Err(Error::OutOfBytes);
+        }
+        let ret = self.chunk()[0] as i8;
+        self.advance(1);
+        Ok(ret)
     }
 
     /// Gets an unsigned 16 bit integer from `self` in big-endian byte order.
     ///
     /// The current position is advanced by 2.
     ///
-    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// Returns `Err(Error::OutOfBytes)` when there are not enough
     /// remaining bytes to read the value.
     ///
     /// # Examples
@@ -1283,6 +1296,7 @@ pub trait Buf {
     ///
     /// let mut buf = &b"\x08\x09 hello"[..];
     /// assert_eq!(Ok(0x0809_u16), buf.try_get_u16());
+    /// assert_eq!(6, buf.remaining());
     /// ```
     ///
     /// ```
@@ -1290,6 +1304,7 @@ pub trait Buf {
     ///
     /// let mut buf = &b"\x08"[..];
     /// assert_eq!(Err(Error::OutOfBytes), buf.try_get_u16());
+    /// assert_eq!(1, buf.remaining());
     /// ```
     fn try_get_u16(&mut self) -> Result<u16, Error> {
         buf_try_get_impl!(self, u16::from_be_bytes)
@@ -1299,7 +1314,7 @@ pub trait Buf {
     ///
     /// The current position is advanced by 2.
     ///
-    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// Returns `Err(Error::OutOfBytes)` when there are not enough
     /// remaining bytes to read the value.
     ///
     /// # Examples
@@ -1309,6 +1324,7 @@ pub trait Buf {
     ///
     /// let mut buf = &b"\x09\x08 hello"[..];
     /// assert_eq!(Ok(0x0809_u16), buf.try_get_u16_le());
+    /// assert_eq!(6, buf.remaining());
     /// ```
     ///
     /// ```
@@ -1316,6 +1332,7 @@ pub trait Buf {
     ///
     /// let mut buf = &b"\x08"[..];
     /// assert_eq!(Err(Error::OutOfBytes), buf.try_get_u16_le());
+    /// assert_eq!(1, buf.remaining());
     /// ```
     fn try_get_u16_le(&mut self) -> Result<u16, Error> {
         buf_try_get_impl!(self, u16::from_le_bytes)
@@ -1325,7 +1342,7 @@ pub trait Buf {
     ///
     /// The current position is advanced by 2.
     ///
-    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// Returns `Err(Error::OutOfBytes)` when there are not enough
     /// remaining bytes to read the value.
     ///
     /// # Examples
@@ -1338,6 +1355,7 @@ pub trait Buf {
     ///     false => b"\x09\x08 hello",
     /// };
     /// assert_eq!(Ok(0x0809_u16), buf.try_get_u16_ne());
+    /// assert_eq!(6, buf.remaining());
     /// ```
     ///
     /// ```
@@ -1345,6 +1363,7 @@ pub trait Buf {
     ///
     /// let mut buf = &b"\x08"[..];
     /// assert_eq!(Err(Error::OutOfBytes), buf.try_get_u16_ne());
+    /// assert_eq!(1, buf.remaining());
     /// ```
     fn try_get_u16_ne(&mut self) -> Result<u16, Error> {
         buf_try_get_impl!(self, u16::from_ne_bytes)
@@ -1354,7 +1373,7 @@ pub trait Buf {
     ///
     /// The current position is advanced by 2.
     ///
-    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// Returns `Err(Error::OutOfBytes)` when there are not enough
     /// remaining bytes to read the value.
     ///
     /// # Examples
@@ -1364,6 +1383,7 @@ pub trait Buf {
     ///
     /// let mut buf = &b"\x08\x09 hello"[..];
     /// assert_eq!(Ok(0x0809_i16), buf.try_get_i16());
+    /// assert_eq!(6, buf.remaining());
     /// ```
     ///
     /// ```
@@ -1371,6 +1391,7 @@ pub trait Buf {
     ///
     /// let mut buf = &b"\x08"[..];
     /// assert_eq!(Err(Error::OutOfBytes), buf.try_get_i16());
+    /// assert_eq!(1, buf.remaining());
     /// ```
     fn try_get_i16(&mut self) -> Result<i16, Error> {
         buf_try_get_impl!(self, i16::from_be_bytes)
@@ -1380,7 +1401,7 @@ pub trait Buf {
     ///
     /// The current position is advanced by 2.
     ///
-    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// Returns `Err(Error::OutOfBytes)` when there are not enough
     /// remaining bytes to read the value.
     ///
     /// # Examples
@@ -1390,6 +1411,7 @@ pub trait Buf {
     ///
     /// let mut buf = &b"\x09\x08 hello"[..];
     /// assert_eq!(Ok(0x0809_i16), buf.try_get_i16_le());
+    /// assert_eq!(6, buf.remaining());
     /// ```
     ///
     /// ```
@@ -1397,6 +1419,7 @@ pub trait Buf {
     ///
     /// let mut buf = &b"\x08"[..];
     /// assert_eq!(Err(Error::OutOfBytes), buf.try_get_i16_le());
+    /// assert_eq!(1, buf.remaining());
     /// ```
     fn try_get_i16_le(&mut self) -> Result<i16, Error> {
         buf_try_get_impl!(self, i16::from_le_bytes)
@@ -1406,7 +1429,7 @@ pub trait Buf {
     ///
     /// The current position is advanced by 2.
     ///
-    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// Returns `Err(Error::OutOfBytes)` when there are not enough
     /// remaining bytes to read the value.
     ///
     /// # Examples
@@ -1419,6 +1442,7 @@ pub trait Buf {
     ///     false => b"\x09\x08 hello",
     /// };
     /// assert_eq!(Ok(0x0809_i16), buf.try_get_i16_ne());
+    /// assert_eq!(6, buf.remaining());
     /// ```
     ///
     /// ```
@@ -1426,6 +1450,7 @@ pub trait Buf {
     ///
     /// let mut buf = &b"\x08"[..];
     /// assert_eq!(Err(Error::OutOfBytes), buf.try_get_i16_ne());
+    /// assert_eq!(1, buf.remaining());
     /// ```
     fn try_get_i16_ne(&mut self) -> Result<i16, Error> {
         buf_try_get_impl!(self, i16::from_ne_bytes)
@@ -1435,7 +1460,7 @@ pub trait Buf {
     ///
     /// The current position is advanced by 4.
     ///
-    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// Returns `Err(Error::OutOfBytes)` when there are not enough
     /// remaining bytes to read the value.
     ///
     /// # Examples
@@ -1445,6 +1470,7 @@ pub trait Buf {
     ///
     /// let mut buf = &b"\x08\x09\xA0\xA1 hello"[..];
     /// assert_eq!(Ok(0x0809A0A1), buf.try_get_u32());
+    /// assert_eq!(6, buf.remaining());
     /// ```
     ///
     /// ```
@@ -1452,6 +1478,7 @@ pub trait Buf {
     ///
     /// let mut buf = &b"\x01\x02\x03"[..];
     /// assert_eq!(Err(Error::OutOfBytes), buf.try_get_u32());
+    /// assert_eq!(3, buf.remaining());
     /// ```
     fn try_get_u32(&mut self) -> Result<u32, Error> {
         buf_try_get_impl!(self, u32::from_be_bytes)
@@ -1461,7 +1488,7 @@ pub trait Buf {
     ///
     /// The current position is advanced by 4.
     ///
-    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// Returns `Err(Error::OutOfBytes)` when there are not enough
     /// remaining bytes to read the value.
     ///
     /// # Examples
@@ -1471,6 +1498,7 @@ pub trait Buf {
     ///
     /// let mut buf = &b"\xA1\xA0\x09\x08 hello"[..];
     /// assert_eq!(Ok(0x0809A0A1_u32), buf.try_get_u32_le());
+    /// assert_eq!(6, buf.remaining());
     /// ```
     ///
     /// ```
@@ -1478,6 +1506,7 @@ pub trait Buf {
     ///
     /// let mut buf = &b"\x08\x09\xA0"[..];
     /// assert_eq!(Err(Error::OutOfBytes), buf.try_get_u32_le());
+    /// assert_eq!(3, buf.remaining());
     /// ```
     fn try_get_u32_le(&mut self) -> Result<u32, Error> {
         buf_try_get_impl!(self, u32::from_le_bytes)
@@ -1487,7 +1516,7 @@ pub trait Buf {
     ///
     /// The current position is advanced by 4.
     ///
-    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// Returns `Err(Error::OutOfBytes)` when there are not enough
     /// remaining bytes to read the value.
     ///
     /// # Examples
@@ -1500,6 +1529,7 @@ pub trait Buf {
     ///     false => b"\xA1\xA0\x09\x08 hello",
     /// };
     /// assert_eq!(Ok(0x0809A0A1_u32), buf.try_get_u32_ne());
+    /// assert_eq!(6, buf.remaining());
     /// ```
     ///
     /// ```
@@ -1507,6 +1537,7 @@ pub trait Buf {
     ///
     /// let mut buf = &b"\x08\x09\xA0"[..];
     /// assert_eq!(Err(Error::OutOfBytes), buf.try_get_u32_ne());
+    /// assert_eq!(3, buf.remaining());
     /// ```
     fn try_get_u32_ne(&mut self) -> Result<u32, Error> {
         buf_try_get_impl!(self, u32::from_ne_bytes)
@@ -1516,7 +1547,7 @@ pub trait Buf {
     ///
     /// The current position is advanced by 4.
     ///
-    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// Returns `Err(Error::OutOfBytes)` when there are not enough
     /// remaining bytes to read the value.
     ///
     /// # Examples
@@ -1526,6 +1557,7 @@ pub trait Buf {
     ///
     /// let mut buf = &b"\x08\x09\xA0\xA1 hello"[..];
     /// assert_eq!(Ok(0x0809A0A1_i32), buf.try_get_i32());
+    /// assert_eq!(6, buf.remaining());
     /// ```
     ///
     /// ```
@@ -1533,6 +1565,7 @@ pub trait Buf {
     ///
     /// let mut buf = &b"\x01\x02\x03"[..];
     /// assert_eq!(Err(Error::OutOfBytes), buf.try_get_i32());
+    /// assert_eq!(3, buf.remaining());
     /// ```
     fn try_get_i32(&mut self) -> Result<i32, Error> {
         buf_try_get_impl!(self, i32::from_be_bytes)
@@ -1542,7 +1575,7 @@ pub trait Buf {
     ///
     /// The current position is advanced by 4.
     ///
-    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// Returns `Err(Error::OutOfBytes)` when there are not enough
     /// remaining bytes to read the value.
     ///
     /// # Examples
@@ -1552,6 +1585,7 @@ pub trait Buf {
     ///
     /// let mut buf = &b"\xA1\xA0\x09\x08 hello"[..];
     /// assert_eq!(Ok(0x0809A0A1_i32), buf.try_get_i32_le());
+    /// assert_eq!(6, buf.remaining());
     /// ```
     ///
     /// ```
@@ -1559,6 +1593,7 @@ pub trait Buf {
     ///
     /// let mut buf = &b"\x08\x09\xA0"[..];
     /// assert_eq!(Err(Error::OutOfBytes), buf.try_get_i32_le());
+    /// assert_eq!(3, buf.remaining());
     /// ```
     fn try_get_i32_le(&mut self) -> Result<i32, Error> {
         buf_try_get_impl!(self, i32::from_le_bytes)
@@ -1568,7 +1603,7 @@ pub trait Buf {
     ///
     /// The current position is advanced by 4.
     ///
-    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// Returns `Err(Error::OutOfBytes)` when there are not enough
     /// remaining bytes to read the value.
     ///
     /// # Examples
@@ -1581,6 +1616,7 @@ pub trait Buf {
     ///     false => b"\xA1\xA0\x09\x08 hello",
     /// };
     /// assert_eq!(Ok(0x0809A0A1_i32), buf.try_get_i32_ne());
+    /// assert_eq!(6, buf.remaining());
     /// ```
     ///
     /// ```
@@ -1588,6 +1624,7 @@ pub trait Buf {
     ///
     /// let mut buf = &b"\x08\x09\xA0"[..];
     /// assert_eq!(Err(Error::OutOfBytes), buf.try_get_i32_ne());
+    /// assert_eq!(3, buf.remaining());
     /// ```
     fn try_get_i32_ne(&mut self) -> Result<i32, Error> {
         buf_try_get_impl!(self, i32::from_ne_bytes)
@@ -1597,7 +1634,7 @@ pub trait Buf {
     ///
     /// The current position is advanced by 8.
     ///
-    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// Returns `Err(Error::OutOfBytes)` when there are not enough
     /// remaining bytes to read the value.
     ///
     /// # Examples
@@ -1607,6 +1644,7 @@ pub trait Buf {
     ///
     /// let mut buf = &b"\x01\x02\x03\x04\x05\x06\x07\x08 hello"[..];
     /// assert_eq!(Ok(0x0102030405060708_u64), buf.try_get_u64());
+    /// assert_eq!(6, buf.remaining());
     /// ```
     ///
     /// ```
@@ -1614,6 +1652,7 @@ pub trait Buf {
     ///
     /// let mut buf = &b"\x01\x02\x03\x04\x05\x06\x07"[..];
     /// assert_eq!(Err(Error::OutOfBytes), buf.try_get_u64());
+    /// assert_eq!(7, buf.remaining());
     /// ```
     fn try_get_u64(&mut self) -> Result<u64, Error> {
         buf_try_get_impl!(self, u64::from_be_bytes)
@@ -1623,7 +1662,7 @@ pub trait Buf {
     ///
     /// The current position is advanced by 8.
     ///
-    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// Returns `Err(Error::OutOfBytes)` when there are not enough
     /// remaining bytes to read the value.
     ///
     /// # Examples
@@ -1633,6 +1672,7 @@ pub trait Buf {
     ///
     /// let mut buf = &b"\x08\x07\x06\x05\x04\x03\x02\x01 hello"[..];
     /// assert_eq!(Ok(0x0102030405060708_u64), buf.try_get_u64_le());
+    /// assert_eq!(6, buf.remaining());
     /// ```
     ///
     /// ```
@@ -1640,6 +1680,7 @@ pub trait Buf {
     ///
     /// let mut buf = &b"\x08\x07\x06\x05\x04\x03\x02"[..];
     /// assert_eq!(Err(Error::OutOfBytes), buf.try_get_u64_le());
+    /// assert_eq!(7, buf.remaining());
     /// ```
     fn try_get_u64_le(&mut self) -> Result<u64, Error> {
         buf_try_get_impl!(self, u64::from_le_bytes)
@@ -1649,7 +1690,7 @@ pub trait Buf {
     ///
     /// The current position is advanced by 8.
     ///
-    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// Returns `Err(Error::OutOfBytes)` when there are not enough
     /// remaining bytes to read the value.
     ///
     /// # Examples
@@ -1662,6 +1703,7 @@ pub trait Buf {
     ///     false => b"\x08\x07\x06\x05\x04\x03\x02\x01 hello",
     /// };
     /// assert_eq!(Ok(0x0102030405060708_u64), buf.try_get_u64_ne());
+    /// assert_eq!(6, buf.remaining());
     /// ```
     ///
     /// ```
@@ -1669,6 +1711,7 @@ pub trait Buf {
     ///
     /// let mut buf = &b"\x01\x02\x03\x04\x05\x06\x07"[..];
     /// assert_eq!(Err(Error::OutOfBytes), buf.try_get_u64_ne());
+    /// assert_eq!(7, buf.remaining());
     /// ```
     fn try_get_u64_ne(&mut self) -> Result<u64, Error> {
         buf_try_get_impl!(self, u64::from_ne_bytes)
@@ -1678,7 +1721,7 @@ pub trait Buf {
     ///
     /// The current position is advanced by 8.
     ///
-    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// Returns `Err(Error::OutOfBytes)` when there are not enough
     /// remaining bytes to read the value.
     ///
     /// # Examples
@@ -1688,6 +1731,7 @@ pub trait Buf {
     ///
     /// let mut buf = &b"\x01\x02\x03\x04\x05\x06\x07\x08 hello"[..];
     /// assert_eq!(Ok(0x0102030405060708_i64), buf.try_get_i64());
+    /// assert_eq!(6, buf.remaining());
     /// ```
     ///
     /// ```
@@ -1695,6 +1739,7 @@ pub trait Buf {
     ///
     /// let mut buf = &b"\x01\x02\x03\x04\x05\x06\x07"[..];
     /// assert_eq!(Err(Error::OutOfBytes), buf.try_get_i64());
+    /// assert_eq!(7, buf.remaining());
     /// ```
     fn try_get_i64(&mut self) -> Result<i64, Error> {
         buf_try_get_impl!(self, i64::from_be_bytes)
@@ -1704,7 +1749,7 @@ pub trait Buf {
     ///
     /// The current position is advanced by 8.
     ///
-    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// Returns `Err(Error::OutOfBytes)` when there are not enough
     /// remaining bytes to read the value.
     ///
     /// # Examples
@@ -1714,6 +1759,7 @@ pub trait Buf {
     ///
     /// let mut buf = &b"\x08\x07\x06\x05\x04\x03\x02\x01 hello"[..];
     /// assert_eq!(Ok(0x0102030405060708_i64), buf.try_get_i64_le());
+    /// assert_eq!(6, buf.remaining());
     /// ```
     ///
     /// ```
@@ -1721,6 +1767,7 @@ pub trait Buf {
     ///
     /// let mut buf = &b"\x08\x07\x06\x05\x04\x03\x02"[..];
     /// assert_eq!(Err(Error::OutOfBytes), buf.try_get_i64_le());
+    /// assert_eq!(7, buf.remaining());
     /// ```
     fn try_get_i64_le(&mut self) -> Result<i64, Error> {
         buf_try_get_impl!(self, i64::from_le_bytes)
@@ -1730,7 +1777,7 @@ pub trait Buf {
     ///
     /// The current position is advanced by 8.
     ///
-    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// Returns `Err(Error::OutOfBytes)` when there are not enough
     /// remaining bytes to read the value.
     ///
     /// # Examples
@@ -1743,6 +1790,7 @@ pub trait Buf {
     ///     false => b"\x08\x07\x06\x05\x04\x03\x02\x01 hello",
     /// };
     /// assert_eq!(Ok(0x0102030405060708_i64), buf.try_get_i64_ne());
+    /// assert_eq!(6, buf.remaining());
     /// ```
     ///
     /// ```
@@ -1750,6 +1798,7 @@ pub trait Buf {
     ///
     /// let mut buf = &b"\x01\x02\x03\x04\x05\x06\x07"[..];
     /// assert_eq!(Err(Error::OutOfBytes), buf.try_get_i64_ne());
+    /// assert_eq!(7, buf.remaining());
     /// ```
     fn try_get_i64_ne(&mut self) -> Result<i64, Error> {
         buf_try_get_impl!(self, i64::from_ne_bytes)
@@ -1759,7 +1808,7 @@ pub trait Buf {
     ///
     /// The current position is advanced by 16.
     ///
-    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// Returns `Err(Error::OutOfBytes)` when there are not enough
     /// remaining bytes to read the value.
     ///
     /// # Examples
@@ -1769,6 +1818,7 @@ pub trait Buf {
     ///
     /// let mut buf = &b"\x01\x02\x03\x04\x05\x06\x07\x08\x09\x10\x11\x12\x13\x14\x15\x16 hello"[..];
     /// assert_eq!(Ok(0x01020304050607080910111213141516_u128), buf.try_get_u128());
+    /// assert_eq!(6, buf.remaining());
     /// ```
     ///
     /// ```
@@ -1776,6 +1826,7 @@ pub trait Buf {
     ///
     /// let mut buf = &b"\x01\x02\x03\x04\x05\x06\x07\x08\x09\x10\x11\x12\x13\x14\x15"[..];
     /// assert_eq!(Err(Error::OutOfBytes), buf.try_get_u128());
+    /// assert_eq!(15, buf.remaining());
     /// ```
     fn try_get_u128(&mut self) -> Result<u128, Error> {
         buf_try_get_impl!(self, u128::from_be_bytes)
@@ -1785,7 +1836,7 @@ pub trait Buf {
     ///
     /// The current position is advanced by 16.
     ///
-    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// Returns `Err(Error::OutOfBytes)` when there are not enough
     /// remaining bytes to read the value.
     ///
     /// # Examples
@@ -1795,6 +1846,7 @@ pub trait Buf {
     ///
     /// let mut buf = &b"\x16\x15\x14\x13\x12\x11\x10\x09\x08\x07\x06\x05\x04\x03\x02\x01 hello"[..];
     /// assert_eq!(Ok(0x01020304050607080910111213141516_u128), buf.try_get_u128_le());
+    /// assert_eq!(6, buf.remaining());
     /// ```
     ///
     /// ```
@@ -1802,6 +1854,7 @@ pub trait Buf {
     ///
     /// let mut buf = &b"\x16\x15\x14\x13\x12\x11\x10\x09\x08\x07\x06\x05\x04\x03\x02"[..];
     /// assert_eq!(Err(Error::OutOfBytes), buf.try_get_u128_le());
+    /// assert_eq!(15, buf.remaining());
     /// ```
     fn try_get_u128_le(&mut self) -> Result<u128, Error> {
         buf_try_get_impl!(self, u128::from_le_bytes)
@@ -1811,7 +1864,7 @@ pub trait Buf {
     ///
     /// The current position is advanced by 16.
     ///
-    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// Returns `Err(Error::OutOfBytes)` when there are not enough
     /// remaining bytes to read the value.
     ///
     /// # Examples
@@ -1824,6 +1877,7 @@ pub trait Buf {
     ///     false => b"\x16\x15\x14\x13\x12\x11\x10\x09\x08\x07\x06\x05\x04\x03\x02\x01 hello",
     /// };
     /// assert_eq!(Ok(0x01020304050607080910111213141516_u128), buf.try_get_u128_ne());
+    /// assert_eq!(6, buf.remaining());
     /// ```
     ///
     /// ```
@@ -1831,6 +1885,7 @@ pub trait Buf {
     ///
     /// let mut buf = &b"\x01\x02\x03\x04\x05\x06\x07\x08\x09\x10\x11\x12\x13\x14\x15"[..];
     /// assert_eq!(Err(Error::OutOfBytes), buf.try_get_u128_ne());
+    /// assert_eq!(15, buf.remaining());
     /// ```
     fn try_get_u128_ne(&mut self) -> Result<u128, Error> {
         buf_try_get_impl!(self, u128::from_ne_bytes)
@@ -1840,7 +1895,7 @@ pub trait Buf {
     ///
     /// The current position is advanced by 16.
     ///
-    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// Returns `Err(Error::OutOfBytes)` when there are not enough
     /// remaining bytes to read the value.
     ///
     /// # Examples
@@ -1850,6 +1905,7 @@ pub trait Buf {
     ///
     /// let mut buf = &b"\x01\x02\x03\x04\x05\x06\x07\x08\x09\x10\x11\x12\x13\x14\x15\x16 hello"[..];
     /// assert_eq!(Ok(0x01020304050607080910111213141516_i128), buf.try_get_i128());
+    /// assert_eq!(6, buf.remaining());
     /// ```
     ///
     /// ```
@@ -1857,6 +1913,7 @@ pub trait Buf {
     ///
     /// let mut buf = &b"\x01\x02\x03\x04\x05\x06\x07\x08\x09\x10\x11\x12\x13\x14\x15"[..];
     /// assert_eq!(Err(Error::OutOfBytes), buf.try_get_i128());
+    /// assert_eq!(15, buf.remaining());
     /// ```
     fn try_get_i128(&mut self) -> Result<i128, Error> {
         buf_try_get_impl!(self, i128::from_be_bytes)
@@ -1866,7 +1923,7 @@ pub trait Buf {
     ///
     /// The current position is advanced by 16.
     ///
-    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// Returns `Err(Error::OutOfBytes)` when there are not enough
     /// remaining bytes to read the value.
     ///
     /// # Examples
@@ -1876,6 +1933,7 @@ pub trait Buf {
     ///
     /// let mut buf = &b"\x16\x15\x14\x13\x12\x11\x10\x09\x08\x07\x06\x05\x04\x03\x02\x01 hello"[..];
     /// assert_eq!(Ok(0x01020304050607080910111213141516_i128), buf.try_get_i128_le());
+    /// assert_eq!(6, buf.remaining());
     /// ```
     ///
     /// ```
@@ -1883,6 +1941,7 @@ pub trait Buf {
     ///
     /// let mut buf = &b"\x16\x15\x14\x13\x12\x11\x10\x09\x08\x07\x06\x05\x04\x03\x02"[..];
     /// assert_eq!(Err(Error::OutOfBytes), buf.try_get_i128_le());
+    /// assert_eq!(15, buf.remaining());
     /// ```
     fn try_get_i128_le(&mut self) -> Result<i128, Error> {
         buf_try_get_impl!(self, i128::from_le_bytes)
@@ -1892,7 +1951,7 @@ pub trait Buf {
     ///
     /// The current position is advanced by 16.
     ///
-    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// Returns `Err(Error::OutOfBytes)` when there are not enough
     /// remaining bytes to read the value.
     ///
     /// # Examples
@@ -1905,6 +1964,7 @@ pub trait Buf {
     ///     false => b"\x16\x15\x14\x13\x12\x11\x10\x09\x08\x07\x06\x05\x04\x03\x02\x01 hello",
     /// };
     /// assert_eq!(Ok(0x01020304050607080910111213141516_i128), buf.try_get_i128_ne());
+    /// assert_eq!(6, buf.remaining());
     /// ```
     ///
     /// ```
@@ -1912,6 +1972,7 @@ pub trait Buf {
     ///
     /// let mut buf = &b"\x01\x02\x03\x04\x05\x06\x07\x08\x09\x10\x11\x12\x13\x14\x15"[..];
     /// assert_eq!(Err(Error::OutOfBytes), buf.try_get_i128_ne());
+    /// assert_eq!(15, buf.remaining());
     /// ```
     fn try_get_i128_ne(&mut self) -> Result<i128, Error> {
         buf_try_get_impl!(self, i128::from_ne_bytes)
@@ -1921,7 +1982,7 @@ pub trait Buf {
     ///
     /// The current position is advanced by `nbytes`.
     ///
-    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// Returns `Err(Error::OutOfBytes)` when there are not enough
     /// remaining bytes to read the value.
     ///
     /// # Examples
@@ -1931,6 +1992,7 @@ pub trait Buf {
     ///
     /// let mut buf = &b"\x01\x02\x03 hello"[..];
     /// assert_eq!(Ok(0x010203_u64), buf.try_get_uint(3));
+    /// assert_eq!(6, buf.remaining());
     /// ```
     ///
     /// ```
@@ -1938,6 +2000,7 @@ pub trait Buf {
     ///
     /// let mut buf = &b"\x01\x02\x03"[..];
     /// assert_eq!(Err(Error::OutOfBytes), buf.try_get_uint(4));
+    /// assert_eq!(3, buf.remaining());
     /// ```
     ///
     /// # Panics
@@ -1951,7 +2014,7 @@ pub trait Buf {
     ///
     /// The current position is advanced by `nbytes`.
     ///
-    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// Returns `Err(Error::OutOfBytes)` when there are not enough
     /// remaining bytes to read the value.
     ///
     /// # Examples
@@ -1961,6 +2024,7 @@ pub trait Buf {
     ///
     /// let mut buf = &b"\x03\x02\x01 hello"[..];
     /// assert_eq!(Ok(0x010203_u64), buf.try_get_uint_le(3));
+    /// assert_eq!(6, buf.remaining());
     /// ```
     ///
     /// ```
@@ -1968,6 +2032,7 @@ pub trait Buf {
     ///
     /// let mut buf = &b"\x01\x02\x03"[..];
     /// assert_eq!(Err(Error::OutOfBytes), buf.try_get_uint_le(4));
+    /// assert_eq!(3, buf.remaining());
     /// ```
     ///
     /// # Panics
@@ -1981,7 +2046,7 @@ pub trait Buf {
     ///
     /// The current position is advanced by `nbytes`.
     ///
-    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// Returns `Err(Error::OutOfBytes)` when there are not enough
     /// remaining bytes to read the value.
     ///
     /// # Examples
@@ -1994,6 +2059,7 @@ pub trait Buf {
     ///     false => b"\x03\x02\x01 hello",
     /// };
     /// assert_eq!(Ok(0x010203_u64), buf.try_get_uint_ne(3));
+    /// assert_eq!(6, buf.remaining());
     /// ```
     ///
     /// ```
@@ -2004,6 +2070,7 @@ pub trait Buf {
     ///     false => b"\x03\x02\x01",
     /// };
     /// assert_eq!(Err(Error::OutOfBytes), buf.try_get_uint_ne(4));
+    /// assert_eq!(3, buf.remaining());
     /// ```
     ///
     /// # Panics
@@ -2021,7 +2088,7 @@ pub trait Buf {
     ///
     /// The current position is advanced by `nbytes`.
     ///
-    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// Returns `Err(Error::OutOfBytes)` when there are not enough
     /// remaining bytes to read the value.
     ///
     /// # Examples
@@ -2031,6 +2098,7 @@ pub trait Buf {
     ///
     /// let mut buf = &b"\x01\x02\x03 hello"[..];
     /// assert_eq!(Ok(0x010203_i64), buf.try_get_int(3));
+    /// assert_eq!(6, buf.remaining());
     /// ```
     ///
     /// ```
@@ -2038,6 +2106,7 @@ pub trait Buf {
     ///
     /// let mut buf = &b"\x01\x02\x03"[..];
     /// assert_eq!(Err(Error::OutOfBytes), buf.try_get_int(4));
+    /// assert_eq!(3, buf.remaining());
     /// ```
     ///
     /// # Panics
@@ -2051,7 +2120,7 @@ pub trait Buf {
     ///
     /// The current position is advanced by `nbytes`.
     ///
-    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// Returns `Err(Error::OutOfBytes)` when there are not enough
     /// remaining bytes to read the value.
     ///
     /// # Examples
@@ -2061,6 +2130,7 @@ pub trait Buf {
     ///
     /// let mut buf = &b"\x03\x02\x01 hello"[..];
     /// assert_eq!(Ok(0x010203_i64), buf.try_get_int_le(3));
+    /// assert_eq!(6, buf.remaining());
     /// ```
     ///
     /// ```
@@ -2068,6 +2138,7 @@ pub trait Buf {
     ///
     /// let mut buf = &b"\x01\x02\x03"[..];
     /// assert_eq!(Err(Error::OutOfBytes), buf.try_get_int_le(4));
+    /// assert_eq!(3, buf.remaining());
     /// ```
     ///
     /// # Panics
@@ -2081,7 +2152,7 @@ pub trait Buf {
     ///
     /// The current position is advanced by `nbytes`.
     ///
-    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// Returns `Err(Error::OutOfBytes)` when there are not enough
     /// remaining bytes to read the value.
     ///
     /// # Examples
@@ -2094,6 +2165,7 @@ pub trait Buf {
     ///     false => b"\x03\x02\x01 hello",
     /// };
     /// assert_eq!(Ok(0x010203_i64), buf.try_get_int_ne(3));
+    /// assert_eq!(6, buf.remaining());
     /// ```
     ///
     /// ```
@@ -2104,6 +2176,7 @@ pub trait Buf {
     ///     false => b"\x03\x02\x01",
     /// };
     /// assert_eq!(Err(Error::OutOfBytes), buf.try_get_int_ne(4));
+    /// assert_eq!(3, buf.remaining());
     /// ```
     ///
     /// # Panics
@@ -2122,7 +2195,7 @@ pub trait Buf {
     ///
     /// The current position is advanced by 4.
     ///
-    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// Returns `Err(Error::OutOfBytes)` when there are not enough
     /// remaining bytes to read the value.
     ///
     /// # Examples
@@ -2132,6 +2205,7 @@ pub trait Buf {
     ///
     /// let mut buf = &b"\x3F\x99\x99\x9A hello"[..];
     /// assert_eq!(1.2f32, buf.get_f32());
+    /// assert_eq!(6, buf.remaining());
     /// ```
     ///
     /// ```
@@ -2139,6 +2213,7 @@ pub trait Buf {
     ///
     /// let mut buf = &b"\x3F\x99\x99"[..];
     /// assert_eq!(Err(Error::OutOfBytes), buf.try_get_f32());
+    /// assert_eq!(3, buf.remaining());
     /// ```
     fn try_get_f32(&mut self) -> Result<f32, Error> {
         Ok(f32::from_bits(self.try_get_u32()?))
@@ -2149,7 +2224,7 @@ pub trait Buf {
     ///
     /// The current position is advanced by 4.
     ///
-    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// Returns `Err(Error::OutOfBytes)` when there are not enough
     /// remaining bytes to read the value.
     ///
     /// # Examples
@@ -2159,6 +2234,7 @@ pub trait Buf {
     ///
     /// let mut buf = &b"\x9A\x99\x99\x3F hello"[..];
     /// assert_eq!(1.2f32, buf.get_f32_le());
+    /// assert_eq!(6, buf.remaining());
     /// ```
     ///
     /// ```
@@ -2166,6 +2242,7 @@ pub trait Buf {
     ///
     /// let mut buf = &b"\x3F\x99\x99"[..];
     /// assert_eq!(Err(Error::OutOfBytes), buf.try_get_f32_le());
+    /// assert_eq!(3, buf.remaining());
     /// ```
     fn try_get_f32_le(&mut self) -> Result<f32, Error> {
         Ok(f32::from_bits(self.try_get_u32_le()?))
@@ -2176,7 +2253,7 @@ pub trait Buf {
     ///
     /// The current position is advanced by 4.
     ///
-    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// Returns `Err(Error::OutOfBytes)` when there are not enough
     /// remaining bytes to read the value.
     ///
     /// # Examples
@@ -2189,6 +2266,7 @@ pub trait Buf {
     ///     false => b"\x9A\x99\x99\x3F hello",
     /// };
     /// assert_eq!(1.2f32, buf.get_f32_ne());
+    /// assert_eq!(6, buf.remaining());
     /// ```
     ///
     /// ```
@@ -2196,6 +2274,7 @@ pub trait Buf {
     ///
     /// let mut buf = &b"\x3F\x99\x99"[..];
     /// assert_eq!(Err(Error::OutOfBytes), buf.try_get_f32_ne());
+    /// assert_eq!(3, buf.remaining());
     /// ```
     fn try_get_f32_ne(&mut self) -> Result<f32, Error> {
         Ok(f32::from_bits(self.try_get_u32_ne()?))
@@ -2206,7 +2285,7 @@ pub trait Buf {
     ///
     /// The current position is advanced by 8.
     ///
-    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// Returns `Err(Error::OutOfBytes)` when there are not enough
     /// remaining bytes to read the value.
     ///
     /// # Examples
@@ -2216,6 +2295,7 @@ pub trait Buf {
     ///
     /// let mut buf = &b"\x3F\xF3\x33\x33\x33\x33\x33\x33 hello"[..];
     /// assert_eq!(1.2f64, buf.get_f64());
+    /// assert_eq!(6, buf.remaining());
     /// ```
     ///
     /// ```
@@ -2223,6 +2303,7 @@ pub trait Buf {
     ///
     /// let mut buf = &b"\x3F\xF3\x33\x33\x33\x33\x33"[..];
     /// assert_eq!(Err(Error::OutOfBytes), buf.try_get_f64());
+    /// assert_eq!(7, buf.remaining());
     /// ```
     fn try_get_f64(&mut self) -> Result<f64, Error> {
         Ok(f64::from_bits(self.try_get_u64()?))
@@ -2233,7 +2314,7 @@ pub trait Buf {
     ///
     /// The current position is advanced by 8.
     ///
-    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// Returns `Err(Error::OutOfBytes)` when there are not enough
     /// remaining bytes to read the value.
     ///
     /// # Examples
@@ -2243,6 +2324,7 @@ pub trait Buf {
     ///
     /// let mut buf = &b"\x33\x33\x33\x33\x33\x33\xF3\x3F hello"[..];
     /// assert_eq!(1.2f64, buf.get_f64_le());
+    /// assert_eq!(6, buf.remaining());
     /// ```
     ///
     /// ```
@@ -2250,6 +2332,7 @@ pub trait Buf {
     ///
     /// let mut buf = &b"\x3F\xF3\x33\x33\x33\x33\x33"[..];
     /// assert_eq!(Err(Error::OutOfBytes), buf.try_get_f64_le());
+    /// assert_eq!(7, buf.remaining());
     /// ```
     fn try_get_f64_le(&mut self) -> Result<f64, Error> {
         Ok(f64::from_bits(self.try_get_u64_le()?))
@@ -2260,7 +2343,7 @@ pub trait Buf {
     ///
     /// The current position is advanced by 8.
     ///
-    /// Returns `Err(TryGetError::NotEnoughBytes)` when there are not enough
+    /// Returns `Err(Error::OutOfBytes)` when there are not enough
     /// remaining bytes to read the value.
     ///
     /// # Examples
@@ -2273,6 +2356,7 @@ pub trait Buf {
     ///     false => b"\x33\x33\x33\x33\x33\x33\xF3\x3F hello",
     /// };
     /// assert_eq!(1.2f64, buf.get_f64_ne());
+    /// assert_eq!(6, buf.remaining());
     /// ```
     ///
     /// ```
@@ -2280,6 +2364,7 @@ pub trait Buf {
     ///
     /// let mut buf = &b"\x3F\xF3\x33\x33\x33\x33\x33"[..];
     /// assert_eq!(Err(Error::OutOfBytes), buf.try_get_f64_ne());
+    /// assert_eq!(7, buf.remaining());
     /// ```
     fn try_get_f64_ne(&mut self) -> Result<f64, Error> {
         Ok(f64::from_bits(self.try_get_u64_ne()?))
