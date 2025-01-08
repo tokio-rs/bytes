@@ -11,7 +11,7 @@ use std::io::IoSlice;
 use alloc::boxed::Box;
 
 
-/// Error type for the `try_get_` methods in [`Buf`].
+/// Error type for the `try_get_` methods of [`Buf`].
 #[derive(Debug, PartialEq, Eq)]
 pub enum TryGetError {
     /// Indicates that there were not enough remaining
