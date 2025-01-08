@@ -78,7 +78,7 @@ extern crate alloc;
 extern crate std;
 
 pub mod buf;
-pub use crate::buf::{Buf, BufMut};
+pub use crate::buf::{Buf, BufMut, TryGetError};
 
 mod bytes;
 mod bytes_mut;
@@ -162,27 +162,4 @@ fn panic_does_not_fit(size: usize, nbytes: usize) -> ! {
 #[inline]
 fn offset_from(dst: *const u8, original: *const u8) -> usize {
     dst as usize - original as usize
-}
-
-/// Error type for the Bytes crate.
-#[derive(Debug, PartialEq, Eq)]
-pub enum Error {
-    /// Indicates that there were not enough remaining
-    /// bytes in the buffer while attempting
-    /// to get a value from a [`Buf`] with one
-    /// of the `try_get_` methods.
-    OutOfBytes,
-}
-
-#[cfg(feature = "std")]
-impl std::fmt::Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
-        match self {
-            Error::OutOfBytes => write!(f, "Not enough bytes remaining in buffer to read value"),
-        }
-    }
-}
-
-#[cfg(feature = "std")]
-impl std::error::Error for Error {
 }
