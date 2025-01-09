@@ -17,15 +17,24 @@ pub enum TryGetError {
     /// bytes in the buffer while attempting
     /// to get a value from a [`Buf`] with one
     /// of the `try_get_` methods.
-    OutOfBytes,
+    OutOfBytes {
+        /// The number of bytes necessary to get the value
+        requested: usize,
+
+        /// The number of bytes available in the buffer
+        available: usize,
+    },
 }
 
 #[cfg(feature = "std")]
 impl std::fmt::Display for TryGetError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
         match self {
-            TryGetError::OutOfBytes => {
-                write!(f, "Not enough bytes remaining in buffer to read value")
+            TryGetError::OutOfBytes {
+                requested,
+                available,
+            } => {
+                write!(f, "Not enough bytes remaining in buffer to read value (requested {requested} but only {available} available)")
             }
         }
     }
@@ -34,68 +43,15 @@ impl std::fmt::Display for TryGetError {
 #[cfg(feature = "std")]
 impl std::error::Error for TryGetError {}
 
-macro_rules! buf_get_impl {
-    ($this:ident, $typ:tt::$conv:tt) => {{
-        const SIZE: usize = core::mem::size_of::<$typ>();
-
-        if $this.remaining() < SIZE {
-            panic_advance(SIZE, $this.remaining());
-        }
-
-        // try to convert directly from the bytes
-        // this Option<ret> trick is to avoid keeping a borrow on self
-        // when advance() is called (mut borrow) and to call bytes() only once
-        let ret = $this
-            .chunk()
-            .get(..SIZE)
-            .map(|src| unsafe { $typ::$conv(*(src as *const _ as *const [_; SIZE])) });
-
-        if let Some(ret) = ret {
-            // if the direct conversion was possible, advance and return
-            $this.advance(SIZE);
-            return ret;
-        } else {
-            // if not we copy the bytes in a temp buffer then convert
-            let mut buf = [0; SIZE];
-            $this.copy_to_slice(&mut buf); // (do the advance)
-            return $typ::$conv(buf);
-        }
-    }};
-    (le => $this:ident, $typ:tt, $len_to_read:expr) => {{
-        const SIZE: usize = core::mem::size_of::<$typ>();
-
-        // The same trick as above does not improve the best case speed.
-        // It seems to be linked to the way the method is optimised by the compiler
-        let mut buf = [0; SIZE];
-
-        let subslice = match buf.get_mut(..$len_to_read) {
-            Some(subslice) => subslice,
-            None => panic_does_not_fit(SIZE, $len_to_read),
-        };
-
-        $this.copy_to_slice(subslice);
-        return $typ::from_le_bytes(buf);
-    }};
-    (be => $this:ident, $typ:tt, $len_to_read:expr) => {{
-        const SIZE: usize = core::mem::size_of::<$typ>();
-
-        let slice_at = match SIZE.checked_sub($len_to_read) {
-            Some(slice_at) => slice_at,
-            None => panic_does_not_fit(SIZE, $len_to_read),
-        };
-
-        let mut buf = [0; SIZE];
-        $this.copy_to_slice(&mut buf[slice_at..]);
-        return $typ::from_be_bytes(buf);
-    }};
-}
-
 macro_rules! buf_try_get_impl {
     ($this:ident, $typ:tt::$conv:tt) => {{
         const SIZE: usize = core::mem::size_of::<$typ>();
 
         if $this.remaining() < SIZE {
-            return Err(TryGetError::OutOfBytes);
+            return Err(TryGetError::OutOfBytes {
+                requested: SIZE,
+                available: $this.remaining(),
+            });
         }
 
         // try to convert directly from the bytes
@@ -144,6 +100,27 @@ macro_rules! buf_try_get_impl {
         $this.try_copy_to_slice(&mut buf[slice_at..])?;
         return Ok($typ::from_be_bytes(buf));
     }};
+}
+
+macro_rules! buf_get_impl {
+    ($this:ident, $typ:tt::$conv:tt) => {{
+        return unwrap_advance((|| buf_try_get_impl!($this, $typ::$conv))());
+    }};
+    (le => $this:ident, $typ:tt, $len_to_read:expr) => {{
+        return unwrap_advance((|| buf_try_get_impl!(le => $this, $typ, $len_to_read))());
+    }};
+    (be => $this:ident, $typ:tt, $len_to_read:expr) => {{
+        return unwrap_advance((|| buf_try_get_impl!(be => $this, $typ, $len_to_read))());
+    }};
+}
+
+fn unwrap_advance<T>(value: Result<T, TryGetError>) -> T {
+    value.unwrap_or_else(
+        |TryGetError::OutOfBytes {
+             requested,
+             available,
+         }| panic_advance(requested, available),
+    )
 }
 
 // https://en.wikipedia.org/wiki/Sign_extension
@@ -353,20 +330,8 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if `self.remaining() < dst.len()`.
-    fn copy_to_slice(&mut self, mut dst: &mut [u8]) {
-        if self.remaining() < dst.len() {
-            panic_advance(dst.len(), self.remaining());
-        }
-
-        while !dst.is_empty() {
-            let src = self.chunk();
-            let cnt = usize::min(src.len(), dst.len());
-
-            dst[..cnt].copy_from_slice(&src[..cnt]);
-            dst = &mut dst[cnt..];
-
-            self.advance(cnt);
-        }
+    fn copy_to_slice(&mut self, dst: &mut [u8]) {
+        unwrap_advance(self.try_copy_to_slice(dst));
     }
 
     /// Gets an unsigned 8 bit integer from `self`.
@@ -1222,12 +1187,15 @@ pub trait Buf {
     /// let mut buf = &b"hello world"[..];
     /// let mut dst = [0; 12];
     ///
-    /// assert_eq!(Err(TryGetError::OutOfBytes), buf.try_copy_to_slice(&mut dst));
+    /// assert_eq!(Err(TryGetError::OutOfBytes{requested: 12, available: 11}), buf.try_copy_to_slice(&mut dst));
     /// assert_eq!(11, buf.remaining());
     /// ```
     fn try_copy_to_slice(&mut self, mut dst: &mut [u8]) -> Result<(), TryGetError> {
         if self.remaining() < dst.len() {
-            return Err(TryGetError::OutOfBytes);
+            return Err(TryGetError::OutOfBytes {
+                requested: dst.len(),
+                available: self.remaining(),
+            });
         }
 
         while !dst.is_empty() {
@@ -1263,11 +1231,14 @@ pub trait Buf {
     /// use bytes::{Buf, TryGetError};
     ///
     /// let mut buf = &b""[..];
-    /// assert_eq!(Err(TryGetError::OutOfBytes), buf.try_get_u8());
+    /// assert_eq!(Err(TryGetError::OutOfBytes{requested: 1, available: 0}), buf.try_get_u8());
     /// ```
     fn try_get_u8(&mut self) -> Result<u8, TryGetError> {
         if self.remaining() < 1 {
-            return Err(TryGetError::OutOfBytes);
+            return Err(TryGetError::OutOfBytes {
+                requested: 1,
+                available: self.remaining(),
+            });
         }
         let ret = self.chunk()[0];
         self.advance(1);
@@ -1295,11 +1266,14 @@ pub trait Buf {
     /// use bytes::{Buf, TryGetError};
     ///
     /// let mut buf = &b""[..];
-    /// assert_eq!(Err(TryGetError::OutOfBytes), buf.try_get_i8());
+    /// assert_eq!(Err(TryGetError::OutOfBytes{requested: 1, available: 0}), buf.try_get_i8());
     /// ```
     fn try_get_i8(&mut self) -> Result<i8, TryGetError> {
         if self.remaining() < 1 {
-            return Err(TryGetError::OutOfBytes);
+            return Err(TryGetError::OutOfBytes {
+                requested: 1,
+                available: self.remaining(),
+            });
         }
         let ret = self.chunk()[0] as i8;
         self.advance(1);
@@ -1327,7 +1301,7 @@ pub trait Buf {
     /// use bytes::{Buf, TryGetError};
     ///
     /// let mut buf = &b"\x08"[..];
-    /// assert_eq!(Err(TryGetError::OutOfBytes), buf.try_get_u16());
+    /// assert_eq!(Err(TryGetError::OutOfBytes{requested: 2, available: 1}), buf.try_get_u16());
     /// assert_eq!(1, buf.remaining());
     /// ```
     fn try_get_u16(&mut self) -> Result<u16, TryGetError> {
@@ -1355,7 +1329,7 @@ pub trait Buf {
     /// use bytes::{Buf, TryGetError};
     ///
     /// let mut buf = &b"\x08"[..];
-    /// assert_eq!(Err(TryGetError::OutOfBytes), buf.try_get_u16_le());
+    /// assert_eq!(Err(TryGetError::OutOfBytes{requested: 2, available: 1}), buf.try_get_u16_le());
     /// assert_eq!(1, buf.remaining());
     /// ```
     fn try_get_u16_le(&mut self) -> Result<u16, TryGetError> {
@@ -1386,7 +1360,7 @@ pub trait Buf {
     /// use bytes::{Buf, TryGetError};
     ///
     /// let mut buf = &b"\x08"[..];
-    /// assert_eq!(Err(TryGetError::OutOfBytes), buf.try_get_u16_ne());
+    /// assert_eq!(Err(TryGetError::OutOfBytes{requested: 2, available: 1}), buf.try_get_u16_ne());
     /// assert_eq!(1, buf.remaining());
     /// ```
     fn try_get_u16_ne(&mut self) -> Result<u16, TryGetError> {
@@ -1414,7 +1388,7 @@ pub trait Buf {
     /// use bytes::{Buf, TryGetError};
     ///
     /// let mut buf = &b"\x08"[..];
-    /// assert_eq!(Err(TryGetError::OutOfBytes), buf.try_get_i16());
+    /// assert_eq!(Err(TryGetError::OutOfBytes{requested: 2, available: 1}), buf.try_get_i16());
     /// assert_eq!(1, buf.remaining());
     /// ```
     fn try_get_i16(&mut self) -> Result<i16, TryGetError> {
@@ -1442,7 +1416,7 @@ pub trait Buf {
     /// use bytes::{Buf, TryGetError};
     ///
     /// let mut buf = &b"\x08"[..];
-    /// assert_eq!(Err(TryGetError::OutOfBytes), buf.try_get_i16_le());
+    /// assert_eq!(Err(TryGetError::OutOfBytes{requested: 2, available: 1}), buf.try_get_i16_le());
     /// assert_eq!(1, buf.remaining());
     /// ```
     fn try_get_i16_le(&mut self) -> Result<i16, TryGetError> {
@@ -1473,7 +1447,7 @@ pub trait Buf {
     /// use bytes::{Buf, TryGetError};
     ///
     /// let mut buf = &b"\x08"[..];
-    /// assert_eq!(Err(TryGetError::OutOfBytes), buf.try_get_i16_ne());
+    /// assert_eq!(Err(TryGetError::OutOfBytes{requested: 2, available: 1}), buf.try_get_i16_ne());
     /// assert_eq!(1, buf.remaining());
     /// ```
     fn try_get_i16_ne(&mut self) -> Result<i16, TryGetError> {
@@ -1501,7 +1475,7 @@ pub trait Buf {
     /// use bytes::{Buf, TryGetError};
     ///
     /// let mut buf = &b"\x01\x02\x03"[..];
-    /// assert_eq!(Err(TryGetError::OutOfBytes), buf.try_get_u32());
+    /// assert_eq!(Err(TryGetError::OutOfBytes{requested: 4, available: 3}), buf.try_get_u32());
     /// assert_eq!(3, buf.remaining());
     /// ```
     fn try_get_u32(&mut self) -> Result<u32, TryGetError> {
@@ -1529,7 +1503,7 @@ pub trait Buf {
     /// use bytes::{Buf, TryGetError};
     ///
     /// let mut buf = &b"\x08\x09\xA0"[..];
-    /// assert_eq!(Err(TryGetError::OutOfBytes), buf.try_get_u32_le());
+    /// assert_eq!(Err(TryGetError::OutOfBytes{requested: 4, available: 3}), buf.try_get_u32_le());
     /// assert_eq!(3, buf.remaining());
     /// ```
     fn try_get_u32_le(&mut self) -> Result<u32, TryGetError> {
@@ -1560,7 +1534,7 @@ pub trait Buf {
     /// use bytes::{Buf, TryGetError};
     ///
     /// let mut buf = &b"\x08\x09\xA0"[..];
-    /// assert_eq!(Err(TryGetError::OutOfBytes), buf.try_get_u32_ne());
+    /// assert_eq!(Err(TryGetError::OutOfBytes{requested: 4, available: 3}), buf.try_get_u32_ne());
     /// assert_eq!(3, buf.remaining());
     /// ```
     fn try_get_u32_ne(&mut self) -> Result<u32, TryGetError> {
@@ -1588,7 +1562,7 @@ pub trait Buf {
     /// use bytes::{Buf, TryGetError};
     ///
     /// let mut buf = &b"\x01\x02\x03"[..];
-    /// assert_eq!(Err(TryGetError::OutOfBytes), buf.try_get_i32());
+    /// assert_eq!(Err(TryGetError::OutOfBytes{requested: 4, available: 3}), buf.try_get_i32());
     /// assert_eq!(3, buf.remaining());
     /// ```
     fn try_get_i32(&mut self) -> Result<i32, TryGetError> {
@@ -1616,7 +1590,7 @@ pub trait Buf {
     /// use bytes::{Buf, TryGetError};
     ///
     /// let mut buf = &b"\x08\x09\xA0"[..];
-    /// assert_eq!(Err(TryGetError::OutOfBytes), buf.try_get_i32_le());
+    /// assert_eq!(Err(TryGetError::OutOfBytes{requested: 4, available: 3}), buf.try_get_i32_le());
     /// assert_eq!(3, buf.remaining());
     /// ```
     fn try_get_i32_le(&mut self) -> Result<i32, TryGetError> {
@@ -1647,7 +1621,7 @@ pub trait Buf {
     /// use bytes::{Buf, TryGetError};
     ///
     /// let mut buf = &b"\x08\x09\xA0"[..];
-    /// assert_eq!(Err(TryGetError::OutOfBytes), buf.try_get_i32_ne());
+    /// assert_eq!(Err(TryGetError::OutOfBytes{requested: 4, available: 3}), buf.try_get_i32_ne());
     /// assert_eq!(3, buf.remaining());
     /// ```
     fn try_get_i32_ne(&mut self) -> Result<i32, TryGetError> {
@@ -1675,7 +1649,7 @@ pub trait Buf {
     /// use bytes::{Buf, TryGetError};
     ///
     /// let mut buf = &b"\x01\x02\x03\x04\x05\x06\x07"[..];
-    /// assert_eq!(Err(TryGetError::OutOfBytes), buf.try_get_u64());
+    /// assert_eq!(Err(TryGetError::OutOfBytes{requested: 8, available: 7}), buf.try_get_u64());
     /// assert_eq!(7, buf.remaining());
     /// ```
     fn try_get_u64(&mut self) -> Result<u64, TryGetError> {
@@ -1703,7 +1677,7 @@ pub trait Buf {
     /// use bytes::{Buf, TryGetError};
     ///
     /// let mut buf = &b"\x08\x07\x06\x05\x04\x03\x02"[..];
-    /// assert_eq!(Err(TryGetError::OutOfBytes), buf.try_get_u64_le());
+    /// assert_eq!(Err(TryGetError::OutOfBytes{requested: 8, available: 7}), buf.try_get_u64_le());
     /// assert_eq!(7, buf.remaining());
     /// ```
     fn try_get_u64_le(&mut self) -> Result<u64, TryGetError> {
@@ -1734,7 +1708,7 @@ pub trait Buf {
     /// use bytes::{Buf, TryGetError};
     ///
     /// let mut buf = &b"\x01\x02\x03\x04\x05\x06\x07"[..];
-    /// assert_eq!(Err(TryGetError::OutOfBytes), buf.try_get_u64_ne());
+    /// assert_eq!(Err(TryGetError::OutOfBytes{requested: 8, available: 7}), buf.try_get_u64_ne());
     /// assert_eq!(7, buf.remaining());
     /// ```
     fn try_get_u64_ne(&mut self) -> Result<u64, TryGetError> {
@@ -1762,7 +1736,7 @@ pub trait Buf {
     /// use bytes::{Buf, TryGetError};
     ///
     /// let mut buf = &b"\x01\x02\x03\x04\x05\x06\x07"[..];
-    /// assert_eq!(Err(TryGetError::OutOfBytes), buf.try_get_i64());
+    /// assert_eq!(Err(TryGetError::OutOfBytes{requested: 8, available: 7}), buf.try_get_i64());
     /// assert_eq!(7, buf.remaining());
     /// ```
     fn try_get_i64(&mut self) -> Result<i64, TryGetError> {
@@ -1790,7 +1764,7 @@ pub trait Buf {
     /// use bytes::{Buf, TryGetError};
     ///
     /// let mut buf = &b"\x08\x07\x06\x05\x04\x03\x02"[..];
-    /// assert_eq!(Err(TryGetError::OutOfBytes), buf.try_get_i64_le());
+    /// assert_eq!(Err(TryGetError::OutOfBytes{requested: 8, available: 7}), buf.try_get_i64_le());
     /// assert_eq!(7, buf.remaining());
     /// ```
     fn try_get_i64_le(&mut self) -> Result<i64, TryGetError> {
@@ -1821,7 +1795,7 @@ pub trait Buf {
     /// use bytes::{Buf, TryGetError};
     ///
     /// let mut buf = &b"\x01\x02\x03\x04\x05\x06\x07"[..];
-    /// assert_eq!(Err(TryGetError::OutOfBytes), buf.try_get_i64_ne());
+    /// assert_eq!(Err(TryGetError::OutOfBytes{requested: 8, available: 7}), buf.try_get_i64_ne());
     /// assert_eq!(7, buf.remaining());
     /// ```
     fn try_get_i64_ne(&mut self) -> Result<i64, TryGetError> {
@@ -1849,7 +1823,7 @@ pub trait Buf {
     /// use bytes::{Buf, TryGetError};
     ///
     /// let mut buf = &b"\x01\x02\x03\x04\x05\x06\x07\x08\x09\x10\x11\x12\x13\x14\x15"[..];
-    /// assert_eq!(Err(TryGetError::OutOfBytes), buf.try_get_u128());
+    /// assert_eq!(Err(TryGetError::OutOfBytes{requested: 16, available: 15}), buf.try_get_u128());
     /// assert_eq!(15, buf.remaining());
     /// ```
     fn try_get_u128(&mut self) -> Result<u128, TryGetError> {
@@ -1877,7 +1851,7 @@ pub trait Buf {
     /// use bytes::{Buf, TryGetError};
     ///
     /// let mut buf = &b"\x16\x15\x14\x13\x12\x11\x10\x09\x08\x07\x06\x05\x04\x03\x02"[..];
-    /// assert_eq!(Err(TryGetError::OutOfBytes), buf.try_get_u128_le());
+    /// assert_eq!(Err(TryGetError::OutOfBytes{requested: 16, available: 15}), buf.try_get_u128_le());
     /// assert_eq!(15, buf.remaining());
     /// ```
     fn try_get_u128_le(&mut self) -> Result<u128, TryGetError> {
@@ -1908,7 +1882,7 @@ pub trait Buf {
     /// use bytes::{Buf, TryGetError};
     ///
     /// let mut buf = &b"\x01\x02\x03\x04\x05\x06\x07\x08\x09\x10\x11\x12\x13\x14\x15"[..];
-    /// assert_eq!(Err(TryGetError::OutOfBytes), buf.try_get_u128_ne());
+    /// assert_eq!(Err(TryGetError::OutOfBytes{requested: 16, available: 15}), buf.try_get_u128_ne());
     /// assert_eq!(15, buf.remaining());
     /// ```
     fn try_get_u128_ne(&mut self) -> Result<u128, TryGetError> {
@@ -1936,7 +1910,7 @@ pub trait Buf {
     /// use bytes::{Buf, TryGetError};
     ///
     /// let mut buf = &b"\x01\x02\x03\x04\x05\x06\x07\x08\x09\x10\x11\x12\x13\x14\x15"[..];
-    /// assert_eq!(Err(TryGetError::OutOfBytes), buf.try_get_i128());
+    /// assert_eq!(Err(TryGetError::OutOfBytes{requested: 16, available: 15}), buf.try_get_i128());
     /// assert_eq!(15, buf.remaining());
     /// ```
     fn try_get_i128(&mut self) -> Result<i128, TryGetError> {
@@ -1964,7 +1938,7 @@ pub trait Buf {
     /// use bytes::{Buf, TryGetError};
     ///
     /// let mut buf = &b"\x16\x15\x14\x13\x12\x11\x10\x09\x08\x07\x06\x05\x04\x03\x02"[..];
-    /// assert_eq!(Err(TryGetError::OutOfBytes), buf.try_get_i128_le());
+    /// assert_eq!(Err(TryGetError::OutOfBytes{requested: 16, available: 15}), buf.try_get_i128_le());
     /// assert_eq!(15, buf.remaining());
     /// ```
     fn try_get_i128_le(&mut self) -> Result<i128, TryGetError> {
@@ -1995,7 +1969,7 @@ pub trait Buf {
     /// use bytes::{Buf, TryGetError};
     ///
     /// let mut buf = &b"\x01\x02\x03\x04\x05\x06\x07\x08\x09\x10\x11\x12\x13\x14\x15"[..];
-    /// assert_eq!(Err(TryGetError::OutOfBytes), buf.try_get_i128_ne());
+    /// assert_eq!(Err(TryGetError::OutOfBytes{requested: 16, available: 15}), buf.try_get_i128_ne());
     /// assert_eq!(15, buf.remaining());
     /// ```
     fn try_get_i128_ne(&mut self) -> Result<i128, TryGetError> {
@@ -2023,7 +1997,7 @@ pub trait Buf {
     /// use bytes::{Buf, TryGetError};
     ///
     /// let mut buf = &b"\x01\x02\x03"[..];
-    /// assert_eq!(Err(TryGetError::OutOfBytes), buf.try_get_uint(4));
+    /// assert_eq!(Err(TryGetError::OutOfBytes{requested: 4, available: 3}), buf.try_get_uint(4));
     /// assert_eq!(3, buf.remaining());
     /// ```
     ///
@@ -2055,7 +2029,7 @@ pub trait Buf {
     /// use bytes::{Buf, TryGetError};
     ///
     /// let mut buf = &b"\x01\x02\x03"[..];
-    /// assert_eq!(Err(TryGetError::OutOfBytes), buf.try_get_uint_le(4));
+    /// assert_eq!(Err(TryGetError::OutOfBytes{requested: 4, available: 3}), buf.try_get_uint_le(4));
     /// assert_eq!(3, buf.remaining());
     /// ```
     ///
@@ -2093,7 +2067,7 @@ pub trait Buf {
     ///     true => b"\x01\x02\x03",
     ///     false => b"\x03\x02\x01",
     /// };
-    /// assert_eq!(Err(TryGetError::OutOfBytes), buf.try_get_uint_ne(4));
+    /// assert_eq!(Err(TryGetError::OutOfBytes{requested: 4, available: 3}), buf.try_get_uint_ne(4));
     /// assert_eq!(3, buf.remaining());
     /// ```
     ///
@@ -2129,7 +2103,7 @@ pub trait Buf {
     /// use bytes::{Buf, TryGetError};
     ///
     /// let mut buf = &b"\x01\x02\x03"[..];
-    /// assert_eq!(Err(TryGetError::OutOfBytes), buf.try_get_int(4));
+    /// assert_eq!(Err(TryGetError::OutOfBytes{requested: 4, available: 3}), buf.try_get_int(4));
     /// assert_eq!(3, buf.remaining());
     /// ```
     ///
@@ -2161,7 +2135,7 @@ pub trait Buf {
     /// use bytes::{Buf, TryGetError};
     ///
     /// let mut buf = &b"\x01\x02\x03"[..];
-    /// assert_eq!(Err(TryGetError::OutOfBytes), buf.try_get_int_le(4));
+    /// assert_eq!(Err(TryGetError::OutOfBytes{requested: 4, available: 3}), buf.try_get_int_le(4));
     /// assert_eq!(3, buf.remaining());
     /// ```
     ///
@@ -2199,7 +2173,7 @@ pub trait Buf {
     ///     true => b"\x01\x02\x03",
     ///     false => b"\x03\x02\x01",
     /// };
-    /// assert_eq!(Err(TryGetError::OutOfBytes), buf.try_get_int_ne(4));
+    /// assert_eq!(Err(TryGetError::OutOfBytes{requested: 4, available: 3}), buf.try_get_int_ne(4));
     /// assert_eq!(3, buf.remaining());
     /// ```
     ///
@@ -2236,7 +2210,7 @@ pub trait Buf {
     /// use bytes::{Buf, TryGetError};
     ///
     /// let mut buf = &b"\x3F\x99\x99"[..];
-    /// assert_eq!(Err(TryGetError::OutOfBytes), buf.try_get_f32());
+    /// assert_eq!(Err(TryGetError::OutOfBytes{requested: 4, available: 3}), buf.try_get_f32());
     /// assert_eq!(3, buf.remaining());
     /// ```
     fn try_get_f32(&mut self) -> Result<f32, TryGetError> {
@@ -2265,7 +2239,7 @@ pub trait Buf {
     /// use bytes::{Buf, TryGetError};
     ///
     /// let mut buf = &b"\x3F\x99\x99"[..];
-    /// assert_eq!(Err(TryGetError::OutOfBytes), buf.try_get_f32_le());
+    /// assert_eq!(Err(TryGetError::OutOfBytes{requested: 4, available: 3}), buf.try_get_f32_le());
     /// assert_eq!(3, buf.remaining());
     /// ```
     fn try_get_f32_le(&mut self) -> Result<f32, TryGetError> {
@@ -2297,7 +2271,7 @@ pub trait Buf {
     /// use bytes::{Buf, TryGetError};
     ///
     /// let mut buf = &b"\x3F\x99\x99"[..];
-    /// assert_eq!(Err(TryGetError::OutOfBytes), buf.try_get_f32_ne());
+    /// assert_eq!(Err(TryGetError::OutOfBytes{requested: 4, available: 3}), buf.try_get_f32_ne());
     /// assert_eq!(3, buf.remaining());
     /// ```
     fn try_get_f32_ne(&mut self) -> Result<f32, TryGetError> {
@@ -2326,7 +2300,7 @@ pub trait Buf {
     /// use bytes::{Buf, TryGetError};
     ///
     /// let mut buf = &b"\x3F\xF3\x33\x33\x33\x33\x33"[..];
-    /// assert_eq!(Err(TryGetError::OutOfBytes), buf.try_get_f64());
+    /// assert_eq!(Err(TryGetError::OutOfBytes{requested: 8, available: 7}), buf.try_get_f64());
     /// assert_eq!(7, buf.remaining());
     /// ```
     fn try_get_f64(&mut self) -> Result<f64, TryGetError> {
@@ -2355,7 +2329,7 @@ pub trait Buf {
     /// use bytes::{Buf, TryGetError};
     ///
     /// let mut buf = &b"\x3F\xF3\x33\x33\x33\x33\x33"[..];
-    /// assert_eq!(Err(TryGetError::OutOfBytes), buf.try_get_f64_le());
+    /// assert_eq!(Err(TryGetError::OutOfBytes{requested: 8, available: 7}), buf.try_get_f64_le());
     /// assert_eq!(7, buf.remaining());
     /// ```
     fn try_get_f64_le(&mut self) -> Result<f64, TryGetError> {
@@ -2387,7 +2361,7 @@ pub trait Buf {
     /// use bytes::{Buf, TryGetError};
     ///
     /// let mut buf = &b"\x3F\xF3\x33\x33\x33\x33\x33"[..];
-    /// assert_eq!(Err(TryGetError::OutOfBytes), buf.try_get_f64_ne());
+    /// assert_eq!(Err(TryGetError::OutOfBytes{requested: 8, available: 7}), buf.try_get_f64_ne());
     /// assert_eq!(7, buf.remaining());
     /// ```
     fn try_get_f64_ne(&mut self) -> Result<f64, TryGetError> {
