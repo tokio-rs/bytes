@@ -353,7 +353,7 @@ mod vec_deque {
         deque
     }
 
-    buf_tests!(make_input, /* `VecDeque` does not do `chucks_vectored */ false);
+    buf_tests!(make_input, true);
 }
 
 #[cfg(feature = "std")]
