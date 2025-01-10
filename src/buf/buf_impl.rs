@@ -26,9 +26,8 @@ pub enum TryGetError {
     },
 }
 
-#[cfg(feature = "std")]
-impl std::fmt::Display for TryGetError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+impl core::fmt::Display for TryGetError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
         match self {
             TryGetError::OutOfBytes {
                 requested,
