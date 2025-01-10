@@ -157,19 +157,13 @@ impl<T: Buf> Buf for Take<T> {
     fn chunks_vectored<'a>(&'a self, dst: &mut [std::io::IoSlice<'a>]) -> usize {
         let cnt = self.inner.chunks_vectored(dst);
         let mut len = 0;
-        for (n, io) in dst[0..cnt].iter_mut().enumerate() {
+        for (n, io) in dst[..cnt].iter_mut().enumerate() {
             let max = self.limit - len;
-            if max == 0 {
-                return n;
-            }
-            if io.len() > max {
+            if io.len() >= max {
                 // In this case, `IoSlice` is longer than our max, so we need to truncate it to the max.
                 //
-                // We need to work around the fact here that even though `IoSlice<'a>` has the correct
-                // lifetime, its `Deref` impl strips it. So we need to reassamble the slice to add the
-                // correct lifetime that allows us to call `IoSlice::<'a>::new` with it.
-                //
                 // TODO: remove `unsafe` as soon as `IoSlice::as_bytes` is available (rust-lang/rust#111277)
+                // SAFETY: This reimplements the safe function `IoSlice::as_bytes`.
                 let buf = unsafe { std::slice::from_raw_parts::<'a, u8>(io.as_ptr(), max) };
                 *io = std::io::IoSlice::new(buf);
                 return n + 1;
