@@ -164,12 +164,12 @@ pub trait Buf {
     /// fetching more than one slice at once. `dst` is a slice of `IoSlice`
     /// references, enabling the slice to be directly used with [`writev`]
     /// without any further conversion. The sum of the lengths of all the
-    /// buffers in `dst` will be less than or equal to `Buf::remaining()`.
+    /// buffers written to `dst` will be less than or equal to `Buf::remaining()`.
     ///
     /// The entries in `dst` will be overwritten, but the data **contained** by
-    /// the slices **will not** be modified. If `chunk_vectored` does not fill every
-    /// entry in `dst`, then `dst` is guaranteed to contain all remaining slices
-    /// in `self.
+    /// the slices **will not** be modified. The return value is the number of
+    /// slices written to `dst`. If `Buf::remaining()` is non-zero, then this
+    /// writes at least one non-empty slice to `dst`.
     ///
     /// This is a lower level function. Most operations are done with other
     /// functions.
