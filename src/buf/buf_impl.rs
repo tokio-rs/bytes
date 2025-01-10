@@ -2616,6 +2616,36 @@ macro_rules! deref_forward_buf {
         }
 
         #[inline]
+        fn get_u128(&mut self) -> u128 {
+            (**self).get_u128()
+        }
+
+        #[inline]
+        fn get_u128_le(&mut self) -> u128 {
+            (**self).get_u128_le()
+        }
+
+        #[inline]
+        fn get_u128_ne(&mut self) -> u128 {
+            (**self).get_u128_ne()
+        }
+
+        #[inline]
+        fn get_i128(&mut self) -> i128 {
+            (**self).get_i128()
+        }
+
+        #[inline]
+        fn get_i128_le(&mut self) -> i128 {
+            (**self).get_i128_le()
+        }
+
+        #[inline]
+        fn get_i128_ne(&mut self) -> i128 {
+            (**self).get_i128_ne()
+        }
+
+        #[inline]
         fn get_uint(&mut self, nbytes: usize) -> u64 {
             (**self).get_uint(nbytes)
         }
@@ -2643,6 +2673,231 @@ macro_rules! deref_forward_buf {
         #[inline]
         fn get_int_ne(&mut self, nbytes: usize) -> i64 {
             (**self).get_int_ne(nbytes)
+        }
+
+        #[inline]
+        fn get_f32(&mut self) -> f32 {
+            (**self).get_f32()
+        }
+
+        #[inline]
+        fn get_f32_le(&mut self) -> f32 {
+            (**self).get_f32_le()
+        }
+
+        #[inline]
+        fn get_f32_ne(&mut self) -> f32 {
+            (**self).get_f32_ne()
+        }
+
+        #[inline]
+        fn get_f64(&mut self) -> f64 {
+            (**self).get_f64()
+        }
+
+        #[inline]
+        fn get_f64_le(&mut self) -> f64 {
+            (**self).get_f64_le()
+        }
+
+        #[inline]
+        fn get_f64_ne(&mut self) -> f64 {
+            (**self).get_f64_ne()
+        }
+
+        #[inline]
+        fn try_copy_to_slice(&mut self, dst: &mut [u8]) -> Result<(), TryGetError> {
+            (**self).try_copy_to_slice(dst)
+        }
+
+        #[inline]
+        fn try_get_u8(&mut self) -> Result<u8, TryGetError> {
+            (**self).try_get_u8()
+        }
+
+        #[inline]
+        fn try_get_i8(&mut self) -> Result<i8, TryGetError> {
+            (**self).try_get_i8()
+        }
+
+        #[inline]
+        fn try_get_u16(&mut self) -> Result<u16, TryGetError> {
+            (**self).try_get_u16()
+        }
+
+        #[inline]
+        fn try_get_u16_le(&mut self) -> Result<u16, TryGetError> {
+            (**self).try_get_u16_le()
+        }
+
+        #[inline]
+        fn try_get_u16_ne(&mut self) -> Result<u16, TryGetError> {
+            (**self).try_get_u16_ne()
+        }
+
+        #[inline]
+        fn try_get_i16(&mut self) -> Result<i16, TryGetError> {
+            (**self).try_get_i16()
+        }
+
+        #[inline]
+        fn try_get_i16_le(&mut self) -> Result<i16, TryGetError> {
+            (**self).try_get_i16_le()
+        }
+
+        #[inline]
+        fn try_get_i16_ne(&mut self) -> Result<i16, TryGetError> {
+            (**self).try_get_i16_ne()
+        }
+
+        #[inline]
+        fn try_get_u32(&mut self) -> Result<u32, TryGetError> {
+            (**self).try_get_u32()
+        }
+
+        #[inline]
+        fn try_get_u32_le(&mut self) -> Result<u32, TryGetError> {
+            (**self).try_get_u32_le()
+        }
+
+        #[inline]
+        fn try_get_u32_ne(&mut self) -> Result<u32, TryGetError> {
+            (**self).try_get_u32_ne()
+        }
+
+        #[inline]
+        fn try_get_i32(&mut self) -> Result<i32, TryGetError> {
+            (**self).try_get_i32()
+        }
+
+        #[inline]
+        fn try_get_i32_le(&mut self) -> Result<i32, TryGetError> {
+            (**self).try_get_i32_le()
+        }
+
+        #[inline]
+        fn try_get_i32_ne(&mut self) -> Result<i32, TryGetError> {
+            (**self).try_get_i32_ne()
+        }
+
+        #[inline]
+        fn try_get_u64(&mut self) -> Result<u64, TryGetError> {
+            (**self).try_get_u64()
+        }
+
+        #[inline]
+        fn try_get_u64_le(&mut self) -> Result<u64, TryGetError> {
+            (**self).try_get_u64_le()
+        }
+
+        #[inline]
+        fn try_get_u64_ne(&mut self) -> Result<u64, TryGetError> {
+            (**self).try_get_u64_ne()
+        }
+
+        #[inline]
+        fn try_get_i64(&mut self) -> Result<i64, TryGetError> {
+            (**self).try_get_i64()
+        }
+
+        #[inline]
+        fn try_get_i64_le(&mut self) -> Result<i64, TryGetError> {
+            (**self).try_get_i64_le()
+        }
+
+        #[inline]
+        fn try_get_i64_ne(&mut self) -> Result<i64, TryGetError> {
+            (**self).try_get_i64_ne()
+        }
+
+        #[inline]
+        fn try_get_u128(&mut self) -> Result<u128, TryGetError> {
+            (**self).try_get_u128()
+        }
+
+        #[inline]
+        fn try_get_u128_le(&mut self) -> Result<u128, TryGetError> {
+            (**self).try_get_u128_le()
+        }
+
+        #[inline]
+        fn try_get_u128_ne(&mut self) -> Result<u128, TryGetError> {
+            (**self).try_get_u128_ne()
+        }
+
+        #[inline]
+        fn try_get_i128(&mut self) -> Result<i128, TryGetError> {
+            (**self).try_get_i128()
+        }
+
+        #[inline]
+        fn try_get_i128_le(&mut self) -> Result<i128, TryGetError> {
+            (**self).try_get_i128_le()
+        }
+
+        #[inline]
+        fn try_get_i128_ne(&mut self) -> Result<i128, TryGetError> {
+            (**self).try_get_i128_ne()
+        }
+
+        #[inline]
+        fn try_get_uint(&mut self, nbytes: usize) -> Result<u64, TryGetError> {
+            (**self).try_get_uint(nbytes)
+        }
+
+        #[inline]
+        fn try_get_uint_le(&mut self, nbytes: usize) -> Result<u64, TryGetError> {
+            (**self).try_get_uint_le(nbytes)
+        }
+
+        #[inline]
+        fn try_get_uint_ne(&mut self, nbytes: usize) -> Result<u64, TryGetError> {
+            (**self).try_get_uint_ne(nbytes)
+        }
+
+        #[inline]
+        fn try_get_int(&mut self, nbytes: usize) -> Result<i64, TryGetError> {
+            (**self).try_get_int(nbytes)
+        }
+
+        #[inline]
+        fn try_get_int_le(&mut self, nbytes: usize) -> Result<i64, TryGetError> {
+            (**self).try_get_int_le(nbytes)
+        }
+
+        #[inline]
+        fn try_get_int_ne(&mut self, nbytes: usize) -> Result<i64, TryGetError> {
+            (**self).try_get_int_ne(nbytes)
+        }
+
+        #[inline]
+        fn try_get_f32(&mut self) -> Result<f32, TryGetError> {
+            (**self).try_get_f32()
+        }
+
+        #[inline]
+        fn try_get_f32_le(&mut self) -> Result<f32, TryGetError> {
+            (**self).try_get_f32_le()
+        }
+
+        #[inline]
+        fn try_get_f32_ne(&mut self) -> Result<f32, TryGetError> {
+            (**self).try_get_f32_ne()
+        }
+
+        #[inline]
+        fn try_get_f64(&mut self) -> Result<f64, TryGetError> {
+            (**self).try_get_f64()
+        }
+
+        #[inline]
+        fn try_get_f64_le(&mut self) -> Result<f64, TryGetError> {
+            (**self).try_get_f64_le()
+        }
+
+        #[inline]
+        fn try_get_f64_ne(&mut self) -> Result<f64, TryGetError> {
+            (**self).try_get_f64_ne()
         }
 
         #[inline]
