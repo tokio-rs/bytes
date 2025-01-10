@@ -34,7 +34,7 @@ impl std::fmt::Display for TryGetError {
                 requested,
                 available,
             } => {
-                write!(f, "Not enough bytes remaining in buffer to read value (requested {requested} but only {available} available)")
+                write!(f, "Not enough bytes remaining in buffer to read value (requested {} but only {} available)", requested, available)
             }
         }
     }
