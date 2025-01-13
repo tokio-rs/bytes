@@ -162,9 +162,29 @@ impl<T: Buf> Buf for Take<T> {
             return 0;
         }
 
-        let mut slices = [IoSlice::new(&[]); 16];
+        const LEN: usize = 16;
+        let mut slices: [IoSlice<'a>; LEN] = [
+            IoSlice::new(&[]),
+            IoSlice::new(&[]),
+            IoSlice::new(&[]),
+            IoSlice::new(&[]),
+            IoSlice::new(&[]),
+            IoSlice::new(&[]),
+            IoSlice::new(&[]),
+            IoSlice::new(&[]),
+            IoSlice::new(&[]),
+            IoSlice::new(&[]),
+            IoSlice::new(&[]),
+            IoSlice::new(&[]),
+            IoSlice::new(&[]),
+            IoSlice::new(&[]),
+            IoSlice::new(&[]),
+            IoSlice::new(&[]),
+        ];
 
-        let cnt = self.inner.chunks_vectored(&mut slices[..dst.len().min(16)]);
+        let cnt = self
+            .inner
+            .chunks_vectored(&mut slices[..dst.len().min(LEN)]);
         let mut limit = self.limit;
         for (i, (dst, slice)) in dst[..cnt].iter_mut().zip(slices.iter()).enumerate() {
             if let Some(buf) = slice.get(..limit) {
