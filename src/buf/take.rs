@@ -192,9 +192,12 @@ impl<T: Buf> Buf for Take<T> {
                 let buf = unsafe { std::mem::transmute::<&[u8], &'a [u8]>(buf) };
                 *dst = IoSlice::new(buf);
                 return i + 1;
+            } else {
+                // SAFETY: We could do this safely with `IoSlice::advance` if we had a larger MSRV.
+                let buf = unsafe { std::mem::transmute::<&[u8], &'a [u8]>(slice) };
+                *dst = IoSlice::new(buf);
+                limit -= slice.len();
             }
-            *dst = *slice;
-            limit -= slice.len();
         }
         cnt
     }
