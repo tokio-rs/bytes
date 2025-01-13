@@ -162,14 +162,14 @@ impl<T: Buf> Buf for Take<T> {
 
         let cnt = self.inner.chunks_vectored(&mut slices[..dst.len().min(16)]);
         let mut limit = self.limit;
-        for (i, (dst, slice)) in dst[..cnt].iter_mut().zip(slices.iter().copied()).enumerate() {
+        for (i, (dst, slice)) in dst[..cnt].iter_mut().zip(slices.iter()).enumerate() {
             if let Some(buf) = slice.get(..limit) {
                 // SAFETY: We could do this safely with `IoSlice::advance` if we had a larger MSRV.
                 let buf = unsafe { std::mem::transmute::<&[u8], &'a [u8]>(buf) };
                 *dst = IoSlice::new(buf);
                 return i + 1;
             }
-            *dst = slice;
+            *dst = *slice;
             limit -= slice.len();
         }
         cnt
