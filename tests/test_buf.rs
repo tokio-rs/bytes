@@ -404,7 +404,7 @@ mod chain_limited_slices {
         Buf::take(Buf::chain(Buf::chain(a, b), Buf::chain(c, d)), buf.len())
     }
 
-    buf_tests!(make_input, /* `Limit` does not forward `chucks_vectored */ false);
+    buf_tests!(make_input, true);
 }
 
 #[allow(unused_allocation)] // This is intentional.
