@@ -2,6 +2,9 @@ use crate::{Buf, Bytes};
 
 use core::cmp;
 
+#[cfg(feature = "std")]
+use std::io::IoSlice;
+
 /// A `Buf` adapter which limits the bytes read from an underlying buffer.
 ///
 /// This struct is generally created by calling `take()` on `Buf`. See
@@ -154,21 +157,20 @@ impl<T: Buf> Buf for Take<T> {
     }
 
     #[cfg(feature = "std")]
-    fn chunks_vectored<'a>(&'a self, dst: &mut [std::io::IoSlice<'a>]) -> usize {
-        let cnt = self.inner.chunks_vectored(dst);
-        let mut len = 0;
-        for (n, io) in dst[..cnt].iter_mut().enumerate() {
-            let max = self.limit - len;
-            if io.len() >= max {
-                // In this case, `IoSlice` is longer than our max, so we need to truncate it to the max.
-                //
-                // TODO: remove `unsafe` as soon as `IoSlice::as_bytes` is available (rust-lang/rust#111277)
-                // SAFETY: This reimplements the safe function `IoSlice::as_bytes`.
-                let buf = unsafe { std::slice::from_raw_parts::<'a, u8>(io.as_ptr(), max) };
-                *io = std::io::IoSlice::new(buf);
-                return n + 1;
+    fn chunks_vectored<'a>(&'a self, dst: &mut [IoSlice<'a>]) -> usize {
+        let mut slices = [IoSlice::new(&[]); 16];
+
+        let cnt = self.inner.chunks_vectored(&mut slices[..dst.len().min(16)]);
+        let mut limit = self.limit;
+        for (i, (dst, slice)) in dst[..cnt].iter_mut().zip(slices.iter().copied()).enumerate() {
+            if let Some(buf) = slice.get(..limit) {
+                // SAFETY: We could do this safely with `IoSlice::advance` if we had a larger MSRV.
+                let buf = unsafe { std::mem::transmute::<&[u8], &'a [u8]>(buf) };
+                *dst = IoSlice::new(buf);
+                return i + 1;
             }
-            len += io.len();
+            *dst = slice;
+            limit -= slice.len();
         }
         cnt
     }
