@@ -27,7 +27,7 @@ mod vec_deque;
 #[cfg(feature = "std")]
 mod writer;
 
-pub use self::buf_impl::{Buf, TryGetError};
+pub use self::buf_impl::Buf;
 pub use self::buf_mut::BufMut;
 pub use self::chain::Chain;
 pub use self::iter::IntoIter;
