@@ -63,6 +63,7 @@ jobs:
       matrix:
         os:
           - ubuntu-latest
+          - ubuntu-22.04-arm # TODO: update to 24.04 when https://github.com/rust-lang/rust/issues/135867 solved
           - macos-latest
           - windows-latest
     runs-on: ${{ matrix.os }}
@@ -104,29 +105,27 @@ jobs:
     name: cross
     strategy:
       matrix:
-        target:
-          - i686-unknown-linux-gnu
-          - armv7-unknown-linux-gnueabihf
-          - powerpc-unknown-linux-gnu
-          - powerpc64-unknown-linux-gnu
-          - wasm32-unknown-unknown
-    runs-on: ubuntu-latest
+        include:
+          - target: i686-unknown-linux-gnu
+            os: ubuntu-latest
+          - target: armv7-unknown-linux-gnueabihf
+            os: ubuntu-22.04-arm # TODO: update to 24.04 when https://github.com/rust-lang/rust/issues/135867 solved
+          - target: powerpc-unknown-linux-gnu
+            os: ubuntu-latest
+          - target: powerpc64-unknown-linux-gnu
+            os: ubuntu-latest
+          - target: wasm32-wasip1
+            os: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - name: Install Rust
         run: rustup update stable
-      - name: Install cross
-        uses: taiki-e/install-action@cross
-        if: matrix.target != 'wasm32-unknown-unknown'
-      - name: cross build --target ${{ matrix.target }}
-        run: cross build --target ${{ matrix.target }}
-        if: matrix.target != 'wasm32-unknown-unknown'
-      # WASM support
-      - name: cargo build --target ${{ matrix.target }}
-        run: |
-          rustup target add ${{ matrix.target }}
-          cargo build --target ${{ matrix.target }}
-        if: matrix.target == 'wasm32-unknown-unknown'
+      - uses: taiki-e/setup-cross-toolchain-action@v1
+        with:
+          target: ${{ matrix.target }}
+      - name: Test
+        run: cargo test --target ${{ matrix.target }}
 
   # Sanitizers
   tsan:
