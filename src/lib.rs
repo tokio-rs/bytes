@@ -80,17 +80,25 @@ extern crate std;
 pub mod buf;
 pub use crate::buf::{Buf, BufMut};
 
+#[cfg_attr(target_os = "none", cfg(target_has_atomic = "ptr"))]
 mod bytes;
+#[cfg_attr(target_os = "none", cfg(target_has_atomic = "ptr"))]
 mod bytes_mut;
+#[cfg_attr(target_os = "none", cfg(target_has_atomic = "ptr"))]
 mod fmt;
+#[cfg_attr(target_os = "none", cfg(target_has_atomic = "ptr"))]
 mod loom;
+#[cfg_attr(target_os = "none", cfg(target_has_atomic = "ptr"))]
 pub use crate::bytes::Bytes;
+#[cfg_attr(target_os = "none", cfg(target_has_atomic = "ptr"))]
 pub use crate::bytes_mut::BytesMut;
 
 // Optional Serde support
 #[cfg(feature = "serde")]
+#[cfg_attr(target_os = "none", cfg(target_has_atomic = "ptr"))]
 mod serde;
 
+#[cfg_attr(target_os = "none", cfg(target_has_atomic = "ptr"))]
 #[inline(never)]
 #[cold]
 fn abort() -> ! {
@@ -194,6 +202,7 @@ fn panic_does_not_fit(size: usize, nbytes: usize) -> ! {
 ///
 /// But due to min rust is 1.39 and it is only stabilized
 /// in 1.47, we cannot use it.
+#[cfg_attr(target_os = "none", cfg(target_has_atomic = "ptr"))]
 #[inline]
 fn offset_from(dst: *const u8, original: *const u8) -> usize {
     dst as usize - original as usize

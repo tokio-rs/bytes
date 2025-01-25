@@ -2355,6 +2355,7 @@ pub trait Buf {
     /// # Panics
     ///
     /// This function panics if `len > self.remaining()`.
+    #[cfg_attr(target_os = "none", cfg(target_has_atomic = "ptr"))]
     fn copy_to_bytes(&mut self, len: usize) -> crate::Bytes {
         use super::BufMut;
 
@@ -2872,6 +2873,7 @@ macro_rules! deref_forward_buf {
         }
 
         #[inline]
+        #[cfg_attr(target_os = "none", cfg(target_has_atomic = "ptr"))]
         fn copy_to_bytes(&mut self, len: usize) -> crate::Bytes {
             (**self).copy_to_bytes(len)
         }

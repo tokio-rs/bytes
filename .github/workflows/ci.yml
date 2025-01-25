@@ -128,6 +128,23 @@ jobs:
           cargo build --target ${{ matrix.target }}
         if: matrix.target == 'wasm32-unknown-unknown'
 
+  # Build for no_std environment.
+  no-std:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        run: rustup update stable
+      - name: Install cargo-hack
+        uses: taiki-e/install-action@cargo-hack
+      # thumbv6m-none-eabi supports atomic, but not atomic CAS.
+      # thumbv7m-none-eabi supports atomic CAS.
+      - run: rustup target add thumbv6m-none-eabi thumbv7m-none-eabi
+      # * --optional-deps is needed for serde feature
+      # * --no-dev-deps is needed to avoid https://github.com/rust-lang/cargo/issues/4866
+      # Note that Bytes and BytesMut are provided only on platforms that supports atomic CAS.
+      - run: cargo hack build --target thumbv6m-none-eabi --target thumbv7m-none-eabi --feature-powerset --skip std,default --optional-deps --no-dev-deps
+
   # Sanitizers
   tsan:
     name: tsan

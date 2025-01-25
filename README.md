@@ -27,6 +27,18 @@ Next, add this to your crate:
 use bytes::{Bytes, BytesMut, Buf, BufMut};
 ```
 
+## no_std support
+
+To use `bytes` with no_std environment, disable the (enabled by default) `std` feature.
+
+```toml
+[dependencies]
+bytes = { version = "1", default-features = false }
+```
+
+On no_std environment without atomic CAS, such as thumbv6m, `Bytes` and `BytesMut` are currently not provided.
+See [#467](https://github.com/tokio-rs/bytes/pull/467) for the proposal about support these types on such a environment.
+
 ## Serde support
 
 Serde support is optional and disabled by default. To enable use the feature `serde`.
