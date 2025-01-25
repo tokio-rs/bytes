@@ -1,3 +1,4 @@
+#![allow(unknown_lints, unexpected_cfgs)]
 #![warn(missing_docs, missing_debug_implementations, rust_2018_idioms)]
 #![doc(test(
     no_crate_inject,
@@ -9,11 +10,8 @@
 //! Provides abstractions for working with bytes.
 //!
 //! The `bytes` crate provides an efficient byte buffer structure
-//! ([`Bytes`](struct.Bytes.html)) and traits for working with buffer
+//! ([`Bytes`]) and traits for working with buffer
 //! implementations ([`Buf`], [`BufMut`]).
-//!
-//! [`Buf`]: trait.Buf.html
-//! [`BufMut`]: trait.BufMut.html
 //!
 //! # `Bytes`
 //!
@@ -52,9 +50,7 @@
 //! `a` and `b` will share the underlying buffer and maintain indices tracking
 //! the view into the buffer represented by the handle.
 //!
-//! See the [struct docs] for more details.
-//!
-//! [struct docs]: struct.Bytes.html
+//! See the [struct docs](`Bytes`) for more details.
 //!
 //! # `Buf`, `BufMut`
 //!
@@ -70,7 +66,7 @@
 //! ## Relation with `Read` and `Write`
 //!
 //! At first glance, it may seem that `Buf` and `BufMut` overlap in
-//! functionality with `std::io::Read` and `std::io::Write`. However, they
+//! functionality with [`std::io::Read`] and [`std::io::Write`]. However, they
 //! serve different purposes. A buffer is the value that is provided as an
 //! argument to `Read::read` and `Write::write`. `Read` and `Write` may then
 //! perform a syscall, which has the potential of failing. Operations on `Buf`
@@ -114,4 +110,91 @@ fn abort() -> ! {
         let _a = Abort;
         panic!("abort");
     }
+}
+
+#[inline(always)]
+#[cfg(feature = "std")]
+fn saturating_sub_usize_u64(a: usize, b: u64) -> usize {
+    use core::convert::TryFrom;
+    match usize::try_from(b) {
+        Ok(b) => a.saturating_sub(b),
+        Err(_) => 0,
+    }
+}
+
+#[inline(always)]
+#[cfg(feature = "std")]
+fn min_u64_usize(a: u64, b: usize) -> usize {
+    use core::convert::TryFrom;
+    match usize::try_from(a) {
+        Ok(a) => usize::min(a, b),
+        Err(_) => b,
+    }
+}
+
+/// Error type for the `try_get_` methods of [`Buf`].
+/// Indicates that there were not enough remaining
+/// bytes in the buffer while attempting
+/// to get a value from a [`Buf`] with one
+/// of the `try_get_` methods.
+#[derive(Debug, PartialEq, Eq)]
+pub struct TryGetError {
+    /// The number of bytes necessary to get the value
+    pub requested: usize,
+
+    /// The number of bytes available in the buffer
+    pub available: usize,
+}
+
+impl core::fmt::Display for TryGetError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
+        write!(
+            f,
+            "Not enough bytes remaining in buffer to read value (requested {} but only {} available)",
+            self.requested,
+            self.available
+        )
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for TryGetError {}
+
+#[cfg(feature = "std")]
+impl From<TryGetError> for std::io::Error {
+    fn from(error: TryGetError) -> Self {
+        std::io::Error::new(std::io::ErrorKind::Other, error)
+    }
+}
+
+/// Panic with a nice error message.
+#[cold]
+fn panic_advance(error_info: &TryGetError) -> ! {
+    panic!(
+        "advance out of bounds: the len is {} but advancing by {}",
+        error_info.available, error_info.requested
+    );
+}
+
+#[cold]
+fn panic_does_not_fit(size: usize, nbytes: usize) -> ! {
+    panic!(
+        "size too large: the integer type can fit {} bytes, but nbytes is {}",
+        size, nbytes
+    );
+}
+
+/// Precondition: dst >= original
+///
+/// The following line is equivalent to:
+///
+/// ```rust,ignore
+/// self.ptr.as_ptr().offset_from(ptr) as usize;
+/// ```
+///
+/// But due to min rust is 1.39 and it is only stabilized
+/// in 1.47, we cannot use it.
+#[inline]
+fn offset_from(dst: *const u8, original: *const u8) -> usize {
+    dst as usize - original as usize
 }
