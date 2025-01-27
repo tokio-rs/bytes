@@ -728,6 +728,7 @@ fn advance_past_len() {
 // Only run these tests on little endian systems. CI uses qemu for testing
 // big endian... and qemu doesn't really support threading all that well.
 #[cfg(any(miri, target_endian = "little"))]
+#[cfg(not(target_family = "wasm"))] // wasm without experimental threads proposal doesn't support threads
 fn stress() {
     // Tests promoting a buffer from a vec -> shared in a concurrent situation
     use std::sync::{Arc, Barrier};
