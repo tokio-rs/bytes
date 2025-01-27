@@ -33,3 +33,8 @@ loom = "0.7"
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--cfg", "docsrs"]
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = [
+  'cfg(loom)',
+] }
