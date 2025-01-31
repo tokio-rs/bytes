@@ -127,6 +127,25 @@ jobs:
       - name: Test
         run: cargo test --target ${{ matrix.target }}
 
+  # Build for no_std environment.
+  no-std:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        run: rustup update stable
+      - name: Install cargo-hack
+        uses: taiki-e/install-action@cargo-hack
+      # thumbv6m-none-eabi supports atomic, but not atomic CAS.
+      # thumbv7m-none-eabi supports atomic CAS.
+      - run: rustup target add thumbv6m-none-eabi thumbv7m-none-eabi
+      # * --optional-deps is needed for serde feature
+      # * --no-dev-deps is needed to avoid https://github.com/rust-lang/cargo/issues/4866
+      - run: cargo hack build --target thumbv7m-none-eabi --feature-powerset --skip std,default --optional-deps --no-dev-deps
+      # A sound way to provide atomic CAS on platforms without native atomic CAS is system-dependent.
+      # portable-atomic provides major ways via cfgs and accepts user-defined implementations via critical-section feature.
+      - run: cargo hack build --target thumbv6m-none-eabi --feature-powerset --skip std,default --optional-deps --no-dev-deps --features extra-platforms,extra-platforms/critical-section
+
   # Sanitizers
   tsan:
     name: tsan
