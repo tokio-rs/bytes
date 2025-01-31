@@ -145,7 +145,7 @@ jobs:
       - run: cargo hack build --target thumbv7m-none-eabi --feature-powerset --skip std,default --optional-deps --no-dev-deps
       # A sound way to provide atomic CAS on platforms without native atomic CAS is system-dependent.
       # portable-atomic provides major ways via cfgs and accepts user-defined implementations via critical-section feature.
-      - run: cargo hack build --target thumbv6m-none-eabi --feature-powerset --skip std,default --optional-deps --no-dev-deps --features extra-platforms,portable-atomic/critical-section
+      - run: cargo hack build --target thumbv6m-none-eabi --feature-powerset --skip std,default --optional-deps --no-dev-deps --features extra-platforms,extra-platforms/critical-section
 
   # Sanitizers
   tsan:
