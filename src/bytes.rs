@@ -112,9 +112,9 @@ pub(crate) struct Vtable {
     pub clone: unsafe fn(&AtomicPtr<()>, *const u8, usize) -> Bytes,
     /// fn(data, ptr, len)
     ///
-    /// takes `Bytes` to value
-    pub to_vec: unsafe fn(&AtomicPtr<()>, *const u8, usize) -> Vec<u8>,
-    pub to_mut: unsafe fn(&AtomicPtr<()>, *const u8, usize) -> BytesMut,
+    /// `into_*` consume the `Bytes`, returning the respective value.
+    pub into_vec: unsafe fn(&AtomicPtr<()>, *const u8, usize) -> Vec<u8>,
+    pub into_mut: unsafe fn(&AtomicPtr<()>, *const u8, usize) -> BytesMut,
     /// fn(data)
     pub is_unique: unsafe fn(&AtomicPtr<()>) -> bool,
     /// fn(data, ptr, len)
@@ -1045,7 +1045,7 @@ impl From<Bytes> for BytesMut {
     /// ```
     fn from(bytes: Bytes) -> Self {
         let bytes = ManuallyDrop::new(bytes);
-        unsafe { (bytes.vtable.to_mut)(&bytes.data, bytes.ptr, bytes.len) }
+        unsafe { (bytes.vtable.into_mut)(&bytes.data, bytes.ptr, bytes.len) }
     }
 }
 
@@ -1058,7 +1058,7 @@ impl From<String> for Bytes {
 impl From<Bytes> for Vec<u8> {
     fn from(bytes: Bytes) -> Vec<u8> {
         let bytes = ManuallyDrop::new(bytes);
-        unsafe { (bytes.vtable.to_vec)(&bytes.data, bytes.ptr, bytes.len) }
+        unsafe { (bytes.vtable.into_vec)(&bytes.data, bytes.ptr, bytes.len) }
     }
 }
 
@@ -1077,8 +1077,8 @@ impl fmt::Debug for Vtable {
 
 const STATIC_VTABLE: Vtable = Vtable {
     clone: static_clone,
-    to_vec: static_to_vec,
-    to_mut: static_to_mut,
+    into_vec: static_to_vec,
+    into_mut: static_to_mut,
     is_unique: static_is_unique,
     drop: static_drop,
 };
@@ -1181,8 +1181,8 @@ unsafe fn owned_drop(data: &mut AtomicPtr<()>, _ptr: *const u8, _len: usize) {
 
 static OWNED_VTABLE: Vtable = Vtable {
     clone: owned_clone,
-    to_vec: owned_to_vec,
-    to_mut: owned_to_mut,
+    into_vec: owned_to_vec,
+    into_mut: owned_to_mut,
     is_unique: owned_is_unique,
     drop: owned_drop,
 };
@@ -1191,16 +1191,16 @@ static OWNED_VTABLE: Vtable = Vtable {
 
 static PROMOTABLE_EVEN_VTABLE: Vtable = Vtable {
     clone: promotable_even_clone,
-    to_vec: promotable_even_to_vec,
-    to_mut: promotable_even_to_mut,
+    into_vec: promotable_even_to_vec,
+    into_mut: promotable_even_to_mut,
     is_unique: promotable_is_unique,
     drop: promotable_even_drop,
 };
 
 static PROMOTABLE_ODD_VTABLE: Vtable = Vtable {
     clone: promotable_odd_clone,
-    to_vec: promotable_odd_to_vec,
-    to_mut: promotable_odd_to_mut,
+    into_vec: promotable_odd_to_vec,
+    into_mut: promotable_odd_to_mut,
     is_unique: promotable_is_unique,
     drop: promotable_odd_drop,
 };
@@ -1375,8 +1375,8 @@ const _: [(); 0 - mem::align_of::<Shared>() % 2] = []; // Assert that the alignm
 
 static SHARED_VTABLE: Vtable = Vtable {
     clone: shared_clone,
-    to_vec: shared_to_vec,
-    to_mut: shared_to_mut,
+    into_vec: shared_to_vec,
+    into_mut: shared_to_mut,
     is_unique: shared_is_unique,
     drop: shared_drop,
 };
