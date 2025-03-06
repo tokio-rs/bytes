@@ -1647,3 +1647,102 @@ fn owned_safe_drop_on_as_ref_panic() {
     assert!(result.is_err());
     assert_eq!(drop_counter.get(), 1);
 }
+
+#[test]
+fn arcproj_is_unique_always_false() {
+    let b1 = Bytes::from_arc_projection(Arc::new([1, 2, 3, 4, 5, 6, 7]), |v| &v[..]);
+    assert!(!b1.is_unique()); // even if ref_cnt == 1
+    let b2 = b1.clone();
+    assert!(!b1.is_unique());
+    assert!(!b2.is_unique());
+    drop(b1);
+    assert!(!b2.is_unique()); // even if ref_cnt == 1
+}
+
+#[test]
+fn arcproj_buf_sharing() {
+    let buf = [1, 2, 3, 4, 5, 6, 7];
+    let b1 = Bytes::from_arc_projection(Arc::new(buf), |v| &v[..]);
+    let b2 = b1.clone();
+    assert_eq!(&buf[..], &b1[..]);
+    assert_eq!(&buf[..], &b2[..]);
+    assert_eq!(b1.as_ptr(), b2.as_ptr());
+    assert_eq!(b1.len(), b2.len());
+    assert_eq!(b1.len(), buf.len());
+}
+
+#[test]
+fn arcproj_buf_slicing() {
+    let b1 = Bytes::from_arc_projection(Arc::new(Vec::from(SHORT)), |v| &v[..]);
+    assert_eq!(SHORT, &b1[..]);
+    let b2 = b1.slice(1..(b1.len() - 1));
+    assert_eq!(&SHORT[1..(SHORT.len() - 1)], b2);
+    assert_eq!(unsafe { b1.as_ptr().add(1) }, b2.as_ptr());
+    assert_eq!(SHORT.len() - 2, b2.len());
+}
+
+#[test]
+fn arcproj_dropped_exactly_once() {
+    let buf: [u8; 5] = [1, 2, 3, 4, 5];
+    let drop_counter = SharedAtomicCounter::new();
+    let owner = OwnedTester::new(buf, drop_counter.clone());
+    let b1 = Bytes::from_arc_projection(Arc::new(owner), |o| o.as_ref());
+    let b2 = b1.clone();
+    assert_eq!(drop_counter.get(), 0);
+    drop(b1);
+    assert_eq!(drop_counter.get(), 0);
+    let b3 = b2.slice(1..b2.len() - 1);
+    drop(b2);
+    assert_eq!(drop_counter.get(), 0);
+    drop(b3);
+    assert_eq!(drop_counter.get(), 1);
+}
+
+#[test]
+fn arcproj_to_mut() {
+    let buf: [u8; 10] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+    let drop_counter = SharedAtomicCounter::new();
+    let owner = OwnedTester::new(buf, drop_counter.clone());
+    let b1 = Bytes::from_arc_projection(Arc::new(owner), |o| o.as_ref());
+
+    // Holding an owner will fail converting to a BytesMut,
+    // even when the bytes instance has a ref_cnt == 1.
+    let b1 = b1.try_into_mut().unwrap_err();
+
+    // That said, it's still possible, just not cheap.
+    let bm1: BytesMut = b1.into();
+    let new_buf = &bm1[..];
+    assert_eq!(new_buf, &buf[..]);
+
+    // `.into::<BytesMut>()` has correctly dropped the owner
+    assert_eq!(drop_counter.get(), 1);
+}
+
+#[test]
+fn arcproj_into_vec() {
+    let drop_counter = SharedAtomicCounter::new();
+    let buf: [u8; 10] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+    let owner = OwnedTester::new(buf, drop_counter.clone());
+    let b1 = Bytes::from_arc_projection(Arc::new(owner), |o| o.as_ref());
+
+    let v1: Vec<u8> = b1.into();
+    assert_eq!(&v1[..], &buf[..]);
+    // into() vec will copy out of the owner and drop it
+    assert_eq!(drop_counter.get(), 1);
+}
+
+#[test]
+#[cfg_attr(not(panic = "unwind"), ignore)]
+fn arcproj_safe_drop_on_as_ref_panic() {
+    let buf: [u8; 10] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+    let drop_counter = SharedAtomicCounter::new();
+    let mut owner = OwnedTester::new(buf, drop_counter.clone());
+    owner.panic_as_ref = true;
+
+    let result = panic::catch_unwind(AssertUnwindSafe(|| {
+        let _ = Bytes::from_arc_projection(Arc::new(owner), |o| o.as_ref());
+    }));
+
+    assert!(result.is_err());
+    assert_eq!(drop_counter.get(), 1);
+}

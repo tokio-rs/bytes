@@ -1,3 +1,4 @@
+use alloc::sync::Arc;
 use core::iter::FromIterator;
 use core::mem::{self, ManuallyDrop};
 use core::ops::{Deref, RangeBounds};
@@ -289,6 +290,74 @@ impl Bytes {
         ret
     }
 
+    /// Creates a new `Bytes` from an [`Arc<T>`] owner and a function that
+    /// returns the buffer given a reference to the contained `T`.
+    ///
+    /// `T` must be [`Sized`] rather than a trait object or slice.
+    ///
+    /// The returned `Bytes` can be cloned via `Arc` referencing counting,
+    /// whereas `Bytes` created via conversion from [`Vec`] must perform a new
+    /// allocation internally on first clone to hold the reference count.
+    /// This optimization is most significant if many `Bytes` instances are
+    /// created from the same `owner` and subsequently cloned.
+    ///
+    /// ```
+    /// # use std::sync::Arc;
+    /// # use bytes::Bytes;
+    /// struct Pieces(Vec<Vec<u8>>);
+    /// let pieces = Arc::new(Pieces(vec![b"hello".to_vec(), b"world".to_vec()]));
+    /// let bytes: Vec<Bytes> = (0..2).map(|i| {
+    ///    Bytes::from_arc_projection(pieces.clone(), |p| &p.0[i])
+    /// }).collect();
+    /// let bytes_cloned = bytes.clone();
+    /// assert_eq!(bytes[0], b"hello"[..]);
+    /// assert_eq!(bytes_cloned[1], b"world"[..]);
+    /// ```
+    ///
+    /// See also [`Bytes::try_from_arc_projection`] for a fallible version.
+    pub fn from_arc_projection<T: Sync + 'static>(
+        owner: Arc<T>,
+        projection: impl FnOnce(&T) -> &[u8],
+    ) -> Self {
+        let buf = projection(&*owner);
+        Bytes {
+            ptr: buf.as_ptr(),
+            len: buf.len(),
+            data: AtomicPtr::new(Arc::into_raw(owner) as *mut ()),
+            vtable: arcproj_vtable::<T>(),
+        }
+    }
+
+    /// Tries to creates a new `Bytes` from an [`Arc`] owner and a function that
+    /// returns the buffer given a reference to the contained `T` or fails.
+    ///
+    /// This is similar to [`Bytes::from_arc_projection`] but fallible.
+    ///
+    /// ```
+    /// # use std::sync::Arc;
+    /// # use bytes::Bytes;
+    /// struct Pieces(Vec<Vec<u8>>);
+    /// let pieces = Arc::new(Pieces(vec![b"hello".to_vec(), b"world".to_vec()]));
+    /// let bytes: Vec<Result<Bytes, &str>> = (0..3).map(|i| {
+    ///     Bytes::try_from_arc_projection(pieces.clone(), |p| {
+    ///         p.0.get(i).map(|v| &**v).ok_or("out of bounds")
+    ///     })
+    /// }).collect();
+    /// assert_eq!(bytes, [Ok(b"hello"[..].into()), Ok(b"world"[..].into()), Err("out of bounds")]);
+    /// ```
+    pub fn try_from_arc_projection<T: Sync + 'static, E>(
+        owner: Arc<T>,
+        projection: impl FnOnce(&T) -> Result<&[u8], E>,
+    ) -> Result<Self, E> {
+        let buf = projection(&*owner)?;
+        Ok(Bytes {
+            ptr: buf.as_ptr(),
+            len: buf.len(),
+            data: AtomicPtr::new(Arc::into_raw(owner) as *mut ()),
+            vtable: arcproj_vtable::<T>(),
+        })
+    }
+
     /// Returns the number of bytes contained in this `Bytes`.
     ///
     /// # Examples
@@ -322,8 +391,9 @@ impl Bytes {
     /// Returns true if this is the only reference to the data and
     /// `Into<BytesMut>` would avoid cloning the underlying buffer.
     ///
-    /// Always returns false if the data is backed by a [static slice](Bytes::from_static),
-    /// or an [owner](Bytes::from_owner).
+    /// Always returns false if the data is backed by a
+    /// [static slice](Bytes::from_static), [owner](Bytes::from_owner),
+    /// or [Arc projection](Bytes::from_arc_projection).
     ///
     /// The result of this method may be invalidated immediately if another
     /// thread clones this value while this is being called. Ensure you have
@@ -627,8 +697,9 @@ impl Bytes {
     /// If `self` is not unique for the entire original buffer, this will fail
     /// and return self.
     ///
-    /// This will also always fail if the buffer was constructed via either
-    /// [from_owner](Bytes::from_owner) or [from_static](Bytes::from_static).
+    /// Always fails if the data is backed by a
+    /// [static slice](Bytes::from_static), [owner](Bytes::from_owner),
+    /// or [Arc projection](Bytes::from_arc_projection).
     ///
     /// # Examples
     ///
@@ -1073,13 +1144,17 @@ impl fmt::Debug for Vtable {
     }
 }
 
+fn never_unique(_: &AtomicPtr<()>) -> bool {
+    false
+}
+
 // ===== impl StaticVtable =====
 
 const STATIC_VTABLE: Vtable = Vtable {
     clone: static_clone,
     into_vec: static_to_vec,
     into_mut: static_to_mut,
-    is_unique: static_is_unique,
+    is_unique: never_unique,
     drop: static_drop,
 };
 
@@ -1096,10 +1171,6 @@ unsafe fn static_to_vec(_: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Vec<u8
 unsafe fn static_to_mut(_: &AtomicPtr<()>, ptr: *const u8, len: usize) -> BytesMut {
     let slice = slice::from_raw_parts(ptr, len);
     BytesMut::from(slice)
-}
-
-fn static_is_unique(_: &AtomicPtr<()>) -> bool {
-    false
 }
 
 unsafe fn static_drop(_: &mut AtomicPtr<()>, _: *const u8, _: usize) {
@@ -1152,10 +1223,6 @@ unsafe fn owned_to_mut(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Byte
     BytesMut::from_vec(owned_to_vec(data, ptr, len))
 }
 
-unsafe fn owned_is_unique(_data: &AtomicPtr<()>) -> bool {
-    false
-}
-
 unsafe fn owned_drop_impl(owned: *mut ()) {
     let lifetime = owned.cast::<OwnedLifetime>();
     let ref_cnt = &(*lifetime).ref_cnt;
@@ -1183,7 +1250,7 @@ static OWNED_VTABLE: Vtable = Vtable {
     clone: owned_clone,
     into_vec: owned_to_vec,
     into_mut: owned_to_mut,
-    is_unique: owned_is_unique,
+    is_unique: never_unique,
     drop: owned_drop,
 };
 
@@ -1487,6 +1554,59 @@ unsafe fn shallow_clone_arc(shared: *mut Shared, ptr: *const u8, len: usize) -> 
         data: AtomicPtr::new(shared as _),
         vtable: &SHARED_VTABLE,
     }
+}
+
+fn arcproj_vtable<T: Sync>() -> &'static Vtable {
+    // Produce vtable via const promotion to &'static.
+    // <https://users.rust-lang.org/t/custom-vtables-with-integers/78508/2>
+    trait V {
+        const VTABLE: Vtable;
+    }
+    impl<T: Sync> V for T {
+        const VTABLE: Vtable = Vtable {
+            clone: arcproj_clone::<T>,
+            into_vec: arcproj_into_vec::<T>,
+            into_mut: arcproj_into_mut::<T>,
+            is_unique: never_unique,
+            drop: arcproj_drop::<T>,
+        };
+    }
+    &<T as V>::VTABLE
+}
+
+unsafe fn arcproj_clone<T: Sync>(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Bytes {
+    let arc = data.load(Ordering::Relaxed);
+
+    // Replicate `Arc::increment_strong_count`, which has a MSRV of 1.51.0.
+    let _ = core::mem::ManuallyDrop::new(Arc::<T>::from_raw(arc as *const T)).clone();
+
+    Bytes {
+        ptr,
+        len,
+        data: AtomicPtr::new(arc),
+        vtable: arcproj_vtable::<T>(),
+    }
+}
+
+unsafe fn arcproj_into_vec<T: Sync>(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Vec<u8> {
+    let vec = slice::from_raw_parts(ptr, len).to_vec();
+    arcproj_drop_impl::<T>(data);
+    vec
+}
+
+unsafe fn arcproj_into_mut<T: Sync>(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> BytesMut {
+    let out = BytesMut::from(slice::from_raw_parts(ptr, len));
+    arcproj_drop_impl::<T>(data);
+    out
+}
+
+unsafe fn arcproj_drop<T: Sync>(data: &mut AtomicPtr<()>, _ptr: *const u8, _len: usize) {
+    arcproj_drop_impl::<T>(data);
+}
+
+unsafe fn arcproj_drop_impl<T: Sync>(data: &AtomicPtr<()>) {
+    // Replicate `Arc::decrement_strong_count`, which has a MSRV of 1.51.0.
+    drop(Arc::from_raw(data.load(Ordering::Relaxed) as *const T));
 }
 
 #[cold]
