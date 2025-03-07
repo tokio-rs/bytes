@@ -112,7 +112,7 @@ pub(crate) struct Vtable {
     pub clone: unsafe fn(&AtomicPtr<()>, *const u8, usize) -> Bytes,
     /// fn(data, ptr, len)
     ///
-    /// `into_*` consume the `Bytes`, returning the respective value.
+    /// `into_*` consumes the `Bytes`, returning the respective value.
     pub into_vec: unsafe fn(&AtomicPtr<()>, *const u8, usize) -> Vec<u8>,
     pub into_mut: unsafe fn(&AtomicPtr<()>, *const u8, usize) -> BytesMut,
     /// fn(data)
