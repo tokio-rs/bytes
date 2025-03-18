@@ -400,10 +400,6 @@ impl Bytes {
             len,
         );
 
-        if end == begin {
-            return Bytes::new();
-        }
-
         let mut ret = self.clone();
 
         ret.len = end - begin;
