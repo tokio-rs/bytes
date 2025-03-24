@@ -12,33 +12,9 @@ use alloc::boxed::Box;
 
 macro_rules! buf_try_get_impl {
     ($this:ident, $typ:tt::$conv:tt) => {{
-        const SIZE: usize = core::mem::size_of::<$typ>();
-
-        if $this.remaining() < SIZE {
-            return Err(TryGetError {
-                requested: SIZE,
-                available: $this.remaining(),
-            });
-        }
-
-        // try to convert directly from the bytes
-        // this Option<ret> trick is to avoid keeping a borrow on self
-        // when advance() is called (mut borrow) and to call bytes() only once
-        let ret = $this
-            .chunk()
-            .get(..SIZE)
-            .map(|src| unsafe { $typ::$conv(*(src as *const _ as *const [_; SIZE])) });
-
-        if let Some(ret) = ret {
-            // if the direct conversion was possible, advance and return
-            $this.advance(SIZE);
-            return Ok(ret);
-        } else {
-            // if not we copy the bytes in a temp buffer then convert
-            let mut buf = [0; SIZE];
-            $this.copy_to_slice(&mut buf); // (do the advance)
-            return Ok($typ::$conv(buf));
-        }
+        // add indirection so self doesnot need to bee sized
+        let mut this = $this;
+        (&mut this).try_get_array().map($typ::$conv)
     }};
     (le => $this:ident, $typ:tt, $len_to_read:expr) => {{
         const SIZE: usize = core::mem::size_of::<$typ>();
@@ -1226,6 +1202,7 @@ pub trait Buf {
     /// assert_eq!(3, buf.remaining());
     /// ```
     ///
+    #[inline] // inline for better performance of buf_try_get_impl methods
     fn try_get_array<const N: usize>(&mut self) -> Result<[u8; N], TryGetError>
     where
         Self: Sized,
