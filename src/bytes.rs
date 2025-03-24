@@ -400,6 +400,10 @@ impl Bytes {
             len,
         );
 
+        if end == begin {
+            return Bytes::new_empty_with_ptr(self.ptr.wrapping_add(begin));
+        }
+
         let mut ret = self.clone();
 
         ret.len = end - begin;
