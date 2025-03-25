@@ -77,7 +77,8 @@ impl<B: Buf + Sized> io::BufRead for Reader<B> {
     }
     /// consume `amt` bytes from the buffer.
     ///
-    /// Calls [`Buf::advance`] internally and will therefore not lead to a logic error.
+    /// Calls [`Buf::advance`] internally: If `amt` > `get_ref().remaining()` it
+    /// may **Panic** or advance to the end of the buf.
     ///
     /// # Examples
     /// ```rust
