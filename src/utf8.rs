@@ -12,7 +12,18 @@ use alloc::{boxed::Box, string::String, vec::Vec};
 
 use crate::{Buf, Bytes};
 
-/// A wrapper over [`Bytes`] that guarantees UTF-8 validity.
+/// A wrapper over [`Bytes`] that guarantees UTF-8 validity, meaning it can be
+/// treated as a string.
+///
+/// See the documentation for [`Bytes`] for more information about its
+/// implementation.
+///
+/// `Utf8Bytes` supports most of the same operations as `Bytes`, such as
+/// slicing, splitting, and advancing the internal cursor, except that all
+/// such operations require that provided indices be on char boundaries or else
+/// will panic, the same as [`str`] slices. This is not generally a concern so
+/// long as indices are obtained from UTF-8-aware string operations, such as
+/// [`str::char_indices()`]. See also [`str::is_char_boundary()`].
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Utf8Bytes {
     inner: Bytes,
@@ -47,7 +58,7 @@ impl Utf8Bytes {
     /// use bytes::Utf8Bytes;
     ///
     /// let b = Utf8Bytes::from_static("hello");
-    /// assert_eq!(&b[..], "hello");
+    /// assert_eq!(b, "hello");
     /// ```
     #[inline]
     #[cfg(not(all(loom, test)))]
@@ -232,7 +243,7 @@ impl Utf8Bytes {
     /// let as_slice = bytes.as_ref();
     /// let subset = &as_slice[2..6];
     /// let subslice = bytes.slice_ref(&subset);
-    /// assert_eq!(&subslice[..], "2345");
+    /// assert_eq!(subslice, "2345");
     /// ```
     ///
     /// # Panics
@@ -258,13 +269,13 @@ impl Utf8Bytes {
     /// # Examples
     ///
     /// ```
-    /// use bytes::Bytes;
+    /// use bytes::Utf8Bytes;
     ///
-    /// let mut a = Bytes::from(&b"hello world"[..]);
+    /// let mut a = Utf8Bytes::from("hello world");
     /// let b = a.split_off(5);
     ///
-    /// assert_eq!(&a[..], b"hello");
-    /// assert_eq!(&b[..], b" world");
+    /// assert_eq!(a, "hello");
+    /// assert_eq!(b, " world");
     /// ```
     ///
     /// # Panics
@@ -307,8 +318,8 @@ impl Utf8Bytes {
     /// let mut a = Utf8Bytes::from("hello world");
     /// let b = a.split_to(5);
     ///
-    /// assert_eq!(&a[..], " world");
-    /// assert_eq!(&b[..], "hello");
+    /// assert_eq!(a, " world");
+    /// assert_eq!(b, "hello");
     /// ```
     ///
     /// # Panics
@@ -347,12 +358,16 @@ impl Utf8Bytes {
     /// # Examples
     ///
     /// ```
-    /// use bytes::Bytes;
+    /// use bytes::Utf8Bytes;
     ///
-    /// let mut buf = Bytes::from(&b"hello world"[..]);
+    /// let mut buf = Utf8Bytes::from("hello world");
     /// buf.truncate(5);
-    /// assert_eq!(buf, b"hello"[..]);
+    /// assert_eq!(buf, "hello");
     /// ```
+    ///
+    /// # Panics
+    ///
+    /// Panics if `len` is not on a char boundary.
     #[inline]
     pub fn truncate(&mut self, len: usize) {
         assert!(
@@ -363,23 +378,23 @@ impl Utf8Bytes {
         unsafe { self.as_mut_bytes().truncate(len) }
     }
 
-    /// Advance the internal cursor of the Buf
+    /// Advance the internal cursor of the `Utf8Bytes`.
     ///
-    /// Like [`Buf::advance()`], but ensures that the
-    /// cursor can only be advanced to char boundaries.
+    /// Like [`Buf::advance()`], but ensures that the cursor can only be
+    /// advanced to char boundaries.
     ///
     /// # Examples
     ///
     /// ```
-    /// use bytes::Buf;
+    /// use bytes::Utf8Bytes;
     ///
-    /// let mut buf = &b"hello world"[..];
+    /// let mut buf = Utf8Bytes::from("hello world");
     ///
-    /// assert_eq!(buf.chunk(), &b"hello world"[..]);
+    /// assert_eq!(buf, "hello world");
     ///
     /// buf.advance(6);
     ///
-    /// assert_eq!(buf.chunk(), &b"world"[..]);
+    /// assert_eq!(buf, "world");
     /// ```
     ///
     /// # Panics
