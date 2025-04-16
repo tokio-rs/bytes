@@ -154,7 +154,9 @@ impl Utf8Bytes {
 
     /// Creates `Utf8Bytes` instance from slice, by copying it.
     pub fn copy_from_slice(data: &str) -> Self {
-        String::from(data).into()
+        let bytes = Bytes::copy_from_slice(data.as_bytes());
+        // SAFETY: bytes was created from a UTF-8 string
+        unsafe { Utf8Bytes::from_utf8_unchecked(bytes) }
     }
 
     /// Returns a slice of self for the provided range.
