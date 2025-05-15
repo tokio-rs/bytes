@@ -158,6 +158,13 @@ fn slice_oob_2() {
 }
 
 #[test]
+#[should_panic]
+fn slice_start_greater_than_end() {
+    let a = Bytes::from(&b"hello world"[..]);
+    a.slice(5..3);
+}
+
+#[test]
 fn split_off() {
     let mut hello = Bytes::from(&b"helloworld"[..]);
     let world = hello.split_off(5);
@@ -722,6 +729,15 @@ fn advance_bytes_mut_remaining_capacity() {
 fn advance_past_len() {
     let mut a = BytesMut::from("hello world");
     a.advance(20);
+}
+
+#[test]
+#[should_panic]
+fn mut_advance_past_len() {
+    let mut a = BytesMut::from("hello world");
+    unsafe {
+        a.advance_mut(20);
+    }
 }
 
 #[test]
