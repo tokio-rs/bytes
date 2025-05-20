@@ -1422,6 +1422,26 @@ fn try_reclaim_arc() {
 }
 
 #[test]
+fn slice_empty_addr() {
+    let buf = Bytes::from(vec![0; 1024]);
+
+    let ptr_start = buf.as_ptr();
+    let ptr_end = ptr_start.wrapping_add(1024);
+
+    let empty_end = buf.slice(1024..);
+    assert_eq!(empty_end.len(), 0);
+    assert_eq!(empty_end.as_ptr(), ptr_end);
+
+    let empty_start = buf.slice(..0);
+    assert_eq!(empty_start.len(), 0);
+    assert_eq!(empty_start.as_ptr(), ptr_start);
+
+    // Is miri happy about the provenance?
+    let _ = &empty_end[..];
+    let _ = &empty_start[..];
+}
+
+#[test]
 fn split_off_empty_addr() {
     let mut buf = Bytes::from(vec![0; 1024]);
 
