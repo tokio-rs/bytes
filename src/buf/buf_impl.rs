@@ -12,33 +12,9 @@ use alloc::boxed::Box;
 
 macro_rules! buf_try_get_impl {
     ($this:ident, $typ:tt::$conv:tt) => {{
-        const SIZE: usize = core::mem::size_of::<$typ>();
-
-        if $this.remaining() < SIZE {
-            return Err(TryGetError {
-                requested: SIZE,
-                available: $this.remaining(),
-            });
-        }
-
-        // try to convert directly from the bytes
-        // this Option<ret> trick is to avoid keeping a borrow on self
-        // when advance() is called (mut borrow) and to call bytes() only once
-        let ret = $this
-            .chunk()
-            .get(..SIZE)
-            .map(|src| unsafe { $typ::$conv(*(src as *const _ as *const [_; SIZE])) });
-
-        if let Some(ret) = ret {
-            // if the direct conversion was possible, advance and return
-            $this.advance(SIZE);
-            return Ok(ret);
-        } else {
-            // if not we copy the bytes in a temp buffer then convert
-            let mut buf = [0; SIZE];
-            $this.copy_to_slice(&mut buf); // (do the advance)
-            return Ok($typ::$conv(buf));
-        }
+        // add indirection so self doesnot need to bee sized
+        let mut this = $this;
+        (&mut this).try_get_array().map($typ::$conv)
     }};
     (le => $this:ident, $typ:tt, $len_to_read:expr) => {{
         const SIZE: usize = core::mem::size_of::<$typ>();
@@ -294,6 +270,30 @@ pub trait Buf {
     fn copy_to_slice(&mut self, dst: &mut [u8]) {
         self.try_copy_to_slice(dst)
             .unwrap_or_else(|error| panic_advance(&error));
+    }
+
+    /// Gets a const known number of bytes from `self`
+    ///
+    /// The current position is advanced by `N`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Buf;
+    ///
+    /// let mut buf = &b"hello world"[..];
+    /// assert_eq!(*b"hello", buf.get_array::<5>());
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// This function panics if there is not enough remaining data in `self`.
+    fn get_array<const N: usize>(&mut self) -> [u8; N]
+    where
+        Self: Sized,
+    {
+        self.try_get_array()
+            .unwrap_or_else(|error| panic_advance(&error))
     }
 
     /// Gets an unsigned 8 bit integer from `self`.
@@ -1176,6 +1176,62 @@ pub trait Buf {
             self.advance(cnt);
         }
         Ok(())
+    }
+
+    /// Gets a const known number of bytes from `self`
+    ///
+    /// The current position is advanced by `N`.
+    ///
+    /// Returns `Err(TryGetError)` when there are not enough
+    /// remaining bytes to read the value.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Buf;
+    ///
+    /// let mut buf = &b"hello world"[..];
+    /// assert_eq!(Ok(*b"hello"), buf.try_get_array::<5>());
+    /// assert_eq!(6, buf.remaining());
+    /// ```
+    /// ```
+    /// use bytes::{Buf, TryGetError};
+    ///
+    /// let mut buf = &b"hel"[..];
+    /// assert_eq!(Err(TryGetError{requested: 5, available: 3}), buf.try_get_array::<5>());
+    /// assert_eq!(3, buf.remaining());
+    /// ```
+    ///
+    #[inline] // inline for better performance of buf_try_get_impl methods
+    fn try_get_array<const N: usize>(&mut self) -> Result<[u8; N], TryGetError>
+    where
+        Self: Sized,
+    {
+        if self.remaining() < N {
+            return Err(TryGetError {
+                requested: N,
+                available: self.remaining(),
+            });
+        }
+
+        // try to convert directly from the bytes
+        // this Option<ret> trick is to avoid keeping a borrow on self
+        // when advance() is called (mut borrow) and to call bytes() only once
+        let ret = self
+            .chunk()
+            .get(..N)
+            .map(|src| unsafe { *(src as *const _ as *const [_; N]) });
+
+        if let Some(ret) = ret {
+            // if the direct conversion was possible, advance and return
+            self.advance(N);
+            return Ok(ret);
+        } else {
+            // if not we copy the bytes in a temp buffer then convert
+            let mut buf = [0; N];
+            self.copy_to_slice(&mut buf); // (do the advance)
+            return Ok(buf);
+        }
     }
 
     /// Gets an unsigned 8 bit integer from `self`.
