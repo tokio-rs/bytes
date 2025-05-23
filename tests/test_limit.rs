@@ -40,7 +40,7 @@ fn limit_chunk_mut() {
 
 #[test]
 #[should_panic]
-fn limit_advanve_mut_panic_1() {
+fn limit_advance_mut_panic_1() {
     let buf = &mut [0u8; 10];
     let mut limit = buf.limit(100);
     unsafe {
@@ -50,7 +50,7 @@ fn limit_advanve_mut_panic_1() {
 
 #[test]
 #[should_panic]
-fn limit_advanve_mut_panic_2() {
+fn limit_advance_mut_panic_2() {
     let buf = &mut [0u8; 100];
     let mut limit = buf.limit(10);
     unsafe {

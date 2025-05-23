@@ -187,7 +187,7 @@ fn split_off_oob() {
 }
 
 #[test]
-#[should_panic]
+#[should_panic = "split_off out of bounds"]
 fn bytes_mut_split_off_oob() {
     let mut hello = BytesMut::from(&b"helloworld"[..]);
     let _ = hello.split_off(44);
