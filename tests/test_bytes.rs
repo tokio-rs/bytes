@@ -187,6 +187,13 @@ fn split_off_oob() {
 }
 
 #[test]
+#[should_panic = "split_off out of bounds"]
+fn bytes_mut_split_off_oob() {
+    let mut hello = BytesMut::from(&b"helloworld"[..]);
+    let _ = hello.split_off(44);
+}
+
+#[test]
 fn split_off_uninitialized() {
     let mut bytes = BytesMut::with_capacity(1024);
     let other = bytes.split_off(128);
