@@ -39,7 +39,7 @@ fn limit_chunk_mut() {
 }
 
 #[test]
-#[should_panic]
+#[should_panic = "advance out of bounds"]
 fn limit_advance_mut_panic_1() {
     let buf = &mut [0u8; 10];
     let mut limit = buf.limit(100);
@@ -49,7 +49,7 @@ fn limit_advance_mut_panic_1() {
 }
 
 #[test]
-#[should_panic]
+#[should_panic = "cnt <= self.limit"]
 fn limit_advance_mut_panic_2() {
     let buf = &mut [0u8; 100];
     let mut limit = buf.limit(10);
