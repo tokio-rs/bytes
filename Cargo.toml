@@ -6,7 +6,7 @@ name = "bytes"
 # - Create "v1.x.y" git tag.
 version = "1.10.1"
 edition = "2018"
-rust-version = "1.39"
+rust-version = "1.57"
 license = "MIT"
 authors = [
     "Carl Lerche <me@carllerche.com>",
