@@ -5,7 +5,7 @@ name = "bytes"
 # - Update CHANGELOG.md.
 # - Create "v1.x.y" git tag.
 version = "1.10.1"
-edition = "2018"
+edition = "2021"
 rust-version = "1.57"
 license = "MIT"
 authors = [
