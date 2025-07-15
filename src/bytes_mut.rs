@@ -17,7 +17,7 @@ use crate::bytes::Vtable;
 #[allow(unused)]
 use crate::loom::sync::atomic::AtomicMut;
 use crate::loom::sync::atomic::{AtomicPtr, AtomicUsize, Ordering};
-use crate::{offset_from, Buf, BufMut, Bytes, TryGetError};
+use crate::{Buf, BufMut, Bytes, TryGetError};
 
 /// A unique reference to a contiguous slice of memory.
 ///
@@ -694,7 +694,7 @@ impl BytesMut {
                 let v_capacity = v.capacity();
                 let ptr = v.as_mut_ptr();
 
-                let offset = offset_from(self.ptr.as_ptr(), ptr);
+                let offset = self.ptr.as_ptr().offset_from(ptr) as usize;
 
                 // Compare the condition in the `kind == KIND_VEC` case above
                 // for more details.
@@ -1823,7 +1823,7 @@ unsafe fn shared_v_to_mut(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> B
         let v = &mut shared.vec;
         let v_capacity = v.capacity();
         let v_ptr = v.as_mut_ptr();
-        let offset = offset_from(ptr as *mut u8, v_ptr);
+        let offset = ptr.offset_from(v_ptr) as usize;
         let cap = v_capacity - offset;
 
         let ptr = vptr(ptr as *mut u8);
