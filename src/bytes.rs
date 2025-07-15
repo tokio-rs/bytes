@@ -2,7 +2,7 @@ use core::iter::FromIterator;
 use core::mem::{self, ManuallyDrop};
 use core::ops::{Deref, RangeBounds};
 use core::ptr::NonNull;
-use core::{cmp, fmt, hash, ptr, slice, usize};
+use core::{cmp, fmt, hash, ptr, slice};
 
 use alloc::{
     alloc::{dealloc, Layout},

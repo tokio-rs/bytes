@@ -2,7 +2,7 @@ use core::iter::FromIterator;
 use core::mem::{self, ManuallyDrop, MaybeUninit};
 use core::ops::{Deref, DerefMut};
 use core::ptr::{self, NonNull};
-use core::{cmp, fmt, hash, isize, slice, usize};
+use core::{cmp, fmt, hash, slice};
 
 use alloc::{
     borrow::{Borrow, BorrowMut},
@@ -1722,7 +1722,7 @@ impl From<BytesMut> for Vec<u8> {
             let shared = bytes.data as *mut Shared;
 
             if unsafe { (*shared).is_unique() } {
-                let vec = mem::replace(unsafe { &mut (*shared).vec }, Vec::new());
+                let vec = core::mem::take(unsafe { &mut (*shared).vec });
 
                 unsafe { release_shared(shared) };
 
@@ -1797,7 +1797,7 @@ unsafe fn shared_v_to_vec(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> V
         let shared = &mut *shared;
 
         // Drop shared
-        let mut vec = mem::replace(&mut shared.vec, Vec::new());
+        let mut vec = core::mem::take(&mut shared.vec);
         release_shared(shared);
 
         // Copy back buffer
