@@ -780,7 +780,7 @@ impl BytesMut {
         self.ptr = vptr(v.as_mut_ptr());
         self.cap = v.capacity();
         debug_assert_eq!(self.len, v.len());
-        return true;
+        true
     }
 
     /// Attempts to cheaply reclaim already allocated capacity for at least `additional` more
@@ -986,7 +986,7 @@ impl BytesMut {
         // new start and updating the `len` field to reflect the new length
         // of the view.
         self.ptr = vptr(self.ptr.as_ptr().add(count));
-        self.len = self.len.checked_sub(count).unwrap_or(0);
+        self.len = self.len.saturating_sub(count);
         self.cap -= count;
     }
 
@@ -1284,7 +1284,7 @@ impl PartialEq for BytesMut {
 
 impl PartialOrd for BytesMut {
     fn partial_cmp(&self, other: &BytesMut) -> Option<cmp::Ordering> {
-        self.as_slice().partial_cmp(other.as_slice())
+        Some(self.cmp(other))
     }
 }
 
@@ -1719,7 +1719,7 @@ impl From<BytesMut> for Vec<u8> {
                 rebuild_vec(bytes.ptr.as_ptr(), bytes.len, bytes.cap, off)
             }
         } else {
-            let shared = bytes.data as *mut Shared;
+            let shared = bytes.data;
 
             if unsafe { (*shared).is_unique() } {
                 let vec = mem::replace(unsafe { &mut (*shared).vec }, Vec::new());
