@@ -5,7 +5,6 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
 use std::panic::{self, AssertUnwindSafe};
-use std::usize;
 
 const LONG: &[u8] = b"mary had a little lamb, little lamb, little lamb";
 const SHORT: &[u8] = b"hello world";
@@ -82,7 +81,6 @@ fn fmt() {
 #[test]
 fn fmt_write() {
     use std::fmt::Write;
-    use std::iter::FromIterator;
     let s = String::from_iter((0..10).map(|_| "abcdefg"));
 
     let mut a = BytesMut::with_capacity(64);

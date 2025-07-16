@@ -1,8 +1,7 @@
-use core::iter::FromIterator;
 use core::mem::{self, ManuallyDrop};
 use core::ops::{Deref, RangeBounds};
 use core::ptr::NonNull;
-use core::{cmp, fmt, hash, ptr, slice, usize};
+use core::{cmp, fmt, hash, ptr, slice};
 
 use alloc::{
     alloc::{dealloc, Layout},
@@ -16,7 +15,7 @@ use crate::buf::IntoIter;
 #[allow(unused)]
 use crate::loom::sync::atomic::AtomicMut;
 use crate::loom::sync::atomic::{AtomicPtr, AtomicUsize, Ordering};
-use crate::{offset_from, Buf, BytesMut};
+use crate::{Buf, BytesMut};
 
 /// A cheaply cloneable and sliceable chunk of contiguous memory.
 ///
@@ -1235,7 +1234,7 @@ unsafe fn promotable_to_vec(
 
         let buf = f(shared);
 
-        let cap = offset_from(ptr, buf) + len;
+        let cap = ptr.offset_from(buf) as usize + len;
 
         // Copy back buffer
         ptr::copy(ptr, buf, len);
@@ -1263,7 +1262,7 @@ unsafe fn promotable_to_mut(
         debug_assert_eq!(kind, KIND_VEC);
 
         let buf = f(shared);
-        let off = offset_from(ptr, buf);
+        let off = ptr.offset_from(buf) as usize;
         let cap = off + len;
         let v = Vec::from_raw_parts(buf, cap, cap);
 
@@ -1348,7 +1347,7 @@ unsafe fn promotable_is_unique(data: &AtomicPtr<()>) -> bool {
 }
 
 unsafe fn free_boxed_slice(buf: *mut u8, offset: *const u8, len: usize) {
-    let cap = offset_from(offset, buf) + len;
+    let cap = offset.offset_from(buf) as usize + len;
     dealloc(buf, Layout::from_size_align(cap, 1).unwrap())
 }
 
@@ -1444,7 +1443,7 @@ unsafe fn shared_to_mut_impl(shared: *mut Shared, ptr: *const u8, len: usize) ->
         let cap = shared.cap;
 
         // Rebuild Vec
-        let off = offset_from(ptr, buf);
+        let off = ptr.offset_from(buf) as usize;
         let v = Vec::from_raw_parts(buf, len + off, cap);
 
         let mut b = BytesMut::from_vec(v);
@@ -1510,7 +1509,7 @@ unsafe fn shallow_clone_vec(
     // vector.
     let shared = Box::new(Shared {
         buf,
-        cap: offset_from(offset, buf) + len,
+        cap: offset.offset_from(buf) as usize + len,
         // Initialize refcount to 2. One for this reference, and one
         // for the new clone that will be returned from
         // `shallow_clone`.
