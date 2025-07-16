@@ -789,7 +789,7 @@ impl PartialEq for Bytes {
 
 impl PartialOrd for Bytes {
     fn partial_cmp(&self, other: &Bytes) -> Option<cmp::Ordering> {
-        self.as_slice().partial_cmp(other.as_slice())
+        Some(self.cmp(other))
     }
 }
 
@@ -1536,7 +1536,7 @@ unsafe fn shallow_clone_vec(
     // pointed to by `actual` will be visible.
     match atom.compare_exchange(ptr as _, shared as _, Ordering::AcqRel, Ordering::Acquire) {
         Ok(actual) => {
-            debug_assert!(actual as usize == ptr as usize);
+            debug_assert!(core::ptr::eq(actual, ptr));
             // The upgrade was successful, the new handle can be
             // returned.
             Bytes {
