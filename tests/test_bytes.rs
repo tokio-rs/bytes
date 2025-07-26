@@ -1029,6 +1029,18 @@ fn bytes_reserve_overflow() {
 }
 
 #[test]
+fn bytes_try_reserve_overflow() {
+    let mut bytes = BytesMut::with_capacity(1024);
+    bytes.put_slice(b"hello world");
+
+    let err = bytes.try_reserve(usize::MAX).unwrap_err();
+    assert_eq!(
+        "memory allocation failed because the computed capacity exceeded the collection's maximum",
+        err.to_string()
+    );
+}
+
+#[test]
 fn bytes_with_capacity_but_empty() {
     // See https://github.com/tokio-rs/bytes/issues/340
     let vec = Vec::with_capacity(1);
