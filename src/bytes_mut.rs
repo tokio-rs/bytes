@@ -225,7 +225,7 @@ impl BytesMut {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore-wasm
     /// use bytes::{BytesMut, BufMut};
     /// use std::thread;
     ///
