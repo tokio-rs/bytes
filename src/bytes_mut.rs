@@ -226,6 +226,9 @@ impl BytesMut {
     /// # Examples
     ///
     /// ```
+    /// # // Threads do not work on wasm.
+    /// # #[cfg(not(target_family = "wasm"))] {
+    ///
     /// use bytes::{BytesMut, BufMut};
     /// use std::thread;
     ///
@@ -240,6 +243,8 @@ impl BytesMut {
     ///
     /// assert_eq!(&b2[..], b"hello world");
     /// th.join().unwrap();
+    ///
+    /// # }
     /// ```
     #[inline]
     pub fn freeze(self) -> Bytes {
