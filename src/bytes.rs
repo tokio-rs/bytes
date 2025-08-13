@@ -15,6 +15,7 @@ use crate::buf::IntoIter;
 #[allow(unused)]
 use crate::loom::sync::atomic::AtomicMut;
 use crate::loom::sync::atomic::{AtomicPtr, AtomicUsize, Ordering};
+use crate::private::Private;
 use crate::{Buf, BytesMut};
 
 /// A cheaply cloneable and sliceable chunk of contiguous memory.
@@ -721,6 +722,13 @@ impl Buf for Bytes {
 
     fn copy_to_bytes(&mut self, len: usize) -> Self {
         self.split_to(len)
+    }
+
+    fn try_into_bytes(self, _: Private) -> Result<Bytes, Self>
+    where
+        Self: Sized,
+    {
+        Ok(self)
     }
 }
 

@@ -16,6 +16,7 @@ use crate::bytes::Vtable;
 #[allow(unused)]
 use crate::loom::sync::atomic::AtomicMut;
 use crate::loom::sync::atomic::{AtomicPtr, AtomicUsize, Ordering};
+use crate::private::Private;
 use crate::{Buf, BufMut, Bytes, TryGetError};
 
 /// A unique reference to a contiguous slice of memory.
@@ -1165,6 +1166,13 @@ impl Buf for BytesMut {
     fn copy_to_bytes(&mut self, len: usize) -> Bytes {
         self.split_to(len).freeze()
     }
+
+    fn try_into_bytes(self, _: Private) -> Result<Bytes, Self>
+    where
+        Self: Sized,
+    {
+        Ok(self.freeze())
+    }
 }
 
 unsafe impl BufMut for BytesMut {
@@ -1197,15 +1205,33 @@ unsafe impl BufMut for BytesMut {
     // Specialize these methods so they can skip checking `remaining_mut`
     // and `advance_mut`.
 
-    fn put<T: Buf>(&mut self, mut src: T)
+    fn put<T: Buf>(&mut self, src: T)
     where
         Self: Sized,
     {
-        while src.has_remaining() {
-            let s = src.chunk();
-            let l = s.len();
-            self.extend_from_slice(s);
-            src.advance(l);
+        match src.try_into_bytes(Private) {
+            Ok(bytes) => {
+                // `src` is `Bytes`.
+                if self.capacity() == 0 {
+                    // `self` is empty, try reusing the capacity of `src`.
+                    // We are checking `capacity`, not `len` because
+                    // self may have capacity reserved to fit all the data.
+                    match bytes.try_into_mut() {
+                        Ok(bytes_mut) => *self = bytes_mut,
+                        Err(bytes) => self.extend_from_slice(bytes.as_ref()),
+                    }
+                } else {
+                    self.extend_from_slice(bytes.as_ref());
+                }
+            }
+            Err(mut src) => {
+                while src.has_remaining() {
+                    let s = src.chunk();
+                    let l = s.len();
+                    self.extend_from_slice(s);
+                    src.advance(l);
+                }
+            }
         }
     }
 

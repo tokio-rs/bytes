@@ -3,11 +3,12 @@ use crate::buf::{reader, Reader};
 use crate::buf::{take, Chain, Take};
 #[cfg(feature = "std")]
 use crate::{min_u64_usize, saturating_sub_usize_u64};
-use crate::{panic_advance, panic_does_not_fit, TryGetError};
+use crate::{panic_advance, panic_does_not_fit, Bytes, TryGetError};
 
 #[cfg(feature = "std")]
 use std::io::IoSlice;
 
+use crate::private::Private;
 use alloc::boxed::Box;
 
 macro_rules! buf_try_get_impl {
@@ -268,6 +269,14 @@ pub trait Buf {
     /// ```
     fn has_remaining(&self) -> bool {
         self.remaining() > 0
+    }
+
+    #[doc(hidden)]
+    fn try_into_bytes(self, _: Private) -> Result<Bytes, Self>
+    where
+        Self: Sized,
+    {
+        Err(self)
     }
 
     /// Copies bytes from `self` into `dst`.

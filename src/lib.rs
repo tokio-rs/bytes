@@ -90,6 +90,12 @@ pub use crate::bytes_mut::BytesMut;
 #[cfg(feature = "serde")]
 mod serde;
 
+pub(crate) mod private {
+    // Marker for private API in public functions.
+    #[derive(Debug)]
+    pub struct Private;
+}
+
 #[inline(never)]
 #[cold]
 fn abort() -> ! {
