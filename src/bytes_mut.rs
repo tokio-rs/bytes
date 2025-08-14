@@ -1201,11 +1201,21 @@ unsafe impl BufMut for BytesMut {
     where
         Self: Sized,
     {
-        while src.has_remaining() {
-            let s = src.chunk();
-            let l = s.len();
-            self.extend_from_slice(s);
-            src.advance(l);
+        // When capacity is zero, try reusing allocation of `src`.
+        if self.capacity() == 0 {
+            let src_copy = src.copy_to_bytes(src.remaining());
+            drop(src);
+            match src_copy.try_into_mut() {
+                Ok(bytes_mut) => *self = bytes_mut,
+                Err(bytes) => self.extend_from_slice(&bytes),
+            }
+        } else {
+            while src.has_remaining() {
+                let s = src.chunk();
+                let l = s.len();
+                self.extend_from_slice(s);
+                src.advance(l);
+            }
         }
     }
 

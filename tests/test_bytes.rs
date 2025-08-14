@@ -1688,3 +1688,22 @@ fn owned_safe_drop_on_as_ref_panic() {
     assert!(result.is_err());
     assert_eq!(drop_counter.get(), 1);
 }
+
+/// Test `BytesMut::put` reuses allocation of `Bytes`.
+#[test]
+fn bytes_mut_put_bytes_specialization() {
+    let mut vec = Vec::with_capacity(1234);
+    vec.push(10);
+    let capacity = vec.capacity();
+    assert!(capacity >= 1234);
+
+    // Make `Bytes` backed by `Vec`.
+    let bytes = Bytes::from(vec);
+    let mut bytes_mut = BytesMut::new();
+    bytes_mut.put(bytes);
+
+    // Check contents is correct.
+    assert_eq!(&[10], bytes_mut.as_ref());
+    // If allocation is reused, capacity should be equal to original vec capacity.
+    assert_eq!(bytes_mut.capacity(), capacity);
+}
