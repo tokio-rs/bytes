@@ -1210,6 +1210,9 @@ unsafe impl BufMut for BytesMut {
                 Err(bytes) => self.extend_from_slice(&bytes),
             }
         } else {
+            // In case the src isn't contiguous, reserve upfront.
+            self.reserve(src.remaining());
+
             while src.has_remaining() {
                 let s = src.chunk();
                 let l = s.len();
