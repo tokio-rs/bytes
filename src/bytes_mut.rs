@@ -1170,7 +1170,8 @@ impl Buf for BytesMut {
 unsafe impl BufMut for BytesMut {
     #[inline]
     fn remaining_mut(&self) -> usize {
-        usize::MAX - self.len()
+        // Max allocation size is isize::MAX.
+        isize::MAX as usize - self.len()
     }
 
     #[inline]
