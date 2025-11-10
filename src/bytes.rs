@@ -267,10 +267,7 @@ impl Bytes {
         //                  and: https://github.com/tokio-rs/bytes/pull/742/#discussion_r1813316032
 
         let owned = Box::into_raw(Box::new(Owned {
-            lifetime: OwnedLifetime {
-                ref_cnt: AtomicUsize::new(1),
-                drop: owned_box_and_drop::<T>,
-            },
+            ref_cnt: AtomicUsize::new(1),
             owner,
         }));
 
@@ -278,7 +275,7 @@ impl Bytes {
             ptr: NonNull::dangling().as_ptr(),
             len: 0,
             data: AtomicPtr::new(owned.cast()),
-            vtable: &OWNED_VTABLE,
+            vtable: &Owned::<T>::VTABLE,
         };
 
         let buf = unsafe { &*owned }.owner.as_ref();
@@ -1108,83 +1105,73 @@ unsafe fn static_drop(_: &mut AtomicPtr<()>, _: *const u8, _: usize) {
 // ===== impl OwnedVtable =====
 
 #[repr(C)]
-struct OwnedLifetime {
-    ref_cnt: AtomicUsize,
-    drop: unsafe fn(*mut ()),
-}
-
-#[repr(C)]
 struct Owned<T> {
-    lifetime: OwnedLifetime,
+    ref_cnt: AtomicUsize,
     owner: T,
 }
 
-unsafe fn owned_box_and_drop<T>(ptr: *mut ()) {
-    let b: Box<Owned<T>> = Box::from_raw(ptr as _);
-    drop(b);
+impl<T> Owned<T> {
+    const VTABLE: Vtable = Vtable {
+        clone: owned_clone::<T>,
+        into_vec: owned_to_vec::<T>,
+        into_mut: owned_to_mut::<T>,
+        is_unique: owned_is_unique,
+        drop: owned_drop::<T>,
+    };
 }
 
-unsafe fn owned_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Bytes {
+unsafe fn owned_clone<T>(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Bytes {
     let owned = data.load(Ordering::Relaxed);
-    let ref_cnt = &(*owned.cast::<OwnedLifetime>()).ref_cnt;
-    let old_cnt = ref_cnt.fetch_add(1, Ordering::Relaxed);
+    let old_cnt = (*owned.cast::<AtomicUsize>()).fetch_add(1, Ordering::Relaxed);
     if old_cnt > usize::MAX >> 1 {
-        crate::abort()
+        crate::abort();
     }
 
     Bytes {
         ptr,
         len,
         data: AtomicPtr::new(owned as _),
-        vtable: &OWNED_VTABLE,
+        vtable: &Owned::<T>::VTABLE,
     }
 }
 
-unsafe fn owned_to_vec(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Vec<u8> {
+unsafe fn owned_to_vec<T>(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Vec<u8> {
     let slice = slice::from_raw_parts(ptr, len);
     let vec = slice.to_vec();
-    owned_drop_impl(data.load(Ordering::Relaxed));
+    owned_drop_impl::<T>(data.load(Ordering::Relaxed));
     vec
 }
 
-unsafe fn owned_to_mut(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> BytesMut {
-    BytesMut::from_vec(owned_to_vec(data, ptr, len))
+unsafe fn owned_to_mut<T>(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> BytesMut {
+    BytesMut::from_vec(owned_to_vec::<T>(data, ptr, len))
 }
 
 unsafe fn owned_is_unique(_data: &AtomicPtr<()>) -> bool {
     false
 }
 
-unsafe fn owned_drop_impl(owned: *mut ()) {
-    let lifetime = owned.cast::<OwnedLifetime>();
-    let ref_cnt = &(*lifetime).ref_cnt;
+unsafe fn owned_drop_impl<T>(owned: *mut ()) {
+    {
+        let ref_cnt = &*owned.cast::<AtomicUsize>();
 
-    let old_cnt = ref_cnt.fetch_sub(1, Ordering::Release);
-    debug_assert!(
-        old_cnt > 0 && old_cnt <= usize::MAX >> 1,
-        "expected non-zero refcount and no underflow"
-    );
-    if old_cnt != 1 {
-        return;
+        let old_cnt = ref_cnt.fetch_sub(1, Ordering::Release);
+        debug_assert!(
+            old_cnt > 0 && old_cnt <= usize::MAX >> 1,
+            "expected non-zero refcount and no underflow"
+        );
+        if old_cnt != 1 {
+            return;
+        }
+        ref_cnt.load(Ordering::Acquire);
     }
-    ref_cnt.load(Ordering::Acquire);
 
-    let drop_fn = &(*lifetime).drop;
-    drop_fn(owned)
+    drop(Box::<Owned<T>>::from_raw(owned.cast()));
 }
 
-unsafe fn owned_drop(data: &mut AtomicPtr<()>, _ptr: *const u8, _len: usize) {
+unsafe fn owned_drop<T>(data: &mut AtomicPtr<()>, _ptr: *const u8, _len: usize) {
     let owned = data.load(Ordering::Relaxed);
-    owned_drop_impl(owned);
+    owned_drop_impl::<T>(owned);
 }
-
-static OWNED_VTABLE: Vtable = Vtable {
-    clone: owned_clone,
-    into_vec: owned_to_vec,
-    into_mut: owned_to_mut,
-    is_unique: owned_is_unique,
-    drop: owned_drop,
-};
 
 // ===== impl PromotableVtable =====
 
