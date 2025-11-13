@@ -2365,9 +2365,15 @@ pub trait Buf {
             });
         }
 
-        let mut ret = crate::BytesMut::with_capacity(len);
-        ret.put(self.take(len));
-        ret.freeze()
+        if len == 0 {
+            // return empty Bytes here to avoid stack overflow by prevent
+            // `BytesMut::with_capacity(0)` trying to reuse allocation of `self`.
+            return crate::Bytes::new();
+        } else {
+            let mut ret = crate::BytesMut::with_capacity(len);
+            ret.put(self.take(len));
+            ret.freeze()
+        }
     }
 
     /// Creates an adaptor which will read at most `limit` bytes from `self`.
