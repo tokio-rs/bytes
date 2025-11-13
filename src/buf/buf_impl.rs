@@ -2368,7 +2368,7 @@ pub trait Buf {
         if len == 0 {
             // return empty Bytes here to avoid stack overflow by prevent
             // `BytesMut::with_capacity(0)` trying to reuse allocation of `self`.
-            return crate::Bytes::new();
+            crate::Bytes::new()
         } else {
             let mut ret = crate::BytesMut::with_capacity(len);
             ret.put(self.take(len));
@@ -2966,3 +2966,33 @@ impl<T: AsRef<[u8]>> Buf for std::io::Cursor<T> {
 // The existence of this function makes the compiler catch if the Buf
 // trait is "object-safe" or not.
 fn _assert_trait_object(_b: &dyn Buf) {}
+
+#[cfg(test)]
+mod tests {
+    use crate::{Buf, BufMut as _, Bytes, BytesMut};
+
+    #[test]
+    fn default_copy_to_bytes_impl() {
+        #[derive(Clone)]
+        struct Buffer(Bytes);
+
+        impl Buf for Buffer {
+            fn remaining(&self) -> usize {
+                self.0.len()
+            }
+
+            fn chunk(&self) -> &[u8] {
+                self.0.chunk()
+            }
+
+            fn advance(&mut self, cnt: usize) {
+                self.0.advance(cnt);
+            }
+        }
+
+        let buf = Buffer(Bytes::new());
+
+        let mut ret = BytesMut::with_capacity(0);
+        ret.put(buf.clone());
+    }
+}
