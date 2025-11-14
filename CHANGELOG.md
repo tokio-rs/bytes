@@ -1,25 +1,26 @@
 # 1.11.0 (November 14th, 2025)
 
+- Bump MSRV to 1.57 (#788)
+
 ### Fixed
 
-- Guarantee address in slice() for empty slices. (#780)
-- fix: BytesMut only reuse if src has remaining (#803)
+- Guarantee address in `slice()` for empty slices. (#780)
+- fix: `BytesMut` only reuse if src has remaining (#803)
 
 ### Internal changes
 
 - Rename `Vtable::to_*` -> `Vtable::into_*` (#776)
-- Bump MSRV to 1.57 (#788)
 - Fix latest clippy warnings (#787)
-- Ignore BytesMut::freeze doctest on wasm (#790)
+- Ignore `BytesMut::freeze` doctest on wasm (#790)
 - Specialize `BytesMut::put::<Bytes>` (#793)
 - Reserve capacity in `BytesMut::put` (#794)
-- Tweak BytesMut::remaining_mut (#795)
-- Move drop_fn of from_owner into vtable (#801)
+- Tweak `BytesMut::remaining_mut` (#795)
+- Move `drop_fn` of `from_owner` into vtable (#801)
 
 ### Added
 
 - Add missing tests in test_bytes
-- Add some tests for Limit, BytesMut and Reader (#785)
+- Add some tests for `Limit`, `BytesMut` and `Reader` (#785)
 
 # 1.10.1 (March 5th, 2025)
 
