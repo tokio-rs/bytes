@@ -4,7 +4,6 @@
 
 ### Fixed
 
-- Guarantee address in `slice()` for empty slices. (#780)
 - fix: `BytesMut` only reuse if src has remaining (#803)
 - Specialize `BytesMut::put::<Bytes>` (#793)
 - Reserve capacity in `BytesMut::put` (#794)
@@ -12,6 +11,7 @@
 
 ### Internal changes
 
+- Guarantee address in `slice()` for empty slices. (#780)
 - Rename `Vtable::to_*` -> `Vtable::into_*` (#776)
 - Fix latest clippy warnings (#787)
 - Ignore `BytesMut::freeze` doctest on wasm (#790)
