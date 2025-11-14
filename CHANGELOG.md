@@ -11,8 +11,8 @@
 - Bump MSRV to 1.57 (#788)
 - Fix latest clippy warnings (#787)
 - Ignore BytesMut::freeze doctest on wasm (#790)
-- Specialize BytesMut::put::<Bytes> (#793)
-- Reserve capacity in BytesMut::put (#794)
+- Specialize `BytesMut::put::<Bytes>` (#793)
+- Reserve capacity in `BytesMut::put` (#794)
 - Tweak BytesMut::remaining_mut (#795)
 - Move drop_fn of from_owner into vtable (#801)
 
