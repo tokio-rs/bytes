@@ -1203,7 +1203,7 @@ unsafe impl BufMut for BytesMut {
         Self: Sized,
     {
         // When capacity is zero, try reusing allocation of `src`.
-        if self.capacity() == 0 {
+        if self.capacity() == 0 && src.has_remaining() {
             let src_copy = src.copy_to_bytes(src.remaining());
             drop(src);
             match src_copy.try_into_mut() {
@@ -1511,6 +1511,12 @@ fn original_capacity_from_repr(repr: usize) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_bytes_mut_reuse() {
+        let mut buf = BytesMut::new();
+        buf.put(&[] as &[u8]);
+    }
 
     #[test]
     fn test_original_capacity_to_repr() {
