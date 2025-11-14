@@ -6,15 +6,15 @@
 
 - Guarantee address in `slice()` for empty slices. (#780)
 - fix: `BytesMut` only reuse if src has remaining (#803)
+- Specialize `BytesMut::put::<Bytes>` (#793)
+- Reserve capacity in `BytesMut::put` (#794)
+- Change `BytesMut::remaining_mut` to use `isize::MAX` instead of `usize::MAX` (#795)
 
 ### Internal changes
 
 - Rename `Vtable::to_*` -> `Vtable::into_*` (#776)
 - Fix latest clippy warnings (#787)
 - Ignore `BytesMut::freeze` doctest on wasm (#790)
-- Specialize `BytesMut::put::<Bytes>` (#793)
-- Reserve capacity in `BytesMut::put` (#794)
-- Tweak `BytesMut::remaining_mut` (#795)
 - Move `drop_fn` of `from_owner` into vtable (#801)
 
 # 1.10.1 (March 5th, 2025)
