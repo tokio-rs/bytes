@@ -17,11 +17,6 @@
 - Tweak `BytesMut::remaining_mut` (#795)
 - Move `drop_fn` of `from_owner` into vtable (#801)
 
-### Added
-
-- Add missing tests in test_bytes
-- Add some tests for `Limit`, `BytesMut` and `Reader` (#785)
-
 # 1.10.1 (March 5th, 2025)
 
 ### Fixed
