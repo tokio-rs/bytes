@@ -273,3 +273,12 @@ fn copy_from_slice_panics_if_different_length_2() {
     let slice = unsafe { UninitSlice::from_raw_parts_mut(data.as_mut_ptr(), 3) };
     slice.copy_from_slice(b"abcd");
 }
+
+/// Test if with zero capacity BytesMut does not infinitely recurse in put from Buf
+#[test]
+fn test_bytes_mut_reuse() {
+    let mut buf = BytesMut::new();
+    buf.put(&[] as &[u8]);
+    let mut buf = BytesMut::new();
+    buf.put(&[1u8, 2, 3] as &[u8]);
+}
