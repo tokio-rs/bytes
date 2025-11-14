@@ -1205,7 +1205,7 @@ unsafe impl BufMut for BytesMut {
         if !src.has_remaining() {
             // prevent calling `copy_to_bytes`->`put`->`copy_to_bytes` infintely when src is empty
             return;
-        } else if self.capacity() == 0 && src.has_remaining() {
+        } else if self.capacity() == 0 {
             // When capacity is zero, try reusing allocation of `src`.
             let src_copy = src.copy_to_bytes(src.remaining());
             drop(src);
