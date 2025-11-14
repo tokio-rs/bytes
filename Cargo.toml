@@ -23,12 +23,17 @@ default = ["std"]
 std = []
 
 [dependencies]
-serde = { version = "1.0.60", optional = true, default-features = false, features = ["alloc"] }
+serde = { package = "serde_core", version = "1.0.220", optional = true, default-features = false, features = ["alloc"] }
 # Use portable-atomic crate to support platforms without atomic CAS.
 # See "no_std support" section in readme for more information.
 #
 # Enable require-cas feature to provide a better error message if the end user forgets to use the cfg or feature.
 extra-platforms = { package = "portable-atomic", version = "1.3", optional = true, default-features = false, features = ["require-cas"] }
+
+# serde v1.0.220 is the first version that released with `serde_core`.
+# This is required to avoid conflict with other `serde` users which may require an older version.
+[target.'cfg(any())'.dependencies]
+serde = { version = "1.0.220", default-features = false }
 
 [dev-dependencies]
 serde_test = "1.0"
