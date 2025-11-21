@@ -86,8 +86,13 @@ macro_rules! buf_get_impl {
 
 // https://en.wikipedia.org/wiki/Sign_extension
 fn sign_extend(val: u64, nbytes: usize) -> i64 {
-    let shift = (8 - nbytes) * 8;
-    (val << shift) as i64 >> shift
+    if nbytes == 0 {
+        // avoid `val << 64` panic
+        0
+    } else {
+        let shift = (8 - nbytes) * 8;
+        (val << shift) as i64 >> shift
+    }
 }
 
 /// Read bytes from a buffer.

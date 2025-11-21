@@ -250,12 +250,12 @@ macro_rules! buf_tests {
         buf_tests!(number $make_input, get_f64_le, get_f64_le_overflow, f64, get_f64_le, f64::from_bits(0x7144726a727146ff));
         buf_tests!(number $make_input, get_f64_ne, get_f64_ne_overflow, f64, get_f64_ne, f64::from_bits(e!(0xff4671726a724471, 0x7144726a727146ff)));
 
-        buf_tests!(var_number $make_input, get_uint_be, get_uint_be_overflow, u64, get_uint, 3, 0xff4671);
-        buf_tests!(var_number $make_input, get_uint_le, get_uint_le_overflow, u64, get_uint_le, 3, 0x7146ff);
-        buf_tests!(var_number $make_input, get_uint_ne, get_uint_ne_overflow, u64, get_uint_ne, 3, e!(0xff4671, 0x7146ff));
-        buf_tests!(var_number $make_input, get_int_be, get_int_be_overflow, i64, get_int, 3, 0xffffffffffff4671u64 as i64);
-        buf_tests!(var_number $make_input, get_int_le, get_int_le_overflow, i64, get_int_le, 3, 0x7146ff);
-        buf_tests!(var_number $make_input, get_int_ne, get_int_ne_overflow, i64, get_int_ne, 3, e!(0xffffffffffff4671u64 as i64, 0x7146ff));
+        buf_tests!(var_number $make_input, get_uint_be, get_uint_be_zero, get_uint_be_overflow, u64, get_uint, 3, 0xff4671);
+        buf_tests!(var_number $make_input, get_uint_le, get_uint_le_zero, get_uint_le_overflow, u64, get_uint_le, 3, 0x7146ff);
+        buf_tests!(var_number $make_input, get_uint_ne, get_uint_ne_zero, get_uint_ne_overflow, u64, get_uint_ne, 3, e!(0xff4671, 0x7146ff));
+        buf_tests!(var_number $make_input, get_int_be, get_int_be_zero, get_int_be_overflow, i64, get_int, 3, 0xffffffffffff4671u64 as i64);
+        buf_tests!(var_number $make_input, get_int_le, get_int_le_zero, get_int_le_overflow, i64, get_int_le, 3, 0x7146ff);
+        buf_tests!(var_number $make_input, get_int_ne, get_int_ne_zero, get_int_ne_overflow, i64, get_int_ne, 3, e!(0xffffffffffff4671u64 as i64, 0x7146ff));
     };
     (number $make_input:ident, $ok_name:ident, $panic_name:ident, $number:ty, $method:ident, $value:expr) => {
         #[test]
@@ -276,7 +276,7 @@ macro_rules! buf_tests {
             let _ = buf.$method();
         }
     };
-    (var_number $make_input:ident, $ok_name:ident, $panic_name:ident, $number:ty, $method:ident, $len:expr, $value:expr) => {
+    (var_number $make_input:ident, $ok_name:ident, $ok_zero_name:ident, $panic_name:ident, $number:ty, $method:ident, $len:expr, $value:expr) => {
         #[test]
         fn $ok_name() {
             let mut buf = $make_input(INPUT);
@@ -285,6 +285,17 @@ macro_rules! buf_tests {
             assert_eq!(buf.remaining(), 64 - $len);
             assert!(buf.has_remaining());
             assert_eq!(value, $value);
+        }
+
+        // Regression test for https://github.com/tokio-rs/bytes/issues/798
+        #[test]
+        fn $ok_zero_name() {
+            let mut buf = $make_input(INPUT);
+
+            let value = buf.$method(0);
+            assert_eq!(buf.remaining(), 64);
+            assert!(buf.has_remaining());
+            assert_eq!(value, 0);
         }
 
         #[test]
