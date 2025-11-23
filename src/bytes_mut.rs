@@ -551,6 +551,8 @@ impl BytesMut {
     /// and the original buffer is large enough to fit the requested additional
     /// capacity, then reallocations will never happen.
     ///
+    /// This method does not preserve data stored in the unused capacity.
+    ///
     /// # Examples
     ///
     /// In the following example, a new buffer is allocated.
@@ -796,6 +798,8 @@ impl BytesMut {
     /// Reclaiming the allocation cheaply is possible if the `BytesMut` has no outstanding
     /// references through other `BytesMut`s or `Bytes` which point to the same underlying
     /// storage.
+    ///
+    /// This method does not preserve data stored in the unused capacity.
     ///
     /// # Examples
     ///
