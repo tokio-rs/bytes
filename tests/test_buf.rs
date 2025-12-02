@@ -448,3 +448,14 @@ fn test_deref_buf_forwards() {
     assert_eq!((Box::new(Special) as Box<dyn Buf>).get_u8(), b'x');
     assert_eq!(Box::new(Special).get_u8(), b'x');
 }
+
+#[test]
+fn copy_to_bytes_mut() {
+    let mut bytes_mut = BytesMut::from(b"foobar".as_slice());
+    let ptr = bytes_mut.as_ptr();
+    let ret = bytes_mut.copy_to_bytes(bytes_mut.len());
+    assert_eq!(ret.as_ptr(), ptr);
+    drop(bytes_mut);
+    let bytes_mut2 = BytesMut::from(ret);
+    assert_eq!(bytes_mut2.as_ptr(), ptr);
+}
