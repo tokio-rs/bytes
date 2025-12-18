@@ -83,8 +83,10 @@ mod bytes;
 mod bytes_mut;
 mod fmt;
 mod loom;
+mod try_alloc;
 pub use crate::bytes::Bytes;
 pub use crate::bytes_mut::BytesMut;
+pub use crate::try_alloc::TryReserveError;
 
 // Optional Serde support
 #[cfg(feature = "serde")]
