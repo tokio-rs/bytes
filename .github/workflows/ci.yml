@@ -90,6 +90,13 @@ jobs:
       - name: Test
         run: ci/test-stable.sh test
 
+  msrv:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: taiki-e/install-action@cargo-hack
+      - run: cargo hack --no-dev-deps --rust-version check --all
+
   panic-abort:
     name: panic=abort tests
     runs-on: ubuntu-latest
