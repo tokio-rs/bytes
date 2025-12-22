@@ -16,8 +16,8 @@ struct TestBuf {
     readlen: usize,
 }
 impl TestBuf {
-    fn new(buf: &'static [u8], readlens: &'static [usize], init_pos: usize) -> TestBuf {
-        let mut buf = TestBuf {
+    fn new(buf: &'static [u8], readlens: &'static [usize], init_pos: usize) -> Self {
+        let mut buf = Self {
             buf,
             readlens,
             init_pos,
@@ -68,13 +68,13 @@ struct TestBufC {
     inner: TestBuf,
 }
 impl TestBufC {
-    fn new(buf: &'static [u8], readlens: &'static [usize], init_pos: usize) -> TestBufC {
-        TestBufC {
+    fn new(buf: &'static [u8], readlens: &'static [usize], init_pos: usize) -> Self {
+        Self {
             inner: TestBuf::new(buf, readlens, init_pos),
         }
     }
     fn reset(&mut self) {
-        self.inner.reset()
+        self.inner.reset();
     }
 }
 impl Buf for TestBufC {
@@ -84,7 +84,7 @@ impl Buf for TestBufC {
     }
     #[inline(never)]
     fn advance(&mut self, cnt: usize) {
-        self.inner.advance(cnt)
+        self.inner.advance(cnt);
     }
     #[inline(never)]
     fn chunk(&self) -> &[u8] {
