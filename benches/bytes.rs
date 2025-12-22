@@ -14,7 +14,7 @@ fn deref_unique(b: &mut Bencher) {
         for _ in 0..1024 {
             test::black_box(&buf[..]);
         }
-    })
+    });
 }
 
 #[bench]
@@ -26,7 +26,7 @@ fn deref_shared(b: &mut Bencher) {
         for _ in 0..1024 {
             test::black_box(&buf[..]);
         }
-    })
+    });
 }
 
 #[bench]
@@ -37,7 +37,7 @@ fn deref_static(b: &mut Bencher) {
         for _ in 0..1024 {
             test::black_box(&buf[..]);
         }
-    })
+    });
 }
 
 #[bench]
@@ -49,7 +49,7 @@ fn clone_static(b: &mut Bencher) {
         for _ in 0..1024 {
             test::black_box(test::black_box(&bytes).clone());
         }
-    })
+    });
 }
 
 #[bench]
@@ -60,7 +60,7 @@ fn clone_shared(b: &mut Bencher) {
         for _ in 0..1024 {
             test::black_box(test::black_box(&bytes).clone());
         }
-    })
+    });
 }
 
 #[bench]
@@ -72,7 +72,7 @@ fn clone_arc_vec(b: &mut Bencher) {
         for _ in 0..1024 {
             test::black_box(test::black_box(&bytes).clone());
         }
-    })
+    });
 }
 
 #[bench]
@@ -82,7 +82,7 @@ fn from_long_slice(b: &mut Bencher) {
     b.iter(|| {
         let buf = Bytes::copy_from_slice(&data[..]);
         test::black_box(buf);
-    })
+    });
 }
 
 #[bench]
@@ -93,7 +93,7 @@ fn slice_empty(b: &mut Bencher) {
         for i in 0..1000 {
             test::black_box(b.slice(i % 100..i % 100));
         }
-    })
+    });
 }
 
 #[bench]
@@ -104,7 +104,7 @@ fn slice_short_from_arc(b: &mut Bencher) {
         for i in 0..1000 {
             test::black_box(b.slice(1..2 + i % 10));
         }
-    })
+    });
 }
 
 #[bench]
@@ -116,5 +116,5 @@ fn split_off_and_drop(b: &mut Bencher) {
             test::black_box(b.split_off(100));
             test::black_box(b);
         }
-    })
+    });
 }

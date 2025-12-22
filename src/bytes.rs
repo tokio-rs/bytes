@@ -139,7 +139,7 @@ impl Bytes {
         // Make it a named const to work around
         // "unsizing casts are not allowed in const fn"
         const EMPTY: &[u8] = &[];
-        Bytes::from_static(EMPTY)
+        Self::from_static(EMPTY)
     }
 
     /// Creates a new empty `Bytes`.
@@ -165,7 +165,7 @@ impl Bytes {
     #[inline]
     #[cfg(not(all(loom, test)))]
     pub const fn from_static(bytes: &'static [u8]) -> Self {
-        Bytes {
+        Self {
             ptr: bytes.as_ptr(),
             len: bytes.len(),
             data: AtomicPtr::new(ptr::null_mut()),
@@ -192,7 +192,7 @@ impl Bytes {
         // to the provenance of the fake ZST [u8;0] at the same address.
         let ptr = without_provenance(ptr as usize);
 
-        Bytes {
+        Self {
             ptr,
             len: 0,
             data: AtomicPtr::new(ptr::null_mut()),
@@ -271,7 +271,7 @@ impl Bytes {
             owner,
         }));
 
-        let mut ret = Bytes {
+        let mut ret = Self {
             ptr: NonNull::dangling().as_ptr(),
             len: 0,
             data: AtomicPtr::new(owned.cast()),
@@ -397,7 +397,7 @@ impl Bytes {
         );
 
         if end == begin {
-            return Bytes::new_empty_with_ptr(self.ptr.wrapping_add(begin));
+            return Self::new_empty_with_ptr(self.ptr.wrapping_add(begin));
         }
 
         let mut ret = self.clone();
@@ -437,7 +437,7 @@ impl Bytes {
         // Empty slice and empty Bytes may have their pointers reset
         // so explicitly allow empty slice to be a subslice of any slice.
         if subset.is_empty() {
-            return Bytes::new();
+            return Self::new();
         }
 
         let bytes_p = self.as_ptr() as usize;
@@ -494,11 +494,11 @@ impl Bytes {
     #[must_use = "consider Bytes::truncate if you don't need the other half"]
     pub fn split_off(&mut self, at: usize) -> Self {
         if at == self.len() {
-            return Bytes::new_empty_with_ptr(self.ptr.wrapping_add(at));
+            return Self::new_empty_with_ptr(self.ptr.wrapping_add(at));
         }
 
         if at == 0 {
-            return mem::replace(self, Bytes::new_empty_with_ptr(self.ptr));
+            return mem::replace(self, Self::new_empty_with_ptr(self.ptr));
         }
 
         assert!(
@@ -544,11 +544,11 @@ impl Bytes {
     pub fn split_to(&mut self, at: usize) -> Self {
         if at == self.len() {
             let end_ptr = self.ptr.wrapping_add(at);
-            return mem::replace(self, Bytes::new_empty_with_ptr(end_ptr));
+            return mem::replace(self, Self::new_empty_with_ptr(end_ptr));
         }
 
         if at == 0 {
-            return Bytes::new_empty_with_ptr(self.ptr);
+            return Self::new_empty_with_ptr(self.ptr);
         }
 
         assert!(
@@ -624,7 +624,7 @@ impl Bytes {
     /// and return self.
     ///
     /// This will also always fail if the buffer was constructed via either
-    /// [from_owner](Bytes::from_owner) or [from_static](Bytes::from_static).
+    /// [`from_owner`](Bytes::from_owner) or [`from_static`](Bytes::from_static).
     ///
     /// # Examples
     ///
@@ -634,7 +634,7 @@ impl Bytes {
     /// let bytes = Bytes::from(b"hello".to_vec());
     /// assert_eq!(bytes.try_into_mut(), Ok(BytesMut::from(&b"hello"[..])));
     /// ```
-    pub fn try_into_mut(self) -> Result<BytesMut, Bytes> {
+    pub fn try_into_mut(self) -> Result<BytesMut, Self> {
         if self.is_unique() {
             Ok(self.into())
         } else {
@@ -648,8 +648,8 @@ impl Bytes {
         len: usize,
         data: AtomicPtr<()>,
         vtable: &'static Vtable,
-    ) -> Bytes {
-        Bytes {
+    ) -> Self {
+        Self {
             ptr,
             len,
             data,
@@ -686,7 +686,7 @@ impl Drop for Bytes {
 
 impl Clone for Bytes {
     #[inline]
-    fn clone(&self) -> Bytes {
+    fn clone(&self) -> Self {
         unsafe { (self.vtable.clone)(&self.data, self.ptr, self.len) }
     }
 }
@@ -754,7 +754,7 @@ impl Borrow<[u8]> for Bytes {
 
 impl IntoIterator for Bytes {
     type Item = u8;
-    type IntoIter = IntoIter<Bytes>;
+    type IntoIter = IntoIter<Self>;
 
     fn into_iter(self) -> Self::IntoIter {
         IntoIter::new(self)
@@ -779,19 +779,19 @@ impl FromIterator<u8> for Bytes {
 // impl Eq
 
 impl PartialEq for Bytes {
-    fn eq(&self, other: &Bytes) -> bool {
+    fn eq(&self, other: &Self) -> bool {
         self.as_slice() == other.as_slice()
     }
 }
 
 impl PartialOrd for Bytes {
-    fn partial_cmp(&self, other: &Bytes) -> Option<cmp::Ordering> {
+    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
 
 impl Ord for Bytes {
-    fn cmp(&self, other: &Bytes) -> cmp::Ordering {
+    fn cmp(&self, other: &Self) -> cmp::Ordering {
         self.as_slice().cmp(other.as_slice())
     }
 }
@@ -920,7 +920,7 @@ impl PartialOrd<Bytes> for &str {
 
 impl<'a, T: ?Sized> PartialEq<&'a T> for Bytes
 where
-    Bytes: PartialEq<T>,
+    Self: PartialEq<T>,
 {
     fn eq(&self, other: &&'a T) -> bool {
         *self == **other
@@ -929,7 +929,7 @@ where
 
 impl<'a, T: ?Sized> PartialOrd<&'a T> for Bytes
 where
-    Bytes: PartialOrd<T>,
+    Self: PartialOrd<T>,
 {
     fn partial_cmp(&self, other: &&'a T) -> Option<cmp::Ordering> {
         self.partial_cmp(&**other)
@@ -940,25 +940,25 @@ where
 
 impl Default for Bytes {
     #[inline]
-    fn default() -> Bytes {
-        Bytes::new()
+    fn default() -> Self {
+        Self::new()
     }
 }
 
 impl From<&'static [u8]> for Bytes {
-    fn from(slice: &'static [u8]) -> Bytes {
-        Bytes::from_static(slice)
+    fn from(slice: &'static [u8]) -> Self {
+        Self::from_static(slice)
     }
 }
 
 impl From<&'static str> for Bytes {
-    fn from(slice: &'static str) -> Bytes {
-        Bytes::from_static(slice.as_bytes())
+    fn from(slice: &'static str) -> Self {
+        Self::from_static(slice.as_bytes())
     }
 }
 
 impl From<Vec<u8>> for Bytes {
-    fn from(vec: Vec<u8>) -> Bytes {
+    fn from(vec: Vec<u8>) -> Self {
         let mut vec = ManuallyDrop::new(vec);
         let ptr = vec.as_mut_ptr();
         let len = vec.len();
@@ -967,7 +967,7 @@ impl From<Vec<u8>> for Bytes {
         // Avoid an extra allocation if possible.
         if len == cap {
             let vec = ManuallyDrop::into_inner(vec);
-            return Bytes::from(vec.into_boxed_slice());
+            return Self::from(vec.into_boxed_slice());
         }
 
         let shared = Box::new(Shared {
@@ -983,7 +983,7 @@ impl From<Vec<u8>> for Bytes {
             0 == (shared as usize & KIND_MASK),
             "internal: Box<Shared> should have an aligned pointer",
         );
-        Bytes {
+        Self {
             ptr,
             len,
             data: AtomicPtr::new(shared as _),
@@ -993,12 +993,12 @@ impl From<Vec<u8>> for Bytes {
 }
 
 impl From<Box<[u8]>> for Bytes {
-    fn from(slice: Box<[u8]>) -> Bytes {
+    fn from(slice: Box<[u8]>) -> Self {
         // Box<[u8]> doesn't contain a heap allocation for empty slices,
         // so the pointer isn't aligned enough for the KIND_VEC stashing to
         // work.
         if slice.is_empty() {
-            return Bytes::new();
+            return Self::new();
         }
 
         let len = slice.len();
@@ -1006,14 +1006,14 @@ impl From<Box<[u8]>> for Bytes {
 
         if ptr as usize & 0x1 == 0 {
             let data = ptr_map(ptr, |addr| addr | KIND_VEC);
-            Bytes {
+            Self {
                 ptr,
                 len,
                 data: AtomicPtr::new(data.cast()),
                 vtable: &PROMOTABLE_EVEN_VTABLE,
             }
         } else {
-            Bytes {
+            Self {
                 ptr,
                 len,
                 data: AtomicPtr::new(ptr.cast()),
@@ -1046,13 +1046,13 @@ impl From<Bytes> for BytesMut {
 }
 
 impl From<String> for Bytes {
-    fn from(s: String) -> Bytes {
-        Bytes::from(s.into_bytes())
+    fn from(s: String) -> Self {
+        Self::from(s.into_bytes())
     }
 }
 
 impl From<Bytes> for Vec<u8> {
-    fn from(bytes: Bytes) -> Vec<u8> {
+    fn from(bytes: Bytes) -> Self {
         let bytes = ManuallyDrop::new(bytes);
         unsafe { (bytes.vtable.into_vec)(&bytes.data, bytes.ptr, bytes.len) }
     }
@@ -1335,7 +1335,7 @@ unsafe fn promotable_is_unique(data: &AtomicPtr<()>) -> bool {
 
 unsafe fn free_boxed_slice(buf: *mut u8, offset: *const u8, len: usize) {
     let cap = offset.offset_from(buf) as usize + len;
-    dealloc(buf, Layout::from_size_align(cap, 1).unwrap())
+    dealloc(buf, Layout::from_size_align(cap, 1).unwrap());
 }
 
 // ===== impl SharedVtable =====

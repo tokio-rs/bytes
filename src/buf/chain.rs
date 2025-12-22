@@ -34,8 +34,8 @@ pub struct Chain<T, U> {
 
 impl<T, U> Chain<T, U> {
     /// Creates a new `Chain` sequencing the provided values.
-    pub(crate) fn new(a: T, b: U) -> Chain<T, U> {
-        Chain { a, b }
+    pub(crate) fn new(a: T, b: U) -> Self {
+        Self { a, b }
     }
 
     /// Gets a reference to the first underlying `Buf`.
@@ -232,7 +232,7 @@ where
     U: Buf,
 {
     type Item = u8;
-    type IntoIter = IntoIter<Chain<T, U>>;
+    type IntoIter = IntoIter<Self>;
 
     fn into_iter(self) -> Self::IntoIter {
         IntoIter::new(self)

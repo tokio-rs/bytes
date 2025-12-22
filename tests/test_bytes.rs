@@ -81,16 +81,16 @@ fn fmt() {
 #[test]
 fn fmt_write() {
     use std::fmt::Write;
-    let s = String::from_iter((0..10).map(|_| "abcdefg"));
+    let s: String = (0..10).map(|_| "abcdefg").collect();
 
     let mut a = BytesMut::with_capacity(64);
     write!(a, "{}", &s[..64]).unwrap();
-    assert_eq!(a, s[..64].as_bytes());
+    assert_eq!(a, &s.as_bytes()[..64]);
 
     let mut b = BytesMut::with_capacity(64);
     write!(b, "{}", &s[..32]).unwrap();
     write!(b, "{}", &s[32..64]).unwrap();
-    assert_eq!(b, s[..64].as_bytes());
+    assert_eq!(b, &s.as_bytes()[..64]);
 
     let mut c = BytesMut::with_capacity(64);
     write!(c, "{}", s).unwrap();
@@ -159,6 +159,7 @@ fn slice_oob_2() {
 #[should_panic]
 fn slice_start_greater_than_end() {
     let a = Bytes::from(&b"hello world"[..]);
+    #[allow(clippy::reversed_empty_ranges)]
     a.slice(5..3);
 }
 
@@ -207,7 +208,7 @@ fn split_off_uninitialized() {
 fn split_off_to_loop() {
     let s = b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
-    for i in 0..(s.len() + 1) {
+    for i in 0..=s.len() {
         {
             let mut bytes = Bytes::from(&s[..]);
             let off = bytes.split_off(i);
@@ -431,7 +432,7 @@ fn fns_defined_for_bytes_mut() {
     let _ = bytes.as_mut_ptr();
 
     // Iterator
-    let v: Vec<u8> = bytes.as_ref().iter().cloned().collect();
+    let v: Vec<u8> = bytes.as_ref().to_vec();
     assert_eq!(&v[..], bytes);
 }
 
@@ -1108,7 +1109,7 @@ fn test_bytes_into_vec() {
     eprintln!("4");
     let b2 = b1.clone();
 
-    eprintln!("{:#?}", (&*b1).as_ptr());
+    eprintln!("{:#?}", (*b1).as_ptr());
 
     // shared.is_unique() = False
     eprintln!("5");
@@ -1359,12 +1360,12 @@ fn test_bytesmut_from_bytes_promotable_even_arc_offset() {
 #[test]
 fn try_reclaim_empty() {
     let mut buf = BytesMut::new();
-    assert_eq!(false, buf.try_reclaim(6));
+    assert!(!buf.try_reclaim(6));
     buf.reserve(6);
-    assert_eq!(true, buf.try_reclaim(6));
+    assert!(buf.try_reclaim(6));
     let cap = buf.capacity();
     assert!(cap >= 6);
-    assert_eq!(false, buf.try_reclaim(cap + 1));
+    assert!(!buf.try_reclaim(cap + 1));
 
     let mut buf = BytesMut::new();
     buf.reserve(6);
@@ -1373,8 +1374,8 @@ fn try_reclaim_empty() {
     let mut split = buf.split();
     drop(buf);
     assert_eq!(0, split.capacity());
-    assert_eq!(true, split.try_reclaim(6));
-    assert_eq!(false, split.try_reclaim(cap + 1));
+    assert!(split.try_reclaim(6));
+    assert!(!split.try_reclaim(cap + 1));
 }
 
 #[test]
@@ -1382,17 +1383,17 @@ fn try_reclaim_vec() {
     let mut buf = BytesMut::with_capacity(6);
     buf.put_slice(b"abc");
     // Reclaiming a ludicrous amount of space should calmly return false
-    assert_eq!(false, buf.try_reclaim(usize::MAX));
+    assert!(!buf.try_reclaim(usize::MAX));
 
-    assert_eq!(false, buf.try_reclaim(6));
+    assert!(!buf.try_reclaim(6));
     buf.advance(2);
     assert_eq!(4, buf.capacity());
     // We can reclaim 5 bytes, because the byte in the buffer can be moved to the front. 6 bytes
     // cannot be reclaimed because there is already one byte stored
-    assert_eq!(false, buf.try_reclaim(6));
-    assert_eq!(true, buf.try_reclaim(5));
+    assert!(!buf.try_reclaim(6));
+    assert!(buf.try_reclaim(5));
     buf.advance(1);
-    assert_eq!(true, buf.try_reclaim(6));
+    assert!(buf.try_reclaim(6));
     assert_eq!(6, buf.capacity());
 }
 
@@ -1403,27 +1404,27 @@ fn try_reclaim_arc() {
     let x = buf.split().freeze();
     buf.put_slice(b"def");
     // Reclaiming a ludicrous amount of space should calmly return false
-    assert_eq!(false, buf.try_reclaim(usize::MAX));
+    assert!(!buf.try_reclaim(usize::MAX));
 
     let y = buf.split().freeze();
     let z = y.clone();
-    assert_eq!(false, buf.try_reclaim(6));
+    assert!(!buf.try_reclaim(6));
     drop(x);
     drop(z);
-    assert_eq!(false, buf.try_reclaim(6));
+    assert!(!buf.try_reclaim(6));
     drop(y);
-    assert_eq!(true, buf.try_reclaim(6));
+    assert!(buf.try_reclaim(6));
     assert_eq!(6, buf.capacity());
     assert_eq!(0, buf.len());
     buf.put_slice(b"abc");
     buf.put_slice(b"def");
     assert_eq!(6, buf.capacity());
     assert_eq!(6, buf.len());
-    assert_eq!(false, buf.try_reclaim(6));
+    assert!(!buf.try_reclaim(6));
     buf.advance(4);
-    assert_eq!(true, buf.try_reclaim(4));
+    assert!(buf.try_reclaim(4));
     buf.advance(2);
-    assert_eq!(true, buf.try_reclaim(6));
+    assert!(buf.try_reclaim(6));
 }
 
 #[test]
@@ -1531,7 +1532,7 @@ struct SharedAtomicCounter(Arc<AtomicUsize>);
 
 impl SharedAtomicCounter {
     pub fn new() -> Self {
-        SharedAtomicCounter(Arc::new(AtomicUsize::new(0)))
+        Self(Arc::new(AtomicUsize::new(0)))
     }
 
     pub fn increment(&self) {
@@ -1562,9 +1563,10 @@ impl<const L: usize> OwnedTester<L> {
 
 impl<const L: usize> AsRef<[u8]> for OwnedTester<L> {
     fn as_ref(&self) -> &[u8] {
-        if self.panic_as_ref {
-            panic!("test-triggered panic in `AsRef<[u8]> for OwnedTester`");
-        }
+        assert!(
+            !self.panic_as_ref,
+            "test-triggered panic in `AsRef<[u8]> for OwnedTester`"
+        );
         self.buf.as_slice()
     }
 }

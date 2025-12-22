@@ -353,7 +353,7 @@ pub unsafe trait BufMut {
     #[inline]
     fn put_i8(&mut self, n: i8) {
         let src = [n as u8];
-        self.put_slice(&src)
+        self.put_slice(&src);
     }
 
     /// Writes an unsigned 16 bit integer to `self` in big-endian byte order.
@@ -376,7 +376,7 @@ pub unsafe trait BufMut {
     /// `self`.
     #[inline]
     fn put_u16(&mut self, n: u16) {
-        self.put_slice(&n.to_be_bytes())
+        self.put_slice(&n.to_be_bytes());
     }
 
     /// Writes an unsigned 16 bit integer to `self` in little-endian byte order.
@@ -399,7 +399,7 @@ pub unsafe trait BufMut {
     /// `self`.
     #[inline]
     fn put_u16_le(&mut self, n: u16) {
-        self.put_slice(&n.to_le_bytes())
+        self.put_slice(&n.to_le_bytes());
     }
 
     /// Writes an unsigned 16 bit integer to `self` in native-endian byte order.
@@ -426,7 +426,7 @@ pub unsafe trait BufMut {
     /// `self`.
     #[inline]
     fn put_u16_ne(&mut self, n: u16) {
-        self.put_slice(&n.to_ne_bytes())
+        self.put_slice(&n.to_ne_bytes());
     }
 
     /// Writes a signed 16 bit integer to `self` in big-endian byte order.
@@ -449,7 +449,7 @@ pub unsafe trait BufMut {
     /// `self`.
     #[inline]
     fn put_i16(&mut self, n: i16) {
-        self.put_slice(&n.to_be_bytes())
+        self.put_slice(&n.to_be_bytes());
     }
 
     /// Writes a signed 16 bit integer to `self` in little-endian byte order.
@@ -472,7 +472,7 @@ pub unsafe trait BufMut {
     /// `self`.
     #[inline]
     fn put_i16_le(&mut self, n: i16) {
-        self.put_slice(&n.to_le_bytes())
+        self.put_slice(&n.to_le_bytes());
     }
 
     /// Writes a signed 16 bit integer to `self` in native-endian byte order.
@@ -499,7 +499,7 @@ pub unsafe trait BufMut {
     /// `self`.
     #[inline]
     fn put_i16_ne(&mut self, n: i16) {
-        self.put_slice(&n.to_ne_bytes())
+        self.put_slice(&n.to_ne_bytes());
     }
 
     /// Writes an unsigned 32 bit integer to `self` in big-endian byte order.
@@ -522,7 +522,7 @@ pub unsafe trait BufMut {
     /// `self`.
     #[inline]
     fn put_u32(&mut self, n: u32) {
-        self.put_slice(&n.to_be_bytes())
+        self.put_slice(&n.to_be_bytes());
     }
 
     /// Writes an unsigned 32 bit integer to `self` in little-endian byte order.
@@ -545,7 +545,7 @@ pub unsafe trait BufMut {
     /// `self`.
     #[inline]
     fn put_u32_le(&mut self, n: u32) {
-        self.put_slice(&n.to_le_bytes())
+        self.put_slice(&n.to_le_bytes());
     }
 
     /// Writes an unsigned 32 bit integer to `self` in native-endian byte order.
@@ -572,7 +572,7 @@ pub unsafe trait BufMut {
     /// `self`.
     #[inline]
     fn put_u32_ne(&mut self, n: u32) {
-        self.put_slice(&n.to_ne_bytes())
+        self.put_slice(&n.to_ne_bytes());
     }
 
     /// Writes a signed 32 bit integer to `self` in big-endian byte order.
@@ -595,7 +595,7 @@ pub unsafe trait BufMut {
     /// `self`.
     #[inline]
     fn put_i32(&mut self, n: i32) {
-        self.put_slice(&n.to_be_bytes())
+        self.put_slice(&n.to_be_bytes());
     }
 
     /// Writes a signed 32 bit integer to `self` in little-endian byte order.
@@ -618,7 +618,7 @@ pub unsafe trait BufMut {
     /// `self`.
     #[inline]
     fn put_i32_le(&mut self, n: i32) {
-        self.put_slice(&n.to_le_bytes())
+        self.put_slice(&n.to_le_bytes());
     }
 
     /// Writes a signed 32 bit integer to `self` in native-endian byte order.
@@ -645,7 +645,7 @@ pub unsafe trait BufMut {
     /// `self`.
     #[inline]
     fn put_i32_ne(&mut self, n: i32) {
-        self.put_slice(&n.to_ne_bytes())
+        self.put_slice(&n.to_ne_bytes());
     }
 
     /// Writes an unsigned 64 bit integer to `self` in the big-endian byte order.
@@ -668,7 +668,7 @@ pub unsafe trait BufMut {
     /// `self`.
     #[inline]
     fn put_u64(&mut self, n: u64) {
-        self.put_slice(&n.to_be_bytes())
+        self.put_slice(&n.to_be_bytes());
     }
 
     /// Writes an unsigned 64 bit integer to `self` in little-endian byte order.
@@ -691,7 +691,7 @@ pub unsafe trait BufMut {
     /// `self`.
     #[inline]
     fn put_u64_le(&mut self, n: u64) {
-        self.put_slice(&n.to_le_bytes())
+        self.put_slice(&n.to_le_bytes());
     }
 
     /// Writes an unsigned 64 bit integer to `self` in native-endian byte order.
@@ -718,7 +718,7 @@ pub unsafe trait BufMut {
     /// `self`.
     #[inline]
     fn put_u64_ne(&mut self, n: u64) {
-        self.put_slice(&n.to_ne_bytes())
+        self.put_slice(&n.to_ne_bytes());
     }
 
     /// Writes a signed 64 bit integer to `self` in the big-endian byte order.
@@ -741,7 +741,7 @@ pub unsafe trait BufMut {
     /// `self`.
     #[inline]
     fn put_i64(&mut self, n: i64) {
-        self.put_slice(&n.to_be_bytes())
+        self.put_slice(&n.to_be_bytes());
     }
 
     /// Writes a signed 64 bit integer to `self` in little-endian byte order.
@@ -764,7 +764,7 @@ pub unsafe trait BufMut {
     /// `self`.
     #[inline]
     fn put_i64_le(&mut self, n: i64) {
-        self.put_slice(&n.to_le_bytes())
+        self.put_slice(&n.to_le_bytes());
     }
 
     /// Writes a signed 64 bit integer to `self` in native-endian byte order.
@@ -791,7 +791,7 @@ pub unsafe trait BufMut {
     /// `self`.
     #[inline]
     fn put_i64_ne(&mut self, n: i64) {
-        self.put_slice(&n.to_ne_bytes())
+        self.put_slice(&n.to_ne_bytes());
     }
 
     /// Writes an unsigned 128 bit integer to `self` in the big-endian byte order.
@@ -814,7 +814,7 @@ pub unsafe trait BufMut {
     /// `self`.
     #[inline]
     fn put_u128(&mut self, n: u128) {
-        self.put_slice(&n.to_be_bytes())
+        self.put_slice(&n.to_be_bytes());
     }
 
     /// Writes an unsigned 128 bit integer to `self` in little-endian byte order.
@@ -837,7 +837,7 @@ pub unsafe trait BufMut {
     /// `self`.
     #[inline]
     fn put_u128_le(&mut self, n: u128) {
-        self.put_slice(&n.to_le_bytes())
+        self.put_slice(&n.to_le_bytes());
     }
 
     /// Writes an unsigned 128 bit integer to `self` in native-endian byte order.
@@ -864,7 +864,7 @@ pub unsafe trait BufMut {
     /// `self`.
     #[inline]
     fn put_u128_ne(&mut self, n: u128) {
-        self.put_slice(&n.to_ne_bytes())
+        self.put_slice(&n.to_ne_bytes());
     }
 
     /// Writes a signed 128 bit integer to `self` in the big-endian byte order.
@@ -887,7 +887,7 @@ pub unsafe trait BufMut {
     /// `self`.
     #[inline]
     fn put_i128(&mut self, n: i128) {
-        self.put_slice(&n.to_be_bytes())
+        self.put_slice(&n.to_be_bytes());
     }
 
     /// Writes a signed 128 bit integer to `self` in little-endian byte order.
@@ -910,7 +910,7 @@ pub unsafe trait BufMut {
     /// `self`.
     #[inline]
     fn put_i128_le(&mut self, n: i128) {
-        self.put_slice(&n.to_le_bytes())
+        self.put_slice(&n.to_le_bytes());
     }
 
     /// Writes a signed 128 bit integer to `self` in native-endian byte order.
@@ -937,7 +937,7 @@ pub unsafe trait BufMut {
     /// `self`.
     #[inline]
     fn put_i128_ne(&mut self, n: i128) {
-        self.put_slice(&n.to_ne_bytes())
+        self.put_slice(&n.to_ne_bytes());
     }
 
     /// Writes an unsigned n-byte integer to `self` in big-endian byte order.
@@ -1022,9 +1022,9 @@ pub unsafe trait BufMut {
     #[inline]
     fn put_uint_ne(&mut self, n: u64, nbytes: usize) {
         if cfg!(target_endian = "big") {
-            self.put_uint(n, nbytes)
+            self.put_uint(n, nbytes);
         } else {
-            self.put_uint_le(n, nbytes)
+            self.put_uint_le(n, nbytes);
         }
     }
 
@@ -1110,9 +1110,9 @@ pub unsafe trait BufMut {
     #[inline]
     fn put_int_ne(&mut self, n: i64, nbytes: usize) {
         if cfg!(target_endian = "big") {
-            self.put_int(n, nbytes)
+            self.put_int(n, nbytes);
         } else {
-            self.put_int_le(n, nbytes)
+            self.put_int_le(n, nbytes);
         }
     }
 
