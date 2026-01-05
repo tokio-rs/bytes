@@ -1,0 +1,31 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  // Only enable regex manager - disables all default managers (cargo, npm, etc.)
+  "enabledManagers": ["regex"],
+  "schedule": ["on the first day of the month"],
+  "semanticCommits": "enabled",
+  "customManagers": [
+    {
+      "customType": "regex",
+      "fileMatch": ["^\\.github/workflows/ci\\.yml$"],
+      "matchStrings": [
+        // Matches: nightly: nightly-YYYY-MM-DD
+        "nightly:\\s*nightly-(?<currentValue>\\d{4}-\\d{2}-\\d{2})"
+      ],
+      "depNameTemplate": "rust-nightly",
+      "datasourceTemplate": "custom.rust-nightly",
+      // Treats YYYY-MM-DD as major.minor.patch for version comparison
+      "versioningTemplate": "regex:^(?<major>\\d{4})-(?<minor>\\d{2})-(?<patch>\\d{2})$"
+    }
+  ],
+  "customDatasources": {
+    // Fetch available nightly versions from Rust's component history
+    "rust-nightly": {
+      "defaultRegistryUrlTemplate": "https://rust-lang.github.io/rustup-components-history/x86_64-unknown-linux-gnu/clippy",
+      "transformTemplates": [
+        // Parse newline-separated dates, filtering empty lines
+        "{\"releases\": $map($filter($split($, \"\\n\"), function($v) { $trim($v) != \"\" }), function($v) { {\"version\": $trim($v)} })}"
+      ]
+    }
+  }
+}
