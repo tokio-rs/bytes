@@ -506,6 +506,11 @@ impl BytesMut {
     /// modifying the data, so it is up to the caller to ensure that the data
     /// has been initialized.
     ///
+    /// # Safety
+    ///
+    /// `len` must be less than or equal to capacity, and the bytes at
+    /// `0..len` must be initialized.
+    ///
     /// # Examples
     ///
     /// ```

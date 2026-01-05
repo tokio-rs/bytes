@@ -255,6 +255,10 @@ fn put_u8_vec_push(b: &mut Bencher) {
 
     b.bytes = cnt as u64;
     b.iter(|| {
+        #[allow(
+            clippy::same_item_push,
+            reason = "Benchmarking the push operation itself, not Vec construction"
+        )]
         for _ in 0..cnt {
             buf.push(b'x');
         }

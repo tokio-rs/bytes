@@ -27,6 +27,12 @@ use alloc::{boxed::Box, vec::Vec};
 ///
 /// assert_eq!(buf, b"hello world");
 /// ```
+///
+/// # Safety
+///
+/// `chunk_mut()` must return a valid, writable memory region of at least
+/// `remaining_mut()` bytes, and `advance_mut()` must only be called with
+/// counts of bytes that have been initialized.
 pub unsafe trait BufMut {
     /// Returns the number of bytes that can be written from the current
     /// position until the end of the buffer is reached.
