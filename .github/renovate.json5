@@ -3,6 +3,7 @@
   // Only enable regex manager - disables all default managers (cargo, npm, etc.)
   "enabledManagers": ["regex"],
   "schedule": ["on the first day of the month"],
+  "semanticCommits": "enabled",
   "customManagers": [
     {
       "customType": "regex",
