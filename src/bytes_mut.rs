@@ -1,3 +1,5 @@
+#![allow(clippy::items_after_test_module)]
+
 use core::mem::{self, ManuallyDrop, MaybeUninit};
 use core::ops::{Deref, DerefMut};
 use core::ptr::{self, NonNull};
@@ -144,8 +146,8 @@ impl BytesMut {
     /// assert_eq!(&bytes[..], b"hello world");
     /// ```
     #[inline]
-    pub fn with_capacity(capacity: usize) -> BytesMut {
-        BytesMut::from_vec(Vec::with_capacity(capacity))
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self::from_vec(Vec::with_capacity(capacity))
     }
 
     /// Creates a new `BytesMut` with default capacity.
@@ -168,8 +170,8 @@ impl BytesMut {
     /// assert_eq!(&b"xy"[..], &bytes[..]);
     /// ```
     #[inline]
-    pub fn new() -> BytesMut {
-        BytesMut::with_capacity(0)
+    pub fn new() -> Self {
+        Self::with_capacity(0)
     }
 
     /// Returns the number of bytes contained in this `BytesMut`.
@@ -283,8 +285,8 @@ impl BytesMut {
     /// assert_eq!(zeros.len(), 42);
     /// zeros.into_iter().for_each(|x| assert_eq!(x, 0));
     /// ```
-    pub fn zeroed(len: usize) -> BytesMut {
-        BytesMut::from_vec(vec![0; len])
+    pub fn zeroed(len: usize) -> Self {
+        Self::from_vec(vec![0; len])
     }
 
     /// Splits the bytes into two at the given index.
@@ -316,7 +318,7 @@ impl BytesMut {
     ///
     /// Panics if `at > capacity`.
     #[must_use = "consider BytesMut::truncate if you don't need the other half"]
-    pub fn split_off(&mut self, at: usize) -> BytesMut {
+    pub fn split_off(&mut self, at: usize) -> Self {
         assert!(
             at <= self.capacity(),
             "split_off out of bounds: {:?} <= {:?}",
@@ -359,7 +361,7 @@ impl BytesMut {
     /// assert_eq!(other, b"hello world"[..]);
     /// ```
     #[must_use = "consider BytesMut::clear if you don't need the other half"]
-    pub fn split(&mut self) -> BytesMut {
+    pub fn split(&mut self) -> Self {
         let len = self.len();
         self.split_to(len)
     }
@@ -391,7 +393,7 @@ impl BytesMut {
     ///
     /// Panics if `at > len`.
     #[must_use = "consider BytesMut::advance if you don't need the other half"]
-    pub fn split_to(&mut self, at: usize) -> BytesMut {
+    pub fn split_to(&mut self, at: usize) -> Self {
         assert!(
             at <= self.len(),
             "split_to out of bounds: {:?} <= {:?}",
@@ -418,7 +420,7 @@ impl BytesMut {
     ///
     /// Existing underlying capacity is preserved.
     ///
-    /// The [split_off](`Self::split_off()`) method can emulate `truncate`, but this causes the
+    /// The [`split_off`](Self::split_off) method can emulate `truncate`, but this causes the
     /// excess bytes to be returned instead of dropped.
     ///
     /// # Examples
@@ -503,6 +505,11 @@ impl BytesMut {
     /// This will explicitly set the size of the buffer without actually
     /// modifying the data, so it is up to the caller to ensure that the data
     /// has been initialized.
+    ///
+    /// # Safety
+    ///
+    /// `len` must be less than or equal to capacity, and the bytes at
+    /// `0..len` must be initialized.
     ///
     /// # Examples
     ///
@@ -904,7 +911,7 @@ impl BytesMut {
     /// buf.unsplit(split);
     /// assert_eq!(b"aaabbbcccddd", &buf[..]);
     /// ```
-    pub fn unsplit(&mut self, other: BytesMut) {
+    pub fn unsplit(&mut self, other: Self) {
         if self.is_empty() {
             *self = other;
             return;
@@ -924,7 +931,7 @@ impl BytesMut {
     // internal change could make a simple pattern (`BytesMut::from(vec)`)
     // suddenly a lot more expensive.
     #[inline]
-    pub(crate) fn from_vec(vec: Vec<u8>) -> BytesMut {
+    pub(crate) fn from_vec(vec: Vec<u8>) -> Self {
         let mut vec = ManuallyDrop::new(vec);
         let ptr = vptr(vec.as_mut_ptr());
         let len = vec.len();
@@ -933,7 +940,7 @@ impl BytesMut {
         let original_capacity_repr = original_capacity_to_repr(cap);
         let data = (original_capacity_repr << ORIGINAL_CAPACITY_OFFSET) | KIND_VEC;
 
-        BytesMut {
+        Self {
             ptr,
             len,
             cap,
@@ -993,7 +1000,7 @@ impl BytesMut {
         self.cap -= count;
     }
 
-    fn try_unsplit(&mut self, other: BytesMut) -> Result<(), BytesMut> {
+    fn try_unsplit(&mut self, other: Self) -> Result<(), Self> {
         if other.capacity() == 0 {
             return Ok(());
         }
@@ -1058,14 +1065,13 @@ impl BytesMut {
     /// be sure the returned value to the user doesn't allow
     /// two views into the same range.
     #[inline]
-    unsafe fn shallow_clone(&mut self) -> BytesMut {
+    unsafe fn shallow_clone(&mut self) -> Self {
         if self.kind() == KIND_ARC {
             increment_shared(self.data);
-            ptr::read(self)
         } else {
             self.promote_to_shared(/*ref_count = */ 2);
-            ptr::read(self)
         }
+        ptr::read(self)
     }
 
     #[inline]
@@ -1209,7 +1215,8 @@ unsafe impl BufMut for BytesMut {
         if !src.has_remaining() {
             // prevent calling `copy_to_bytes`->`put`->`copy_to_bytes` infintely when src is empty
             return;
-        } else if self.capacity() == 0 {
+        }
+        if self.capacity() == 0 {
             // When capacity is zero, try reusing allocation of `src`.
             let src_copy = src.copy_to_bytes(src.remaining());
             drop(src);
@@ -1279,37 +1286,37 @@ impl DerefMut for BytesMut {
 }
 
 impl<'a> From<&'a [u8]> for BytesMut {
-    fn from(src: &'a [u8]) -> BytesMut {
-        BytesMut::from_vec(src.to_vec())
+    fn from(src: &'a [u8]) -> Self {
+        Self::from_vec(src.to_vec())
     }
 }
 
 impl<'a> From<&'a str> for BytesMut {
-    fn from(src: &'a str) -> BytesMut {
-        BytesMut::from(src.as_bytes())
+    fn from(src: &'a str) -> Self {
+        Self::from(src.as_bytes())
     }
 }
 
 impl From<BytesMut> for Bytes {
-    fn from(src: BytesMut) -> Bytes {
+    fn from(src: BytesMut) -> Self {
         src.freeze()
     }
 }
 
 impl PartialEq for BytesMut {
-    fn eq(&self, other: &BytesMut) -> bool {
+    fn eq(&self, other: &Self) -> bool {
         self.as_slice() == other.as_slice()
     }
 }
 
 impl PartialOrd for BytesMut {
-    fn partial_cmp(&self, other: &BytesMut) -> Option<cmp::Ordering> {
+    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
 
 impl Ord for BytesMut {
-    fn cmp(&self, other: &BytesMut) -> cmp::Ordering {
+    fn cmp(&self, other: &Self) -> cmp::Ordering {
         self.as_slice().cmp(other.as_slice())
     }
 }
@@ -1318,8 +1325,8 @@ impl Eq for BytesMut {}
 
 impl Default for BytesMut {
     #[inline]
-    fn default() -> BytesMut {
-        BytesMut::new()
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -1363,14 +1370,14 @@ impl fmt::Write for BytesMut {
 }
 
 impl Clone for BytesMut {
-    fn clone(&self) -> BytesMut {
-        BytesMut::from(&self[..])
+    fn clone(&self) -> Self {
+        Self::from(&self[..])
     }
 }
 
 impl IntoIterator for BytesMut {
     type Item = u8;
-    type IntoIter = IntoIter<BytesMut>;
+    type IntoIter = IntoIter<Self>;
 
     fn into_iter(self) -> Self::IntoIter {
         IntoIter::new(self)
@@ -1409,7 +1416,7 @@ impl<'a> Extend<&'a u8> for BytesMut {
     where
         T: IntoIterator<Item = &'a u8>,
     {
-        self.extend(iter.into_iter().copied())
+        self.extend(iter.into_iter().copied());
     }
 }
 
@@ -1419,20 +1426,20 @@ impl Extend<Bytes> for BytesMut {
         T: IntoIterator<Item = Bytes>,
     {
         for bytes in iter {
-            self.extend_from_slice(&bytes)
+            self.extend_from_slice(&bytes);
         }
     }
 }
 
 impl FromIterator<u8> for BytesMut {
     fn from_iter<T: IntoIterator<Item = u8>>(into_iter: T) -> Self {
-        BytesMut::from_vec(Vec::from_iter(into_iter))
+        Self::from_vec(Vec::from_iter(into_iter))
     }
 }
 
 impl<'a> FromIterator<&'a u8> for BytesMut {
     fn from_iter<T: IntoIterator<Item = &'a u8>>(into_iter: T) -> Self {
-        BytesMut::from_iter(into_iter.into_iter().copied())
+        Self::from_iter(into_iter.into_iter().copied())
     }
 }
 
@@ -1525,8 +1532,8 @@ mod tests {
 
         let max_width = 32;
 
-        for width in 1..(max_width + 1) {
-            let cap = 1 << width - 1;
+        for width in 1..=max_width {
+            let cap = 1 << (width - 1);
 
             let expected = if width < MIN_ORIGINAL_CAPACITY_WIDTH {
                 0
@@ -1676,7 +1683,7 @@ impl PartialOrd<BytesMut> for String {
 
 impl<'a, T: ?Sized> PartialEq<&'a T> for BytesMut
 where
-    BytesMut: PartialEq<T>,
+    Self: PartialEq<T>,
 {
     fn eq(&self, other: &&'a T) -> bool {
         *self == **other
@@ -1685,7 +1692,7 @@ where
 
 impl<'a, T: ?Sized> PartialOrd<&'a T> for BytesMut
 where
-    BytesMut: PartialOrd<T>,
+    Self: PartialOrd<T>,
 {
     fn partial_cmp(&self, other: &&'a T) -> Option<cmp::Ordering> {
         self.partial_cmp(*other)

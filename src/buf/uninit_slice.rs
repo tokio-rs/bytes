@@ -33,8 +33,8 @@ impl UninitSlice {
     /// let slice = UninitSlice::new(&mut buffer[..]);
     /// ```
     #[inline]
-    pub fn new(slice: &mut [u8]) -> &mut UninitSlice {
-        unsafe { &mut *(slice as *mut [u8] as *mut [MaybeUninit<u8>] as *mut UninitSlice) }
+    pub fn new(slice: &mut [u8]) -> &mut Self {
+        unsafe { &mut *(slice as *mut [u8] as *mut [MaybeUninit<u8>] as *mut Self) }
     }
 
     /// Creates a `&mut UninitSlice` wrapping a slice of uninitialised memory.
@@ -52,12 +52,12 @@ impl UninitSlice {
     /// let spare: &mut UninitSlice = vec.spare_capacity_mut().into();
     /// ```
     #[inline]
-    pub fn uninit(slice: &mut [MaybeUninit<u8>]) -> &mut UninitSlice {
-        unsafe { &mut *(slice as *mut [MaybeUninit<u8>] as *mut UninitSlice) }
+    pub fn uninit(slice: &mut [MaybeUninit<u8>]) -> &mut Self {
+        unsafe { &mut *(slice as *mut [MaybeUninit<u8>] as *mut Self) }
     }
 
-    fn uninit_ref(slice: &[MaybeUninit<u8>]) -> &UninitSlice {
-        unsafe { &*(slice as *const [MaybeUninit<u8>] as *const UninitSlice) }
+    fn uninit_ref(slice: &[MaybeUninit<u8>]) -> &Self {
+        unsafe { &*(slice as *const [MaybeUninit<u8>] as *const Self) }
     }
 
     /// Create a `&mut UninitSlice` from a pointer and a length.
@@ -79,7 +79,7 @@ impl UninitSlice {
     /// let slice = unsafe { UninitSlice::from_raw_parts_mut(ptr, len) };
     /// ```
     #[inline]
-    pub unsafe fn from_raw_parts_mut<'a>(ptr: *mut u8, len: usize) -> &'a mut UninitSlice {
+    pub unsafe fn from_raw_parts_mut<'a>(ptr: *mut u8, len: usize) -> &'a mut Self {
         let maybe_init: &mut [MaybeUninit<u8>] =
             core::slice::from_raw_parts_mut(ptr as *mut _, len);
         Self::uninit(maybe_init)
@@ -204,6 +204,22 @@ impl UninitSlice {
     #[inline]
     pub fn len(&self) -> usize {
         self.0.len()
+    }
+
+    /// Returns whether a slice is empty.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::BufMut;
+    ///
+    /// let mut data = [0u8; 0];
+    /// let mut slice = &mut data[..];
+    /// assert!(BufMut::chunk_mut(&mut slice).is_empty());
+    /// ```
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 }
 

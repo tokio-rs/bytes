@@ -31,15 +31,18 @@ jobs:
     - name: Check formatting
       run: cargo fmt --all --check
 
-  # TODO
-  # # Apply clippy lints
-  # clippy:
-  #   name: clippy
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #   - uses: actions/checkout@v4
-  #   - name: Apply clippy lints
-  #     run: cargo clippy --all-features
+  clippy:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.nightly }}
+          components: clippy
+      - uses: actions-rs-plus/clippy-check@v2
+        with:
+          args: --all --all-features --all-targets
 
   # This represents the minimum Rust version supported by
   # Bytes. Updating this should be done in a dedicated PR.
