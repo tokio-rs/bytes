@@ -168,7 +168,7 @@ impl Bytes {
         Bytes {
             ptr: bytes.as_ptr(),
             len: bytes.len(),
-            data: AtomicPtr::new(ptr::null_mut()),
+            data: AtomicPtr::new(bytes.as_ptr() as *mut ()),
             vtable: &STATIC_VTABLE,
         }
     }
@@ -179,7 +179,7 @@ impl Bytes {
         Bytes {
             ptr: bytes.as_ptr(),
             len: bytes.len(),
-            data: AtomicPtr::new(ptr::null_mut()),
+            data: AtomicPtr::new(bytes.as_ptr() as *mut ()),
             vtable: &STATIC_VTABLE,
         }
     }
@@ -195,7 +195,7 @@ impl Bytes {
         Bytes {
             ptr,
             len: 0,
-            data: AtomicPtr::new(ptr::null_mut()),
+            data: AtomicPtr::new(ptr as *mut ()),
             vtable: &STATIC_VTABLE,
         }
     }
@@ -1157,9 +1157,9 @@ const STATIC_VTABLE: Vtable = Vtable {
     drop: static_drop,
 };
 
-unsafe fn static_clone(_: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Bytes {
-    let slice = slice::from_raw_parts(ptr, len);
-    Bytes::from_static(slice)
+unsafe fn static_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Bytes {
+    let data = AtomicPtr::new(data.load(Ordering::Relaxed));
+    Bytes::with_vtable(ptr, len, data, &STATIC_VTABLE)
 }
 
 unsafe fn static_to_vec(_: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Vec<u8> {

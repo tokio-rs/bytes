@@ -897,7 +897,7 @@ fn bytes_unsplit_from_two_mut() {
 }
 
 #[test]
-fn bytes_unsplit_from_two_static_splitted() {
+fn bytes_unsplit_from_two_static_split() {
     let mut buf = Bytes::from_static(b"aaaabbbbeeee");
 
     let _ = buf.split_off(8);
@@ -911,7 +911,7 @@ fn bytes_unsplit_from_two_static_splitted() {
 }
 
 #[test]
-fn bytes_unsplit_from_mut_and_static_splitted() {
+fn bytes_unsplit_from_mut_and_static_split() {
     let mut buf = BytesMut::with_capacity(64);
     buf.extend_from_slice(b"aaaabbbbeeee");
     let mut buf = buf.freeze();
@@ -927,7 +927,7 @@ fn bytes_unsplit_from_mut_and_static_splitted() {
 }
 
 #[test]
-fn bytes_unsplit_from_two_mut_splitted() {
+fn bytes_unsplit_from_two_mut_split() {
     let mut buf = BytesMut::with_capacity(64);
     buf.extend_from_slice(b"aaaabbbbeeee");
     let mut buf = buf.freeze();
@@ -952,7 +952,9 @@ fn bytes_unsplit_from_static_non_contiguous() {
 
     let buf3 = buf2.split_off(4);
 
-    let new =  buf.unsplit(buf3);
+    drop(buf2);
+
+    let new = buf.unsplit(buf3);
     assert_eq!(b"aaaabbbbccccdddd", &new[..]);
 }
 
@@ -965,10 +967,21 @@ fn bytes_unsplit_from_mut_non_contiguous() {
     let mut buf2 = buf.split_off(8);
 
     let buf3 = buf2.split_off(4);
+
     drop(buf2);
 
     let new = buf.unsplit(buf3);
     assert_eq!(b"aaaabbbbccccdddd", &new[..]);
+}
+
+#[test]
+fn bytes_unsplit_from_split_static() {
+    let data: &[u8] = b"foobar";
+    let (a, b) = data.split_at(3);
+    let a = Bytes::from_static(a);
+    let b = Bytes::from_static(b);
+    let ab = a.unsplit(b);
+    assert_eq!(b"foobar", &ab[..]);
 }
 
 #[test]
