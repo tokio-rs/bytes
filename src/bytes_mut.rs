@@ -880,6 +880,41 @@ impl BytesMut {
         }
     }
 
+    /// Clones the elements in the given `range` within this `BytesMut` and
+    /// appends them to the end.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `range` is out of bounds for this `BytesMut`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::BytesMut;
+    ///
+    /// let mut buf = BytesMut::with_capacity(0);
+    /// buf.extend_from_slice(b"aaabbb_");
+    /// buf.extend_from_within(3..6);
+    ///
+    /// assert_eq!(b"aaabbb_bbb", &buf[..]);
+    /// ```
+    pub fn extend_from_within(&mut self, range: impl core::ops::RangeBounds<usize>) {
+        let (begin, end) = crate::range(range, self.len());
+
+        let cnt = end - begin;
+        self.reserve(cnt);
+
+        // SAFETY: range is already checked
+        let src = unsafe { self.as_ptr().add(begin) };
+        let dst = self.spare_capacity_mut();
+
+        // SAFETY: range doesn't overlap with spare capacity
+        unsafe { ptr::copy_nonoverlapping(src, dst.as_mut_ptr().cast(), cnt) }
+
+        // SAFETY: capacity is already reserved and filled with data
+        unsafe { self.advance_mut(cnt) }
+    }
+
     /// Absorbs a `BytesMut` that was previously split off if they are
     /// contiguous, otherwise appends its bytes to this `BytesMut`.
     ///
