@@ -925,9 +925,8 @@ impl BytesMut {
     /// If the two `BytesMut` objects were previously contiguous and not mutated
     /// in a way that causes re-allocation i.e., if `other` was created by
     /// calling `split_off` on this `BytesMut`, then this is an `O(1)` operation
-    /// that just decreases a reference count and sets a few indices.
-    /// Otherwise this method degenerates to
-    /// `self.extend_from_slice(other.as_ref())`.
+    /// that just decreases a reference count and sets a few indices. Otherwise,
+    /// this method degenerates to `self.extend_from_slice(other.as_ref())`.
     ///
     /// # Examples
     ///
@@ -1066,13 +1065,11 @@ impl BytesMut {
             return Ok(());
         }
 
+        // Check if this block is right next to the other block
         let ptr = unsafe { self.ptr.as_ptr().add(self.len) };
-        if ptr == other.ptr.as_ptr()
-            && self.kind() == KIND_ARC
-            && other.kind() == KIND_ARC
-            && self.data == other.data
-        {
-            // Contiguous blocks, just combine directly
+        // ... and from the same backing data
+        if ptr == other.ptr.as_ptr() && self.data == other.data {
+            // ... then combine two blocks into one
             self.len += other.len;
             self.cap += other.cap;
             Ok(())

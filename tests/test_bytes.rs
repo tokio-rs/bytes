@@ -802,14 +802,186 @@ fn stress() {
 }
 
 #[test]
-fn partial_eq_bytesmut() {
+fn partial_eq_bytes_mut() {
     let bytes = Bytes::from(&b"The quick red fox"[..]);
-    let bytesmut = BytesMut::from(&b"The quick red fox"[..]);
-    assert!(bytes == bytesmut);
-    assert!(bytesmut == bytes);
+    let bytes_mut = BytesMut::from(&b"The quick red fox"[..]);
+    assert_eq!(bytes, bytes_mut);
+    assert_eq!(bytes_mut, bytes);
     let bytes2 = Bytes::from(&b"Jumped over the lazy brown dog"[..]);
-    assert!(bytes2 != bytesmut);
-    assert!(bytesmut != bytes2);
+    assert_ne!(bytes2, bytes_mut);
+    assert_ne!(bytes_mut, bytes2);
+}
+
+#[test]
+fn bytes_unsplit_split_static() {
+    let mut buf = Bytes::from_static(b"aaabbbcccddd");
+
+    let split = buf.split_off(6);
+    assert_eq!(b"aaabbb", &buf[..]);
+    assert_eq!(b"cccddd", &split[..]);
+
+    let new = buf.unsplit(split);
+    assert_eq!(b"aaabbbcccddd", &new[..]);
+}
+
+#[test]
+fn bytes_unsplit_split_mut() {
+    let mut buf = BytesMut::with_capacity(64);
+    buf.extend_from_slice(b"aaabbbcccddd");
+    let mut buf = buf.freeze();
+
+    let split = buf.split_off(6);
+    assert_eq!(b"aaabbb", &buf[..]);
+    assert_eq!(b"cccddd", &split[..]);
+
+    let new = buf.unsplit(split);
+    assert_eq!(b"aaabbbcccddd", &new[..]);
+}
+
+#[test]
+fn bytes_unsplit_empty_other() {
+    let buf = Bytes::from_static(b"aaabbbcccddd");
+
+    // empty other
+    let other = Bytes::new();
+
+    let new = buf.unsplit(other);
+    assert_eq!(b"aaabbbcccddd", &new[..]);
+}
+
+#[test]
+fn bytes_unsplit_empty_self() {
+    // empty self
+    let buf = Bytes::new();
+
+    let other = Bytes::from_static(b"aaabbbcccddd");
+
+    let new = buf.unsplit(other);
+    assert_eq!(b"aaabbbcccddd", &new[..]);
+}
+
+#[test]
+fn bytes_unsplit_from_two_static() {
+    let buf = Bytes::from_static(b"aaaabbbb");
+
+    let buf2 = Bytes::from_static(b"ccccdddd");
+
+    let new = buf.unsplit(buf2);
+    assert_eq!(b"aaaabbbbccccdddd", &new[..]);
+}
+
+#[test]
+fn bytes_unsplit_from_mut_and_static() {
+    let mut buf = BytesMut::with_capacity(64);
+    buf.extend_from_slice(b"aaaabbbb");
+    let buf = buf.freeze();
+
+    let buf2 = Bytes::from_static(b"ccccdddd");
+
+    let new = buf.unsplit(buf2);
+    assert_eq!(b"aaaabbbbccccdddd", &new[..]);
+}
+
+#[test]
+fn bytes_unsplit_from_two_mut() {
+    let mut buf = BytesMut::with_capacity(64);
+    buf.extend_from_slice(b"aaaabbbb");
+    let buf = buf.freeze();
+
+    let mut buf2 = BytesMut::with_capacity(64);
+    buf2.extend_from_slice(b"ccccdddd");
+    let buf2 = buf2.freeze();
+
+    let new = buf.unsplit(buf2);
+    assert_eq!(b"aaaabbbbccccdddd", &new[..]);
+}
+
+#[test]
+fn bytes_unsplit_from_two_static_split() {
+    let mut buf = Bytes::from_static(b"aaaabbbbeeee");
+
+    let _ = buf.split_off(8);
+
+    let mut buf2 = Bytes::from_static(b"ccccddddeeee");
+
+    let _ = buf2.split_off(8);
+
+    let new = buf.unsplit(buf2);
+    assert_eq!(b"aaaabbbbccccdddd", &new[..]);
+}
+
+#[test]
+fn bytes_unsplit_from_mut_and_static_split() {
+    let mut buf = BytesMut::with_capacity(64);
+    buf.extend_from_slice(b"aaaabbbbeeee");
+    let mut buf = buf.freeze();
+
+    let _ = buf.split_off(8);
+
+    let mut buf2 = Bytes::from_static(b"ccccddddeeee");
+
+    let _ = buf2.split_off(8);
+
+    let new = buf.unsplit(buf2);
+    assert_eq!(b"aaaabbbbccccdddd", &new[..]);
+}
+
+#[test]
+fn bytes_unsplit_from_two_mut_split() {
+    let mut buf = BytesMut::with_capacity(64);
+    buf.extend_from_slice(b"aaaabbbbeeee");
+    let mut buf = buf.freeze();
+
+    let _ = buf.split_off(8);
+
+    let mut buf2 = BytesMut::with_capacity(64);
+    buf2.extend_from_slice(b"ccccddddeeee");
+    let mut buf2 = buf2.freeze();
+
+    let _ = buf2.split_off(8);
+
+    let new = buf.unsplit(buf2);
+    assert_eq!(b"aaaabbbbccccdddd", &new[..]);
+}
+
+#[test]
+fn bytes_unsplit_from_static_non_contiguous() {
+    let mut buf = Bytes::from_static(b"aaaabbbbeeeeccccdddd");
+
+    let mut buf2 = buf.split_off(8);
+
+    let buf3 = buf2.split_off(4);
+
+    drop(buf2);
+
+    let new = buf.unsplit(buf3);
+    assert_eq!(b"aaaabbbbccccdddd", &new[..]);
+}
+
+#[test]
+fn bytes_unsplit_from_mut_non_contiguous() {
+    let mut buf = BytesMut::with_capacity(64);
+    buf.extend_from_slice(b"aaaabbbbeeeeccccdddd");
+    let mut buf = buf.freeze();
+
+    let mut buf2 = buf.split_off(8);
+
+    let buf3 = buf2.split_off(4);
+
+    drop(buf2);
+
+    let new = buf.unsplit(buf3);
+    assert_eq!(b"aaaabbbbccccdddd", &new[..]);
+}
+
+#[test]
+fn bytes_unsplit_from_split_static() {
+    let data: &[u8] = b"foobar";
+    let (a, b) = data.split_at(3);
+    let a = Bytes::from_static(a);
+    let b = Bytes::from_static(b);
+    let ab = a.unsplit(b);
+    assert_eq!(b"foobar", &ab[..]);
 }
 
 #[test]
@@ -817,11 +989,11 @@ fn bytes_mut_unsplit_basic() {
     let mut buf = BytesMut::with_capacity(64);
     buf.extend_from_slice(b"aaabbbcccddd");
 
-    let splitted = buf.split_off(6);
+    let split = buf.split_off(6);
     assert_eq!(b"aaabbb", &buf[..]);
-    assert_eq!(b"cccddd", &splitted[..]);
+    assert_eq!(b"cccddd", &split[..]);
 
-    buf.unsplit(splitted);
+    buf.unsplit(split);
     assert_eq!(b"aaabbbcccddd", &buf[..]);
 }
 

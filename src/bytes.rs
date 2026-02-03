@@ -168,7 +168,7 @@ impl Bytes {
         Bytes {
             ptr: bytes.as_ptr(),
             len: bytes.len(),
-            data: AtomicPtr::new(ptr::null_mut()),
+            data: AtomicPtr::new(bytes.as_ptr() as *mut ()),
             vtable: &STATIC_VTABLE,
         }
     }
@@ -179,7 +179,7 @@ impl Bytes {
         Bytes {
             ptr: bytes.as_ptr(),
             len: bytes.len(),
-            data: AtomicPtr::new(ptr::null_mut()),
+            data: AtomicPtr::new(bytes.as_ptr() as *mut ()),
             vtable: &STATIC_VTABLE,
         }
     }
@@ -195,7 +195,7 @@ impl Bytes {
         Bytes {
             ptr,
             len: 0,
-            data: AtomicPtr::new(ptr::null_mut()),
+            data: AtomicPtr::new(ptr as *mut ()),
             vtable: &STATIC_VTABLE,
         }
     }
@@ -537,6 +537,111 @@ impl Bytes {
 
         ret.len = at;
         ret
+    }
+
+    /// Absorbs a `Bytes` that was previously split off if they are contiguous;
+    /// otherwise, appends its bytes to this `Bytes` and return a new one.
+    ///
+    /// If the two `Bytes` objects were previously contiguous (i.e., if `other`
+    /// was created by calling `split_off` on this `Bytes`), then this is an
+    /// `O(1)` operation that just decreases a reference count and sets a few
+    /// indices.
+    ///
+    /// Otherwise, this method tries to convert `self` into a `BytesMut` and
+    /// extend it with `other`. If that also fails, this method allocates a new
+    /// `BytesMut` and copies both `Bytes` objects into it.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Bytes;
+    ///
+    /// let mut buf = Bytes::from_static(b"aaabbbcccddd");
+    ///
+    /// let split = buf.split_off(6);
+    /// assert_eq!(b"aaabbb", &buf[..]);
+    /// assert_eq!(b"cccddd", &split[..]);
+    ///
+    /// let buf = buf.unsplit(split);
+    /// assert_eq!(b"aaabbbcccddd", &buf[..]);
+    /// ```
+    pub fn unsplit(mut self, other: Bytes) -> Self {
+        if other.is_empty() {
+            return self;
+        } else if self.is_empty() {
+            return other;
+        }
+        // try to unsplit first
+        if let Err(other) = self.try_unsplit(other) {
+            // if failed, try to convert into a mut
+            let mut_self = match self.try_into_mut() {
+                Ok(mut mut_self) => {
+                    // if success, extend from other slice
+                    mut_self.extend_from_slice(&other);
+                    mut_self
+                }
+                Err(this) => {
+                    // if not, create a buffer with enough capacity
+                    let mut mut_self = BytesMut::with_capacity(this.len() + other.len());
+                    mut_self.extend_from_slice(&this);
+                    mut_self.extend_from_slice(&other);
+                    mut_self
+                }
+            };
+            // then freeze the mut into a bytes
+            mut_self.freeze()
+        } else {
+            self
+        }
+    }
+
+    /// Absorbs a `Bytes` that was previously split off.
+    ///
+    /// If the two `Bytes` objects were previously contiguous, i.e., if `other`
+    /// was created by calling `split_off` on this `Bytes`, then this is an
+    /// `O(1)` operation that just decreases a reference count and sets a few
+    /// indices. Otherwise, this method returns an error containing the
+    /// original `other`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::Bytes;
+    ///
+    /// let mut buf = Bytes::from_static(b"aaabbbcccddd");
+    ///
+    /// let mut split_1 = buf.split_off(3);
+    /// let split_2 = split_1.split_off(3);
+    /// assert_eq!(b"aaa", &buf[..]);
+    /// assert_eq!(b"bbb", &split_1[..]);
+    /// assert_eq!(b"cccddd", &split_2[..]);
+    ///
+    /// let split_2 = buf.try_unsplit(split_2).unwrap_err();
+    ///
+    /// buf.try_unsplit(split_1).unwrap();
+    /// buf.try_unsplit(split_2).unwrap();
+    /// assert_eq!(b"aaabbbcccddd", &buf[..]);
+    /// ```
+    pub fn try_unsplit(&mut self, other: Bytes) -> Result<(), Bytes> {
+        if other.len() == 0 {
+            return Ok(());
+        }
+
+        // Check if this block is right next to the other block
+        let ptr = unsafe { self.ptr.add(self.len) };
+        // ... and from the same backing data
+        if ptr == other.ptr && self.is_same_data(&other) {
+            // ... then combine two blocks into one
+            self.len += other.len;
+            Ok(())
+        } else {
+            Err(other)
+        }
+    }
+
+    #[inline]
+    fn is_same_data(&self, other: &Bytes) -> bool {
+        self.data.load(Ordering::Relaxed) == other.data.load(Ordering::Relaxed)
     }
 
     /// Shortens the buffer, keeping the first `len` bytes and dropping the
@@ -1052,9 +1157,9 @@ const STATIC_VTABLE: Vtable = Vtable {
     drop: static_drop,
 };
 
-unsafe fn static_clone(_: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Bytes {
-    let slice = slice::from_raw_parts(ptr, len);
-    Bytes::from_static(slice)
+unsafe fn static_clone(data: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Bytes {
+    let data = AtomicPtr::new(data.load(Ordering::Relaxed));
+    Bytes::with_vtable(ptr, len, data, &STATIC_VTABLE)
 }
 
 unsafe fn static_to_vec(_: &AtomicPtr<()>, ptr: *const u8, len: usize) -> Vec<u8> {
