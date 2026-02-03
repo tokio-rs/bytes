@@ -75,6 +75,27 @@ impl<B: Buf + Sized> io::BufRead for Reader<B> {
     fn fill_buf(&mut self) -> io::Result<&[u8]> {
         Ok(self.buf.chunk())
     }
+    /// consume `amt` bytes from the buffer.
+    ///
+    /// Calls [`Buf::advance`] internally: If `amt` > `get_ref().remaining()` it
+    /// may **Panic** or advance to the end of the buf.
+    ///
+    /// # Examples
+    /// ```rust
+    /// use bytes::Buf;
+    /// use std::io::{Read, BufRead};
+    ///
+    /// let mut buf = b"hello world".reader();
+    /// let mut dst = vec![];
+    ///
+    /// // skip b"hello "
+    /// buf.consume(6);
+    /// // read b"world"
+    /// buf.read_to_end(&mut dst).unwrap();
+    ///
+    /// assert_eq!(dst, b"world");
+    /// ```
+    ///
     fn consume(&mut self, amt: usize) {
         self.buf.advance(amt)
     }
