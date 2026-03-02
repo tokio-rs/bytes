@@ -608,6 +608,23 @@ fn extend_from_slice_mut() {
 }
 
 #[test]
+fn extend_from_within_normal() {
+    let mut bytes = BytesMut::new();
+    bytes.extend_from_slice(&LONG[..23]);
+    bytes.extend_from_within(10..22);
+    bytes.extend_from_within(22..35);
+    assert_eq!(LONG[..], *bytes);
+}
+
+#[test]
+#[should_panic]
+fn extend_from_within_out_of_range() {
+    let mut bytes = BytesMut::new();
+    bytes.extend_from_slice(&LONG[..23]);
+    bytes.extend_from_within(23..=23);
+}
+
+#[test]
 fn extend_mut_from_bytes() {
     let mut bytes = BytesMut::with_capacity(0);
     bytes.extend([Bytes::from(LONG)]);
@@ -1706,4 +1723,17 @@ fn bytes_mut_put_bytes_specialization() {
     assert_eq!(&[10], bytes_mut.as_ref());
     // If allocation is reused, capacity should be equal to original vec capacity.
     assert_eq!(bytes_mut.capacity(), capacity);
+}
+
+#[test]
+#[should_panic]
+fn bytes_mut_reserve_overflow() {
+    let mut a = BytesMut::from(&b"hello world"[..]);
+    let mut b = a.split_off(5);
+    // Ensure b becomes the unique owner of the backing storage
+    drop(a);
+    // Trigger overflow in new_cap + offset inside reserve
+    b.reserve(usize::MAX - 6);
+    // This call relies on the corrupted cap and may cause UB & HBO
+    b.put_u8(b'h');
 }
