@@ -45,11 +45,14 @@ impl<T: Buf> Buf for VecDeque<T> {
     }
 
     fn chunk(&self) -> &[u8] {
-        if let Some(b) = self.front() {
-            b.chunk()
-        } else {
-            &[]
+        if !self.has_remaining() {
+            return &[];
         }
+
+        self.iter()
+            .find(|b| b.has_remaining())
+            .map(|b| b.chunk())
+            .expect("chunk called with no remaining bytes")
     }
 
     #[cfg(feature = "std")]
@@ -66,7 +69,9 @@ impl<T: Buf> Buf for VecDeque<T> {
 
     fn advance(&mut self, mut cnt: usize) {
         while cnt > 0 {
-            let b = self.front_mut().expect("advance called with cnt > remaining");
+            let b = self
+                .front_mut()
+                .expect("advance called with cnt > remaining");
             let rem = b.remaining();
             if cnt < rem {
                 b.advance(cnt);
