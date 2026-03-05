@@ -39,7 +39,7 @@ impl Buf for VecDeque<u8> {
     }
 }
 
-impl Buf for VecDeque<crate::Bytes> {
+impl<T: Buf> Buf for VecDeque<T> {
     fn remaining(&self) -> usize {
         self.iter().map(|b| b.remaining()).sum()
     }
