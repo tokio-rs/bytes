@@ -461,6 +461,7 @@ fn copy_to_bytes_mut() {
 }
 
 #[test]
+#[cfg(feature = "std")]
 fn test_vec_deque_buf_sequential_integrity() {
     /// A mock Buf that simulates a "fragmented" memory layout.
     /// It claims to have 10 bytes remaining, but its `chunks_vectored`
