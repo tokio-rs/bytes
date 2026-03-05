@@ -45,14 +45,10 @@ impl<T: Buf> Buf for VecDeque<T> {
     }
 
     fn chunk(&self) -> &[u8] {
-        if !self.has_remaining() {
-            return &[];
-        }
-
         self.iter()
             .find(|b| b.has_remaining())
             .map(|b| b.chunk())
-            .expect("chunk called with no remaining bytes")
+            .unwrap_or_default()
     }
 
     #[cfg(feature = "std")]
