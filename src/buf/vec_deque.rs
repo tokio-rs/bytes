@@ -38,3 +38,33 @@ impl Buf for VecDeque<u8> {
         self.drain(..cnt);
     }
 }
+
+impl Buf for VecDeque<crate::Bytes> {
+    fn remaining(&self) -> usize {
+        self.iter().map(|b| b.remaining()).sum()
+    }
+
+    fn chunk(&self) -> &[u8] {
+        if let Some(b) = self.front() {
+            b.chunk()
+        } else {
+            &[]
+        }
+    }
+
+    fn advance(&mut self, mut cnt: usize) {
+        while cnt > 0 {
+            let Some(b) = self.front_mut() else {
+                panic!("advance called with cnt > remaining");
+            };
+            let rem = b.remaining();
+            if cnt < rem {
+                b.advance(cnt);
+                return;
+            } else {
+                cnt -= rem;
+                self.pop_front();
+            }
+        }
+    }
+}
