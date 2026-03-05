@@ -58,7 +58,16 @@ impl<T: Buf> Buf for VecDeque<T> {
             if n >= dst.len() {
                 break;
             }
+
+            let old_n = n;
             n += buf.chunks_vectored(&mut dst[n..]);
+
+            let total_length: usize = dst[old_n..n].iter().map(|s| s.len()).sum();
+            if total_length < buf.remaining() {
+                // * we don't gather all the remaining data of the current buffer,
+                // must stop here to preserve the correct data ordering.
+                break;
+            }
         }
         n
     }
