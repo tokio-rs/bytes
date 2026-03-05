@@ -52,6 +52,18 @@ impl<T: Buf> Buf for VecDeque<T> {
         }
     }
 
+    #[cfg(feature = "std")]
+    fn chunks_vectored<'a>(&'a self, dst: &mut [io::IoSlice<'a>]) -> usize {
+        let mut n = 0;
+        for buf in self {
+            if n >= dst.len() {
+                break;
+            }
+            n += buf.chunks_vectored(&mut dst[n..]);
+        }
+        n
+    }
+
     fn advance(&mut self, mut cnt: usize) {
         while cnt > 0 {
             let Some(b) = self.front_mut() else {
