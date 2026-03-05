@@ -66,9 +66,7 @@ impl<T: Buf> Buf for VecDeque<T> {
 
     fn advance(&mut self, mut cnt: usize) {
         while cnt > 0 {
-            let Some(b) = self.front_mut() else {
-                panic!("advance called with cnt > remaining");
-            };
+            let b = self.front_mut().expect("advance called with cnt > remaining");
             let rem = b.remaining();
             if cnt < rem {
                 b.advance(cnt);
