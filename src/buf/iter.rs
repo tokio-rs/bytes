@@ -38,8 +38,8 @@ impl<T> IntoIter<T> {
     /// assert_eq!(iter.next(), Some(b'c'));
     /// assert_eq!(iter.next(), None);
     /// ```
-    pub fn new(inner: T) -> IntoIter<T> {
-        IntoIter { inner }
+    pub fn new(inner: T) -> Self {
+        Self { inner }
     }
 
     /// Consumes this `IntoIter`, returning the underlying value.

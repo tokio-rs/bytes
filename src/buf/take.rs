@@ -128,7 +128,7 @@ impl<T> Take<T> {
     /// assert_eq!(*dst, b"llo"[..]);
     /// ```
     pub fn set_limit(&mut self, lim: usize) {
-        self.limit = lim
+        self.limit = lim;
     }
 }
 

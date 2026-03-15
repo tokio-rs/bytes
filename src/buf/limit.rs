@@ -52,7 +52,7 @@ impl<T> Limit<T> {
     /// If the inner `BufMut` has fewer bytes than `lim` then that is the actual
     /// number of available bytes.
     pub fn set_limit(&mut self, lim: usize) {
-        self.limit = lim
+        self.limit = lim;
     }
 }
 
