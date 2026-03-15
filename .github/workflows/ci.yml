@@ -42,7 +42,7 @@ jobs:
           components: clippy
       - uses: actions-rs-plus/clippy-check@v2
         with:
-          args: --all --all-features --all-targets
+          args: --workspace --all-targets --all-features
 
   # This represents the minimum Rust version supported by
   # Bytes. Updating this should be done in a dedicated PR.
