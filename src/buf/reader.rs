@@ -76,6 +76,6 @@ impl<B: Buf + Sized> io::BufRead for Reader<B> {
         Ok(self.buf.chunk())
     }
     fn consume(&mut self, amt: usize) {
-        self.buf.advance(amt)
+        self.buf.advance(amt);
     }
 }

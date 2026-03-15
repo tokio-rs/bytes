@@ -16,6 +16,10 @@ struct Ledger {
 
 impl Ledger {
     const fn new() -> Self {
+        #[allow(
+            clippy::declare_interior_mutable_const,
+            reason = "Used only as a template for array initialization, not as shared mutable state."
+        )]
         const ELEM: (AtomicPtr<u8>, AtomicUsize) =
             (AtomicPtr::new(null_mut()), AtomicUsize::new(0));
         let alloc_table = [ELEM; LEDGER_LENGTH];

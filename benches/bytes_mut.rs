@@ -12,21 +12,21 @@ fn alloc_small(b: &mut Bencher) {
         for _ in 0..1024 {
             test::black_box(BytesMut::with_capacity(12));
         }
-    })
+    });
 }
 
 #[bench]
 fn alloc_mid(b: &mut Bencher) {
     b.iter(|| {
         test::black_box(BytesMut::with_capacity(128));
-    })
+    });
 }
 
 #[bench]
 fn alloc_big(b: &mut Bencher) {
     b.iter(|| {
         test::black_box(BytesMut::with_capacity(4096));
-    })
+    });
 }
 
 #[bench]
@@ -38,7 +38,7 @@ fn deref_unique(b: &mut Bencher) {
         for _ in 0..1024 {
             test::black_box(&buf[..]);
         }
-    })
+    });
 }
 
 #[bench]
@@ -57,7 +57,7 @@ fn deref_unique_unroll(b: &mut Bencher) {
             test::black_box(&buf[..]);
             test::black_box(&buf[..]);
         }
-    })
+    });
 }
 
 #[bench]
@@ -70,7 +70,7 @@ fn deref_shared(b: &mut Bencher) {
         for _ in 0..1024 {
             test::black_box(&buf[..]);
         }
-    })
+    });
 }
 
 #[bench]
@@ -86,7 +86,7 @@ fn deref_two(b: &mut Bencher) {
             test::black_box(&buf1[..]);
             test::black_box(&buf2[..]);
         }
-    })
+    });
 }
 
 #[bench]
@@ -99,7 +99,7 @@ fn clone_frozen(b: &mut Bencher) {
         for _ in 0..1024 {
             test::black_box(&bytes.clone());
         }
-    })
+    });
 }
 
 #[bench]
@@ -108,7 +108,7 @@ fn alloc_write_split_to_mid(b: &mut Bencher) {
         let mut buf = BytesMut::with_capacity(128);
         buf.put_slice(&[0u8; 64]);
         test::black_box(buf.split_to(64));
-    })
+    });
 }
 
 #[bench]
@@ -125,7 +125,7 @@ fn drain_write_drain(b: &mut Bencher) {
         }
 
         test::black_box(parts);
-    })
+    });
 }
 
 #[bench]
@@ -141,7 +141,7 @@ fn fmt_write(b: &mut Bencher) {
         unsafe {
             buf.set_len(0);
         }
-    })
+    });
 }
 
 #[bench]
@@ -255,6 +255,10 @@ fn put_u8_vec_push(b: &mut Bencher) {
 
     b.bytes = cnt as u64;
     b.iter(|| {
+        #[allow(
+            clippy::same_item_push,
+            reason = "Benchmarking the push operation itself, not Vec construction"
+        )]
         for _ in 0..cnt {
             buf.push(b'x');
         }
