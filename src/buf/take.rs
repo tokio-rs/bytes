@@ -1,4 +1,4 @@
-use crate::Buf;
+use crate::{Buf, Cursor};
 
 use core::cmp;
 
@@ -183,5 +183,16 @@ impl<T: Buf> Buf for Take<T> {
             }
         }
         cnt
+    }
+}
+
+impl<T: Cursor> Cursor for Take<T> {
+    type Cursor<'a>
+        = Take<T::Cursor<'a>>
+    where
+        Self: 'a;
+
+    fn cursor(&self, index: usize) -> Self::Cursor<'_> {
+        self.inner.cursor(index).take(self.limit - index)
     }
 }

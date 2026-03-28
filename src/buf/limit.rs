@@ -1,5 +1,6 @@
 use crate::buf::UninitSlice;
 use crate::BufMut;
+use crate::CursorMut;
 
 use core::cmp;
 
@@ -71,5 +72,16 @@ unsafe impl<T: BufMut> BufMut for Limit<T> {
         assert!(cnt <= self.limit);
         self.inner.advance_mut(cnt);
         self.limit -= cnt;
+    }
+}
+
+unsafe impl<T: CursorMut> CursorMut for Limit<T> {
+    type CursorMut<'a>
+        = Limit<T::CursorMut<'a>>
+    where
+        Self: 'a;
+
+    fn cursor_mut(&mut self, index: usize) -> Self::CursorMut<'_> {
+        self.inner.cursor_mut(index).limit(self.limit - index)
     }
 }

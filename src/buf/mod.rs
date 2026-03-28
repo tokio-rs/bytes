@@ -17,6 +17,8 @@
 mod buf_impl;
 mod buf_mut;
 mod chain;
+mod cursor;
+mod cursor_mut;
 mod iter;
 mod limit;
 #[cfg(feature = "std")]
@@ -30,6 +32,8 @@ mod writer;
 pub use self::buf_impl::Buf;
 pub use self::buf_mut::BufMut;
 pub use self::chain::Chain;
+pub use self::cursor::Cursor;
+pub use self::cursor_mut::CursorMut;
 pub use self::iter::IntoIter;
 pub use self::limit::Limit;
 pub use self::take::Take;

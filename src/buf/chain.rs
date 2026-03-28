@@ -1,5 +1,5 @@
 use crate::buf::{IntoIter, UninitSlice};
-use crate::{Buf, BufMut};
+use crate::{Buf, BufMut, Cursor, CursorMut};
 
 #[cfg(feature = "std")]
 use std::io::IoSlice;
@@ -223,6 +223,33 @@ where
         }
 
         self.b.advance_mut(cnt);
+    }
+}
+
+impl<T: Cursor, U: Cursor> Cursor for Chain<T, U> {
+    type Cursor<'a>
+        = Chain<T::Cursor<'a>, U::Cursor<'a>>
+    where
+        Self: 'a;
+
+    fn cursor(&self, index: usize) -> Self::Cursor<'_> {
+        let mut chain = self.a.cursor(0).chain(self.b.cursor(0));
+        chain.advance(index);
+        chain
+    }
+}
+
+unsafe impl<T: CursorMut, U: CursorMut> CursorMut for Chain<T, U> {
+    type CursorMut<'a>
+        = Chain<T::CursorMut<'a>, U::CursorMut<'a>>
+    where
+        Self: 'a;
+
+    fn cursor_mut(&mut self, index: usize) -> Self::CursorMut<'_> {
+        let mut chain = self.a.cursor_mut(0).chain_mut(self.b.cursor_mut(0));
+        // SAFETY: advance_mut must be safe on CursorMut::CursorMut
+        unsafe { chain.advance_mut(index) };
+        chain
     }
 }
 
