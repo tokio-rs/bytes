@@ -324,6 +324,10 @@ impl BytesMut {
             self.capacity(),
         );
         unsafe {
+            // SAFETY: `shallow_clone` increments the reference count (or
+            // promotes to shared) and returns a bitwise copy of the handle.
+            // The caller immediately adjusts both handles so they represent
+            // disjoint regions.
             let mut other = self.shallow_clone();
             // SAFETY: We've checked that `at` <= `self.capacity()` above.
             other.advance_unchecked(at);
@@ -400,6 +404,10 @@ impl BytesMut {
         );
 
         unsafe {
+            // SAFETY: `shallow_clone` increments the reference count (or
+            // promotes to shared) and returns a bitwise copy of the handle.
+            // The caller immediately adjusts both handles so they represent
+            // disjoint regions.
             let mut other = self.shallow_clone();
             // SAFETY: We've checked that `at` <= `self.len()` and we know that `self.len()` <=
             // `self.capacity()`.

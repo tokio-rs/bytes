@@ -489,6 +489,8 @@ impl Bytes {
 
         self.len = at;
 
+        // SAFETY: `at` has been asserted to be <= `self.len()`, and the
+        // `at == self.len()` and `at == 0` cases were handled above.
         unsafe { ret.inc_start(at) };
 
         ret
@@ -537,6 +539,8 @@ impl Bytes {
 
         let mut ret = self.clone();
 
+        // SAFETY: `at` has been asserted to be <= `self.len()`, and the
+        // `at == self.len()` and `at == 0` cases were handled above.
         unsafe { self.inc_start(at) };
 
         ret.len = at;
