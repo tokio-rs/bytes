@@ -1366,6 +1366,12 @@ impl<'a> From<&'a str> for BytesMut {
     }
 }
 
+impl From<Vec<u8>> for BytesMut {
+    fn from(src: Vec<u8>) -> BytesMut {
+        BytesMut::from(Bytes::from(src))
+    }
+}
+
 impl From<BytesMut> for Bytes {
     fn from(src: BytesMut) -> Bytes {
         src.freeze()
