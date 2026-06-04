@@ -1368,7 +1368,7 @@ impl<'a> From<&'a str> for BytesMut {
 
 impl From<Vec<u8>> for BytesMut {
     fn from(src: Vec<u8>) -> BytesMut {
-        BytesMut::from(Bytes::from(src))
+        BytesMut::from_vec(src)
     }
 }
 
