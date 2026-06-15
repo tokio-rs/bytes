@@ -598,6 +598,63 @@ fn extend_mut() {
 }
 
 #[test]
+fn extend_mut_after_advance() {
+    let mut bytes = BytesMut::with_capacity(16);
+    bytes.extend_from_slice(b"abcdef");
+    bytes.advance(2);
+
+    bytes.extend([b'g', b'h']);
+
+    assert_eq!(bytes.len(), 6);
+    assert_eq!(&bytes[..], b"cdefgh");
+    assert_eq!(bytes.capacity(), 14);
+}
+
+#[test]
+#[cfg_attr(not(panic = "unwind"), ignore)]
+fn extend_mut_keeps_buffer_valid_on_iterator_panic() {
+    struct PanicAfter {
+        next: u8,
+        remaining: usize,
+    }
+
+    impl Iterator for PanicAfter {
+        type Item = u8;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            if self.remaining == 0 {
+                panic!("test-triggered iterator panic");
+            }
+
+            let next = self.next;
+            self.next += 1;
+            self.remaining -= 1;
+            Some(next)
+        }
+
+        fn size_hint(&self) -> (usize, Option<usize>) {
+            (0, None)
+        }
+    }
+
+    let mut bytes = BytesMut::with_capacity(16);
+    bytes.extend_from_slice(b"a");
+
+    let result = panic::catch_unwind(AssertUnwindSafe(|| {
+        bytes.extend(PanicAfter {
+            next: b'b',
+            remaining: 3,
+        });
+    }));
+
+    assert!(result.is_err());
+    assert_eq!(&bytes[..], b"abcd");
+
+    bytes.extend_from_slice(b"ef");
+    assert_eq!(&bytes[..], b"abcdef");
+}
+
+#[test]
 fn extend_from_slice_mut() {
     for &i in &[3, 34] {
         let mut bytes = BytesMut::new();
