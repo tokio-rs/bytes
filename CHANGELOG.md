@@ -1,3 +1,19 @@
+# 1.12.0 (June 18th, 2026)
+
+### Added
+- Add `BytesMut::extend_from_within()` (#818)
+- Add `BytesMut::try_unsplit()` (#746)
+
+### Fixed
+- Fix panic in `get_int` if `nbytes` is zero (#806)
+
+### Changed
+- Pass vtable data by value (#826)
+- Exclude development scripts from published package (#810)
+
+### Documented
+- Document that `BytesMut::{reserve,try_reserve}` doesn't preserve unused capacity (#808)
+
 # 1.11.1 (February 3rd, 2026)
 
 - Fix integer overflow in `BytesMut::reserve`
