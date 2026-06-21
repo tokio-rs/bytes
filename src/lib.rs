@@ -77,7 +77,9 @@ extern crate alloc;
 extern crate std;
 
 pub mod buf;
+pub mod utf8;
 pub use crate::buf::{Buf, BufMut};
+pub use crate::utf8::Utf8Bytes;
 
 mod bytes;
 mod bytes_mut;
