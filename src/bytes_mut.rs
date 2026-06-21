@@ -183,7 +183,7 @@ impl BytesMut {
     /// assert_eq!(b.len(), 5);
     /// ```
     #[inline]
-    pub fn len(&self) -> usize {
+    pub const fn len(&self) -> usize {
         self.len
     }
 
@@ -198,7 +198,7 @@ impl BytesMut {
     /// assert!(b.is_empty());
     /// ```
     #[inline]
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.len == 0
     }
 
@@ -213,7 +213,7 @@ impl BytesMut {
     /// assert_eq!(b.capacity(), 64);
     /// ```
     #[inline]
-    pub fn capacity(&self) -> usize {
+    pub const fn capacity(&self) -> usize {
         self.cap
     }
 
