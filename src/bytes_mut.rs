@@ -886,13 +886,7 @@ impl BytesMut {
                 let off = self.get_vec_pos();
                 let v = rebuild_vec(self.ptr.as_ptr(), self.len, self.cap, off);
                 let mut v = ManuallyDrop::new(v);
-                // Offset views may point past bytes that are not part of this
-                // buffer. Move the live range to the start before shrinking.
-                if self.len != 0 {
-                    ptr::copy(self.ptr.as_ptr(), v.as_mut_ptr(), self.len);
-                }
-                v.set_len(self.len);
-                v.shrink_to_fit();
+                shrink_vec_to_fit(&mut v, self.ptr.as_ptr(), self.len);
                 self.ptr = vptr(v.as_mut_ptr());
                 self.cap = v.capacity();
                 self.set_vec_pos(0);
@@ -907,13 +901,7 @@ impl BytesMut {
             if (*shared).is_unique() {
                 let v = &mut (*shared).vec;
 
-                // Offset views may point past bytes that are not part of this
-                // buffer. Move the live range to the start before shrinking.
-                if self.len != 0 {
-                    ptr::copy(self.ptr.as_ptr(), v.as_mut_ptr(), self.len);
-                }
-                v.set_len(self.len);
-                v.shrink_to_fit();
+                shrink_vec_to_fit(v, self.ptr.as_ptr(), self.len);
                 self.ptr = vptr(v.as_mut_ptr());
                 self.cap = v.capacity();
                 return true;
@@ -1931,6 +1919,17 @@ unsafe fn rebuild_vec(ptr: *mut u8, mut len: usize, mut cap: usize, off: usize) 
     cap += off;
 
     Vec::from_raw_parts(ptr, len, cap)
+}
+
+// `ptr..ptr + len` must be initialized bytes within `vec`'s allocation.
+unsafe fn shrink_vec_to_fit(vec: &mut Vec<u8>, ptr: *mut u8, len: usize) {
+    // Offset views may point past bytes that are not part of this buffer. Move
+    // the live range to the start before shrinking.
+    if len != 0 {
+        ptr::copy(ptr, vec.as_mut_ptr(), len);
+    }
+    vec.set_len(len);
+    vec.shrink_to_fit();
 }
 
 // ===== impl SharedVtable =====
