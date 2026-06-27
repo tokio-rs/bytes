@@ -858,6 +858,60 @@ impl BytesMut {
         self.reserve_inner(additional, false)
     }
 
+    /// Attempts to shrink the buffer's capacity to fit its current length.
+    ///
+    /// This operation preserves the current contents and returns `true` when
+    /// the allocation is successfully shrunk. For `BytesMut` values backed by
+    /// shared storage, this only succeeds when the current handle is the only
+    /// remaining owner of the underlying allocation; otherwise it returns
+    /// `false` and leaves the buffer unchanged.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::BytesMut;
+    ///
+    /// let mut buf = BytesMut::with_capacity(64);
+    /// buf.extend_from_slice(b"hello");
+    ///
+    /// assert!(buf.try_shrink_to_fit());
+    /// assert_eq!(buf.capacity(), 5);
+    /// assert_eq!(&buf[..], b"hello");
+    /// ```
+    pub fn try_shrink_to_fit(&mut self) -> bool {
+        let kind = self.kind();
+
+        if kind == KIND_VEC {
+            unsafe {
+                let off = self.get_vec_pos();
+                let v = rebuild_vec(self.ptr.as_ptr(), self.len, self.cap, off);
+                let mut v = ManuallyDrop::new(v);
+                v.shrink_to_fit();
+                self.ptr = vptr(v.as_mut_ptr().add(off));
+                self.cap = v.capacity() - off;
+            }
+            return true;
+        }
+
+        debug_assert_eq!(kind, KIND_ARC);
+        let shared: *mut Shared = self.data;
+
+        unsafe {
+            if (*shared).is_unique() {
+                let v = &mut (*shared).vec;
+                let v_ptr = v.as_mut_ptr();
+                let offset = self.ptr.as_ptr().offset_from(v_ptr) as usize;
+
+                v.shrink_to_fit();
+                self.ptr = vptr(v.as_mut_ptr().add(offset));
+                self.cap = v.capacity() - offset;
+                return true;
+            }
+        }
+
+        false
+    }
+
     /// Appends given bytes to this `BytesMut`.
     ///
     /// If this `BytesMut` object does not have enough capacity, it is resized

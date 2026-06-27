@@ -282,3 +282,58 @@ fn test_bytes_mut_reuse() {
     let mut buf = BytesMut::new();
     buf.put(&[1u8, 2, 3] as &[u8]);
 }
+
+#[test]
+fn test_bytes_mut_try_shrink_to_fit_empty() {
+    let mut buf = BytesMut::new();
+
+    assert!(buf.try_shrink_to_fit());
+    assert!(buf.is_empty());
+    assert_eq!(buf.capacity(), 0);
+}
+
+#[test]
+fn test_bytes_mut_try_shrink_to_fit_already_tight() {
+    let mut buf = BytesMut::from(&b"abc"[..]);
+
+    assert!(buf.try_shrink_to_fit());
+    assert_eq!(buf.capacity(), buf.len());
+    assert_eq!(&buf[..], b"abc");
+}
+
+#[test]
+fn test_bytes_mut_try_shrink_to_fit_cant_shrink_with_refs() {
+    let mut buf = BytesMut::from(&b"abc"[..]);
+    buf.reserve(3);
+
+    let mut other = buf.split_off(2);
+
+    assert_eq!(buf.try_shrink_to_fit(), false, "if there are other references to the buffer, it can't be safely shrunk");
+    assert_eq!(buf.capacity(), 2, "the capacity of the original buffer shrinks to the length of the buffer when there are other references to it");
+    assert_eq!(&buf[..], b"ab", "the original buffer should still contain the first two bytes");
+
+    assert_eq!(other.try_shrink_to_fit(), false, "the other buffer can be shrunk to fit");
+    assert_eq!(other.capacity(), 6, "the other buffer's capacity should be 6");
+    assert_eq!(other.len(), 1, "the other buffer's length should be 1");
+    assert_eq!(&other[..], b"c", "the other buffer should contain the last byte");
+}
+
+#[test]
+fn test_bytes_mut_try_shrink_to_fit_after_split_off() {
+    let data = b"hello world";
+    let mut buf = BytesMut::with_capacity(64);
+
+    assert_eq!(buf.capacity(), 64, "buf capacity should be 64 before extending");
+    buf.extend_from_slice(data);
+    assert_eq!(buf.capacity(), 64, "buf capacity should be 64 after extending");
+
+    let mut other = buf.split_off(5);
+    assert_eq!(&buf[..], b"hello", "buf should contain the first half of the data");
+    assert_eq!(&other[..], b" world", "other should contain the second half of the data");
+    assert_eq!(buf.capacity(), 5, "buf capacity should be 5 after splitting");
+    assert_eq!(other.capacity(), 59, "other capacity should be 59 before shrinking");
+
+    drop(buf);
+    assert!(other.try_shrink_to_fit());
+    assert_eq!(other.capacity(), 6, "other capacity should be 6 after shrinking");
+}
