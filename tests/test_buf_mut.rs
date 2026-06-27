@@ -1,7 +1,7 @@
 #![warn(rust_2018_idioms)]
 
 use bytes::buf::UninitSlice;
-use bytes::{BufMut, BytesMut};
+use bytes::{Buf, BufMut, BytesMut};
 use core::fmt::Write;
 use core::mem::MaybeUninit;
 
@@ -308,14 +308,14 @@ fn test_bytes_mut_try_shrink_to_fit_cant_shrink_with_refs() {
 
     let mut other = buf.split_off(2);
 
-    assert_eq!(buf.try_shrink_to_fit(), false, "if there are other references to the buffer, it can't be safely shrunk");
-    assert_eq!(buf.capacity(), 2, "the capacity of the original buffer shrinks to the length of the buffer when there are other references to it");
-    assert_eq!(&buf[..], b"ab", "the original buffer should still contain the first two bytes");
+    assert!(!buf.try_shrink_to_fit());
+    assert_eq!(buf.capacity(), 2);
+    assert_eq!(&buf[..], b"ab");
 
-    assert_eq!(other.try_shrink_to_fit(), false, "the other buffer can be shrunk to fit");
-    assert_eq!(other.capacity(), 6, "the other buffer's capacity should be 6");
-    assert_eq!(other.len(), 1, "the other buffer's length should be 1");
-    assert_eq!(&other[..], b"c", "the other buffer should contain the last byte");
+    assert!(!other.try_shrink_to_fit());
+    assert_eq!(other.capacity(), 6);
+    assert_eq!(other.len(), 1);
+    assert_eq!(&other[..], b"c");
 }
 
 #[test]
@@ -323,17 +323,80 @@ fn test_bytes_mut_try_shrink_to_fit_after_split_off() {
     let data = b"hello world";
     let mut buf = BytesMut::with_capacity(64);
 
-    assert_eq!(buf.capacity(), 64, "buf capacity should be 64 before extending");
+    assert_eq!(buf.capacity(), 64);
     buf.extend_from_slice(data);
-    assert_eq!(buf.capacity(), 64, "buf capacity should be 64 after extending");
+    assert_eq!(buf.capacity(), 64);
 
     let mut other = buf.split_off(5);
-    assert_eq!(&buf[..], b"hello", "buf should contain the first half of the data");
-    assert_eq!(&other[..], b" world", "other should contain the second half of the data");
-    assert_eq!(buf.capacity(), 5, "buf capacity should be 5 after splitting");
-    assert_eq!(other.capacity(), 59, "other capacity should be 59 before shrinking");
+    assert_eq!(&buf[..], b"hello");
+    assert_eq!(&other[..], b" world");
+    assert_eq!(buf.capacity(), 5);
+    assert_eq!(other.capacity(), 59);
 
     drop(buf);
     assert!(other.try_shrink_to_fit());
-    assert_eq!(other.capacity(), 6, "other capacity should be 6 after shrinking");
+    assert_eq!(other.capacity(), 6);
+}
+
+#[test]
+fn test_bytes_mut_try_shrink_to_fit_unique_front_after_split_off() {
+    let mut buf = BytesMut::with_capacity(64);
+    buf.extend_from_slice(b"hello world");
+
+    let other = buf.split_off(5);
+    drop(other);
+
+    assert!(buf.try_shrink_to_fit());
+    assert_eq!(buf.capacity(), buf.len());
+    assert_eq!(buf.capacity(), 5);
+    assert_eq!(&buf[..], b"hello");
+}
+
+#[test]
+fn test_bytes_mut_try_shrink_to_fit_unique_empty_tail_past_len() {
+    let mut buf = BytesMut::with_capacity(64);
+    buf.extend_from_slice(b"abc");
+
+    let mut other = buf.split_off(10);
+    drop(buf);
+
+    assert!(other.try_shrink_to_fit());
+    assert!(other.is_empty());
+    assert_eq!(other.capacity(), 0);
+}
+
+#[test]
+fn test_bytes_mut_try_shrink_to_fit_after_advance() {
+    let mut buf = BytesMut::with_capacity(64);
+    buf.extend_from_slice(b"hello world");
+    buf.advance(6);
+
+    assert!(buf.try_shrink_to_fit());
+    assert_eq!(buf.capacity(), buf.len());
+    assert_eq!(buf.capacity(), 5);
+    assert_eq!(&buf[..], b"world");
+}
+
+#[test]
+fn test_bytes_mut_try_shrink_to_fit_empty_after_advance() {
+    let mut buf = BytesMut::with_capacity(64);
+    buf.extend_from_slice(b"abc");
+    buf.advance(3);
+
+    assert!(buf.try_shrink_to_fit());
+    assert!(buf.is_empty());
+    assert_eq!(buf.capacity(), 0);
+}
+
+#[test]
+fn test_bytes_mut_try_shrink_to_fit_cant_shrink_with_bytes_ref() {
+    let mut buf = BytesMut::from(&b"abcdef"[..]);
+    buf.reserve(8);
+
+    let bytes = buf.split_off(3).freeze();
+
+    assert!(!buf.try_shrink_to_fit());
+    assert_eq!(buf.capacity(), 3);
+    assert_eq!(&buf[..], b"abc");
+    assert_eq!(&bytes[..], b"def");
 }

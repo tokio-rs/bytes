@@ -886,9 +886,16 @@ impl BytesMut {
                 let off = self.get_vec_pos();
                 let v = rebuild_vec(self.ptr.as_ptr(), self.len, self.cap, off);
                 let mut v = ManuallyDrop::new(v);
+                // Offset views may point past bytes that are not part of this
+                // buffer. Move the live range to the start before shrinking.
+                if self.len != 0 {
+                    ptr::copy(self.ptr.as_ptr(), v.as_mut_ptr(), self.len);
+                }
+                v.set_len(self.len);
                 v.shrink_to_fit();
-                self.ptr = vptr(v.as_mut_ptr().add(off));
-                self.cap = v.capacity() - off;
+                self.ptr = vptr(v.as_mut_ptr());
+                self.cap = v.capacity();
+                self.set_vec_pos(0);
             }
             return true;
         }
@@ -899,12 +906,16 @@ impl BytesMut {
         unsafe {
             if (*shared).is_unique() {
                 let v = &mut (*shared).vec;
-                let v_ptr = v.as_mut_ptr();
-                let offset = self.ptr.as_ptr().offset_from(v_ptr) as usize;
 
+                // Offset views may point past bytes that are not part of this
+                // buffer. Move the live range to the start before shrinking.
+                if self.len != 0 {
+                    ptr::copy(self.ptr.as_ptr(), v.as_mut_ptr(), self.len);
+                }
+                v.set_len(self.len);
                 v.shrink_to_fit();
-                self.ptr = vptr(v.as_mut_ptr().add(offset));
-                self.cap = v.capacity() - offset;
+                self.ptr = vptr(v.as_mut_ptr());
+                self.cap = v.capacity();
                 return true;
             }
         }
