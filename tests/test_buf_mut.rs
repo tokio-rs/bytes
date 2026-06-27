@@ -400,3 +400,53 @@ fn test_bytes_mut_try_shrink_to_fit_cant_shrink_with_bytes_ref() {
     assert_eq!(&buf[..], b"abc");
     assert_eq!(&bytes[..], b"def");
 }
+
+#[test]
+fn test_bytes_mut_try_shrink_to_capacity() {
+    let mut buf = BytesMut::with_capacity(64);
+    buf.extend_from_slice(b"hello");
+
+    assert!(buf.try_shrink_to_capacity(16));
+    assert_eq!(buf.capacity(), 16);
+    assert_eq!(&buf[..], b"hello");
+}
+
+#[test]
+fn test_bytes_mut_try_shrink_to_capacity_does_not_shrink_below_len() {
+    let mut buf = BytesMut::with_capacity(64);
+    buf.extend_from_slice(b"hello world");
+
+    assert!(buf.try_shrink_to_capacity(5));
+    assert_eq!(buf.capacity(), buf.len());
+    assert_eq!(buf.capacity(), 11);
+    assert_eq!(&buf[..], b"hello world");
+}
+
+#[test]
+fn test_bytes_mut_try_shrink_to_capacity_after_advance() {
+    let mut buf = BytesMut::with_capacity(64);
+    buf.extend_from_slice(b"hello world");
+    buf.advance(6);
+
+    assert!(buf.try_shrink_to_capacity(16));
+    assert_eq!(buf.capacity(), 16);
+    assert_eq!(&buf[..], b"world");
+}
+
+#[test]
+fn test_bytes_mut_try_shrink_to_capacity_cant_shrink_with_refs() {
+    let mut buf = BytesMut::from(&b"abcdef"[..]);
+    buf.reserve(8);
+
+    let mut other = buf.split_off(3);
+    let buf_cap = buf.capacity();
+    let other_cap = other.capacity();
+
+    assert!(!buf.try_shrink_to_capacity(4));
+    assert_eq!(buf.capacity(), buf_cap);
+    assert_eq!(&buf[..], b"abc");
+
+    assert!(!other.try_shrink_to_capacity(4));
+    assert_eq!(other.capacity(), other_cap);
+    assert_eq!(&other[..], b"def");
+}
