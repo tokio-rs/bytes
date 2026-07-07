@@ -946,17 +946,16 @@ impl From<&'static str> for Bytes {
 
 impl From<Vec<u8>> for Bytes {
     fn from(vec: Vec<u8>) -> Bytes {
+        // Avoid an extra allocation if possible.
+        if vec.len() == vec.capacity() {
+            return Bytes::from(vec.into_boxed_slice());
+        }
+
         let shared = Box::new(MaybeUninit::<Shared>::uninit());
         let mut vec = ManuallyDrop::new(vec);
         let ptr = vec.as_mut_ptr();
         let len = vec.len();
         let cap = vec.capacity();
-
-        // Avoid an extra allocation if possible.
-        if len == cap {
-            let vec = ManuallyDrop::into_inner(vec);
-            return Bytes::from(vec.into_boxed_slice());
-        }
 
         let shared = Shared::init_to_raw(
             shared,
