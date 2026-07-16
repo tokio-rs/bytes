@@ -340,6 +340,31 @@ fn truncate() {
 }
 
 #[test]
+fn truncate_to_zero_releases_shared_reference() {
+    let mut bytes = BytesMut::from(&b"hello"[..]);
+    drop(bytes.split_off(bytes.len()));
+    let mut truncated = bytes.freeze();
+    let remaining = truncated.clone();
+
+    truncated.truncate(0);
+
+    assert!(truncated.is_empty());
+    let mut remaining = remaining.try_into_mut().unwrap();
+    remaining[0] = b'H';
+    assert_eq!(remaining, b"Hello"[..]);
+
+    let mut bytes = BytesMut::from(&b"hello"[..]);
+    drop(bytes.split_off(bytes.len()));
+    let mut nonempty = bytes.freeze();
+    let remaining = nonempty.clone();
+
+    nonempty.truncate(1);
+
+    assert_eq!(nonempty, b"h"[..]);
+    assert!(remaining.try_into_mut().is_err());
+}
+
+#[test]
 fn freeze_clone_shared() {
     let s = &b"abcdefgh"[..];
     let b = BytesMut::from(s).split().freeze();
