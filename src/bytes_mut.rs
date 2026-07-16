@@ -872,6 +872,84 @@ impl BytesMut {
         self.reserve_inner(additional, false)
     }
 
+    /// Attempts to shrink the buffer's capacity with a lower bound.
+    ///
+    /// The capacity will remain at least as large as both the length and the
+    /// supplied capacity. This operation preserves the current contents and
+    /// returns `true` when the allocation can be reclaimed. For `BytesMut`
+    /// values backed by shared storage, this only succeeds when the current
+    /// handle is the only remaining owner of the underlying allocation;
+    /// otherwise it returns `false` and leaves the buffer unchanged.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::BytesMut;
+    ///
+    /// let mut buf = BytesMut::with_capacity(64);
+    /// buf.extend_from_slice(b"hello");
+    ///
+    /// assert!(buf.try_shrink_to_capacity(16));
+    /// assert_eq!(buf.capacity(), 16);
+    /// assert_eq!(&buf[..], b"hello");
+    /// ```
+    pub fn try_shrink_to_capacity(&mut self, capacity: usize) -> bool {
+        let kind = self.kind();
+
+        if kind == KIND_VEC {
+            unsafe {
+                let off = self.get_vec_pos();
+                let v = rebuild_vec(self.ptr.as_ptr(), self.len, self.cap, off);
+                let mut v = ManuallyDrop::new(v);
+                shrink_vec(&mut v, self.ptr.as_ptr(), self.len, capacity);
+                self.ptr = vptr(v.as_mut_ptr());
+                self.cap = v.capacity();
+                self.set_vec_pos(0);
+            }
+            return true;
+        }
+
+        debug_assert_eq!(kind, KIND_ARC);
+        let shared: *mut Shared = self.data;
+
+        unsafe {
+            if (*shared).is_unique() {
+                let v = &mut (*shared).vec;
+
+                shrink_vec(v, self.ptr.as_ptr(), self.len, capacity);
+                self.ptr = vptr(v.as_mut_ptr());
+                self.cap = v.capacity();
+                return true;
+            }
+        }
+
+        false
+    }
+
+    /// Attempts to shrink the buffer's capacity to fit its current length.
+    ///
+    /// This operation preserves the current contents and returns `true` when
+    /// the allocation is successfully shrunk. For `BytesMut` values backed by
+    /// shared storage, this only succeeds when the current handle is the only
+    /// remaining owner of the underlying allocation; otherwise it returns
+    /// `false` and leaves the buffer unchanged.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::BytesMut;
+    ///
+    /// let mut buf = BytesMut::with_capacity(64);
+    /// buf.extend_from_slice(b"hello");
+    ///
+    /// assert!(buf.try_shrink_to_fit());
+    /// assert_eq!(buf.capacity(), 5);
+    /// assert_eq!(&buf[..], b"hello");
+    /// ```
+    pub fn try_shrink_to_fit(&mut self) -> bool {
+        self.try_shrink_to_capacity(self.len)
+    }
+
     /// Appends given bytes to this `BytesMut`.
     ///
     /// If this `BytesMut` object does not have enough capacity, it is resized
@@ -1885,6 +1963,17 @@ unsafe fn rebuild_vec(ptr: *mut u8, mut len: usize, mut cap: usize, off: usize) 
     cap += off;
 
     Vec::from_raw_parts(ptr, len, cap)
+}
+
+// `ptr..ptr + len` must be initialized bytes within `vec`'s allocation.
+unsafe fn shrink_vec(vec: &mut Vec<u8>, ptr: *mut u8, len: usize, capacity: usize) {
+    // Offset views may point past bytes that are not part of this buffer. Move
+    // the live range to the start before shrinking.
+    if len != 0 {
+        ptr::copy(ptr, vec.as_mut_ptr(), len);
+    }
+    vec.set_len(len);
+    vec.shrink_to(capacity);
 }
 
 // ===== impl SharedVtable =====
