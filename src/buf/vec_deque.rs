@@ -38,3 +38,53 @@ impl Buf for VecDeque<u8> {
         self.drain(..cnt);
     }
 }
+
+impl<T: Buf> Buf for VecDeque<T> {
+    fn remaining(&self) -> usize {
+        self.iter().map(|b| b.remaining()).sum()
+    }
+
+    fn chunk(&self) -> &[u8] {
+        self.iter()
+            .find(|b| b.has_remaining())
+            .map(|b| b.chunk())
+            .unwrap_or_default()
+    }
+
+    #[cfg(feature = "std")]
+    fn chunks_vectored<'a>(&'a self, dst: &mut [io::IoSlice<'a>]) -> usize {
+        let mut n = 0;
+        for buf in self {
+            if n >= dst.len() {
+                break;
+            }
+
+            let old_n = n;
+            n += buf.chunks_vectored(&mut dst[n..]);
+
+            let total_length: usize = dst[old_n..n].iter().map(|s| s.len()).sum();
+            if total_length < buf.remaining() {
+                // * we don't gather all the remaining data of the current buffer,
+                // must stop here to preserve the correct data ordering.
+                break;
+            }
+        }
+        n
+    }
+
+    fn advance(&mut self, mut cnt: usize) {
+        while cnt > 0 {
+            let b = self
+                .front_mut()
+                .expect("advance called with cnt > remaining");
+            let rem = b.remaining();
+            if cnt < rem {
+                b.advance(cnt);
+                return;
+            } else {
+                cnt -= rem;
+                self.pop_front();
+            }
+        }
+    }
+}
