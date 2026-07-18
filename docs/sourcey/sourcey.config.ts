@@ -1,16 +1,13 @@
 import { defineConfig, markdown } from "sourcey";
 
-const canonicalUrl = new URL(
-  process.env.READTHEDOCS_CANONICAL_URL ??
-    "https://bytes-field-guide.readthedocs.io/en/latest/",
-);
+const canonicalUrl = new URL("https://tokio-rs.github.io/bytes/field-guide/");
 
 export default defineConfig({
   name: "Bytes Field Guide",
   siteUrl: canonicalUrl.origin,
   baseUrl: canonicalUrl.pathname,
-  repo: "https://github.com/tzwkb/bytes",
-  editBranch: "main",
+  repo: "https://github.com/tokio-rs/bytes",
+  editBranch: "master",
   editBasePath: "docs/sourcey",
   navigation: {
     tabs: [

@@ -12,6 +12,8 @@ A utility library for working with bytes.
 
 [Documentation](https://docs.rs/bytes)
 
+[Task-oriented field guide](https://tokio-rs.github.io/bytes/field-guide/)
+
 ## Usage
 
 To use `bytes`, first add this to your `Cargo.toml`:

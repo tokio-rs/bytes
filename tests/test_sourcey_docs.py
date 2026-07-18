@@ -131,7 +131,9 @@ class SourceyDocsTests(unittest.TestCase):
     def test_sourcey_build_configuration_exists(self):
         self.assertTrue((DOCS / "sourcey.config.ts").is_file())
         self.assertTrue((ROOT / "package.json").is_file())
-        self.assertTrue((ROOT / ".readthedocs.yaml").is_file())
+        ignored = (ROOT / ".gitignore").read_text(encoding="utf-8")
+        self.assertIn("/node_modules/", ignored)
+        self.assertIn("__pycache__/", ignored)
 
     def test_sourcey_navigation_references_every_page(self):
         self.assertTrue((DOCS / "sourcey.config.ts").is_file())
@@ -147,10 +149,18 @@ class SourceyDocsTests(unittest.TestCase):
         self.assertEqual(package["devDependencies"]["sourcey"], "3.6.5")
         self.assertEqual(lock["packages"]["node_modules/sourcey"]["version"], "3.6.5")
 
-    def test_readthedocs_writes_html_to_rtd_output(self):
-        self.assertTrue((ROOT / ".readthedocs.yaml").is_file())
-        config = (ROOT / ".readthedocs.yaml").read_text(encoding="utf-8")
-        self.assertIn('npm run docs:build -- --output "$READTHEDOCS_OUTPUT/html" --quiet', config)
+    def test_sourcey_uses_official_tokio_pages_home(self):
+        config = (DOCS / "sourcey.config.ts").read_text(encoding="utf-8")
+        self.assertIn('new URL("https://tokio-rs.github.io/bytes/field-guide/")', config)
+        self.assertIn("siteUrl: canonicalUrl.origin", config)
+        self.assertIn("baseUrl: canonicalUrl.pathname", config)
+        self.assertIn('repo: "https://github.com/tokio-rs/bytes"', config)
+
+    def test_ci_builds_sourcey_into_rustdoc_tree(self):
+        workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+        self.assertIn("actions/setup-node@v4", workflow)
+        self.assertIn("npm ci", workflow)
+        self.assertIn("$GITHUB_WORKSPACE/target/doc/field-guide", workflow)
 
     def test_generated_internal_link_validation_rejects_missing_fragment(self):
         with tempfile.TemporaryDirectory() as directory:

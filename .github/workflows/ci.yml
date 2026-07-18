@@ -201,6 +201,15 @@ jobs:
         run: cargo doc --no-deps --all-features
         env:
           RUSTDOCFLAGS: --cfg docsrs
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - name: Build Sourcey field guide
+        run: |
+          npm ci
+          npm run docs:build -- --output "$GITHUB_WORKSPACE/target/doc/field-guide" --quiet
+          python3 -m unittest tests.test_sourcey_docs -v
       - name: Publish documentation
         run: |
           cd target/doc

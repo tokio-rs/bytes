@@ -1,2 +1,5 @@
 /target
 /Cargo.lock
+/node_modules/
+/docs/sourcey/target/
+__pycache__/
