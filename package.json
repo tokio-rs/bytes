@@ -1,0 +1,10 @@
+{
+  "name": "bytes-sourcey-docs",
+  "private": true,
+  "scripts": {
+    "docs:build": "cd docs/sourcey && sourcey build"
+  },
+  "devDependencies": {
+    "sourcey": "3.6.5"
+  }
+}
