@@ -625,6 +625,28 @@ impl Bytes {
         }
     }
 
+    /// Consumes `self` and returns a `BytesMut`.
+    ///
+    /// If `self` is unique for the entire original buffer, this will return a `BytesMut`
+    /// referencing the same memory buffer without allocating. Otherwise, it will clone
+    /// the underlying contents into a new `BytesMut`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::{Bytes, BytesMut};
+    ///
+    /// let bytes = Bytes::from(b"hello".to_vec());
+    /// let mut_bytes = bytes.try_unwrap_or_clone();
+    /// assert_eq!(&mut_bytes[..], b"hello");
+    /// ```
+    pub fn try_unwrap_or_clone(self) -> BytesMut {
+        match self.try_into_mut() {
+            Ok(bm) => bm,
+            Err(b) => BytesMut::from(&b[..]),
+        }
+    }
+
     #[inline]
     pub(crate) unsafe fn with_vtable(
         ptr: *const u8,
