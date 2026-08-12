@@ -166,6 +166,30 @@ fn range(range: impl core::ops::RangeBounds<usize>, len: usize) -> (usize, usize
     (begin, end)
 }
 
+/// Performs bounds checking of a range without panicking.
+#[inline(always)]
+fn try_range(range: impl core::ops::RangeBounds<usize>, len: usize) -> Option<(usize, usize)> {
+    use core::ops::Bound;
+
+    let begin = match range.start_bound() {
+        Bound::Included(&n) => n,
+        Bound::Excluded(&n) => n.checked_add(1)?,
+        Bound::Unbounded => 0,
+    };
+
+    let end = match range.end_bound() {
+        Bound::Included(&n) => n.checked_add(1)?,
+        Bound::Excluded(&n) => n,
+        Bound::Unbounded => len,
+    };
+
+    if begin <= end && end <= len {
+        Some((begin, end))
+    } else {
+        None
+    }
+}
+
 /// Error type for the `try_get_` methods of [`Buf`].
 /// Indicates that there were not enough remaining
 /// bytes in the buffer while attempting

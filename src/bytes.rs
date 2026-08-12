@@ -385,6 +385,13 @@ impl Bytes {
         ret
     }
 
+    /// Returns a slice of self for the provided range, or `None` if the range
+    /// is out of bounds.
+    pub fn try_slice(&self, range: impl RangeBounds<usize>) -> Option<Self> {
+        let (begin, end) = crate::try_range(range, self.len())?;
+        Some(self.slice(begin..end))
+    }
+
     /// Returns a slice of self that is equivalent to the given `subset`.
     ///
     /// When processing a `Bytes` buffer with other tools, one often gets a
