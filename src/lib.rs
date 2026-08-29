@@ -90,6 +90,10 @@ pub use crate::bytes_mut::BytesMut;
 #[cfg(feature = "serde")]
 mod serde;
 
+// Optional defmt support
+#[cfg(feature = "defmt")]
+mod defmt;
+
 #[inline(never)]
 #[cold]
 fn abort() -> ! {
