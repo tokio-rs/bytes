@@ -168,6 +168,10 @@ impl<T: Buf> Buf for Take<T> {
         let cnt = self
             .inner
             .chunks_vectored(&mut slices[..dst.len().min(LEN)]);
+        debug_assert!(
+            cnt <= dst.len(),
+            "Buf contract: `chunks_vectored` return value must satisfy `n <= dst.len()`"
+        );
         let mut limit = self.limit;
         for (i, (dst, slice)) in dst[..cnt].iter_mut().zip(slices.iter()).enumerate() {
             if let Some(buf) = slice.get(..limit) {

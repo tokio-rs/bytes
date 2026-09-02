@@ -174,7 +174,8 @@ pub trait Buf {
     /// slice **if and only if** `remaining()` returns 0. In other words,
     /// `chunk()` returning an empty slice implies that `remaining()` will
     /// return 0 and `remaining()` returning 0 implies that `chunk()` will
-    /// return an empty slice.
+    /// return an empty slice. The length of the returned slice must satisfy
+    /// `chunk().len() <= remaining()`.
     // The `chunk` method was previously called `bytes`. This alias makes the rename
     // more easily discoverable.
     #[cfg_attr(docsrs, doc(alias = "bytes"))]
@@ -202,6 +203,8 @@ pub trait Buf {
     /// This function should never panic. Once the end of the buffer is reached,
     /// i.e., `Buf::remaining` returns 0, calls to `chunk_vectored` must return 0
     /// without mutating `dst`.
+    ///
+    /// The return value must satisfy `n <= dst.len()`.
     ///
     /// Implementations should also take care to properly handle being called
     /// with `dst` being a zero length slice.
@@ -324,7 +327,12 @@ pub trait Buf {
                 available: 0,
             })
         }
-        let ret = self.chunk()[0];
+        let chunk = self.chunk();
+        debug_assert!(
+            !chunk.is_empty(),
+            "Buf contract: `chunk()` must be empty iff `remaining() == 0`"
+        );
+        let ret = chunk[0];
         self.advance(1);
         ret
     }
@@ -352,7 +360,12 @@ pub trait Buf {
                 available: 0,
             });
         }
-        let ret = self.chunk()[0] as i8;
+        let chunk = self.chunk();
+        debug_assert!(
+            !chunk.is_empty(),
+            "Buf contract: `chunk()` must be empty iff `remaining() == 0`"
+        );
+        let ret = chunk[0] as i8;
         self.advance(1);
         ret
     }
@@ -1213,7 +1226,12 @@ pub trait Buf {
                 available: self.remaining(),
             });
         }
-        let ret = self.chunk()[0];
+        let chunk = self.chunk();
+        debug_assert!(
+            !chunk.is_empty(),
+            "Buf contract: `chunk()` must be empty iff `remaining() == 0`"
+        );
+        let ret = chunk[0];
         self.advance(1);
         Ok(ret)
     }
@@ -1248,7 +1266,12 @@ pub trait Buf {
                 available: self.remaining(),
             });
         }
-        let ret = self.chunk()[0] as i8;
+        let chunk = self.chunk();
+        debug_assert!(
+            !chunk.is_empty(),
+            "Buf contract: `chunk()` must be empty iff `remaining() == 0`"
+        );
+        let ret = chunk[0] as i8;
         self.advance(1);
         Ok(ret)
     }
