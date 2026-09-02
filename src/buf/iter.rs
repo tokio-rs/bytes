@@ -112,7 +112,12 @@ impl<T: Buf> Iterator for IntoIter<T> {
             return None;
         }
 
-        let b = self.inner.chunk()[0];
+        let chunk = self.inner.chunk();
+        debug_assert!(
+            !chunk.is_empty(),
+            "Buf contract: `chunk()` must be empty iff `remaining() == 0`"
+        );
+        let b = chunk[0];
         self.inner.advance(1);
 
         Some(b)

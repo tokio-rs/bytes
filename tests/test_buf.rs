@@ -459,3 +459,108 @@ fn copy_to_bytes_mut() {
     let bytes_mut2 = BytesMut::from(ret);
     assert_eq!(bytes_mut2.as_ptr(), ptr);
 }
+
+/// A custom `Buf` impl that violates the documented contract:
+/// `remaining()` reports a non-zero length but `chunk()` returns `&[]`.
+/// Per the `Buf` trait contract, this should be treated as undefined
+/// behavior by consumers (it may panic), but `debug_assert!`s in the
+/// default method bodies should surface a clear, named panic message
+/// rather than an opaque `index out of bounds`.
+#[derive(Debug)]
+struct InconsistentChunk {
+    remaining: usize,
+}
+
+impl Buf for InconsistentChunk {
+    fn remaining(&self) -> usize {
+        self.remaining
+    }
+
+    fn chunk(&self) -> &[u8] {
+        // Contract violation: non-zero remaining but empty chunk.
+        &[]
+    }
+
+    fn advance(&mut self, cnt: usize) {
+        self.remaining = self.remaining.saturating_sub(cnt);
+    }
+}
+
+/// A custom `Buf` impl whose `chunks_vectored` returns a count larger
+/// than `dst.len()`, violating the documented contract that the return
+/// value must satisfy `n <= dst.len()`.
+#[cfg(feature = "std")]
+#[derive(Debug)]
+struct OverreportingChunks<'a> {
+    data: &'a [u8],
+}
+
+#[cfg(feature = "std")]
+impl<'a> Buf for OverreportingChunks<'a> {
+    fn remaining(&self) -> usize {
+        self.data.len()
+    }
+
+    fn chunk(&self) -> &[u8] {
+        self.data
+    }
+
+    fn advance(&mut self, cnt: usize) {
+        self.data = &self.data[cnt.min(self.data.len())..];
+    }
+
+    fn chunks_vectored<'b>(&'b self, dst: &mut [IoSlice<'b>]) -> usize {
+        // Contract violation: returns 2 even when dst has length 1.
+        if dst.is_empty() {
+            return 0;
+        }
+        dst[0] = IoSlice::new(self.data);
+        2
+    }
+}
+
+#[test]
+#[should_panic(expected = "Buf contract")]
+fn issue_833_try_get_u8_panics_with_clear_message_on_bad_chunk() {
+    let mut buf = InconsistentChunk { remaining: 1 };
+    let _ = buf.try_get_u8();
+}
+
+#[test]
+#[should_panic(expected = "Buf contract")]
+fn issue_833_try_get_i8_panics_with_clear_message_on_bad_chunk() {
+    let mut buf = InconsistentChunk { remaining: 1 };
+    let _ = buf.try_get_i8();
+}
+
+#[test]
+#[should_panic(expected = "Buf contract")]
+fn issue_833_get_u8_panics_with_clear_message_on_bad_chunk() {
+    let mut buf = InconsistentChunk { remaining: 1 };
+    let _ = buf.get_u8();
+}
+
+#[test]
+#[should_panic(expected = "Buf contract")]
+fn issue_833_get_i8_panics_with_clear_message_on_bad_chunk() {
+    let mut buf = InconsistentChunk { remaining: 1 };
+    let _ = buf.get_i8();
+}
+
+#[cfg(feature = "std")]
+#[test]
+#[should_panic(expected = "Buf contract")]
+fn issue_833_take_chunks_vectored_panics_on_overreporting_inner() {
+    let mut dst = [IoSlice::new(&[]); 1];
+    let take = OverreportingChunks { data: b"ab" }.take(2);
+    let _ = take.chunks_vectored(&mut dst);
+}
+
+#[cfg(feature = "std")]
+#[test]
+#[should_panic(expected = "Buf contract")]
+fn issue_833_chain_chunks_vectored_panics_on_overreporting_inner() {
+    let mut dst = [IoSlice::new(&[]); 1];
+    let chain = OverreportingChunks { data: b"ab" }.chain(OverreportingChunks { data: b"cd" });
+    let _ = chain.chunks_vectored(&mut dst);
+}

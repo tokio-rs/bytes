@@ -165,7 +165,15 @@ where
     #[cfg(feature = "std")]
     fn chunks_vectored<'a>(&'a self, dst: &mut [IoSlice<'a>]) -> usize {
         let mut n = self.a.chunks_vectored(dst);
+        debug_assert!(
+            n <= dst.len(),
+            "Buf contract: `chunks_vectored` return value must satisfy `n <= dst.len()`"
+        );
         n += self.b.chunks_vectored(&mut dst[n..]);
+        debug_assert!(
+            n <= dst.len(),
+            "Buf contract: `chunks_vectored` return value must satisfy `n <= dst.len()`"
+        );
         n
     }
 
