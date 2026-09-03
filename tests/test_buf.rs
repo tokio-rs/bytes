@@ -459,3 +459,35 @@ fn copy_to_bytes_mut() {
     let bytes_mut2 = BytesMut::from(ret);
     assert_eq!(bytes_mut2.as_ptr(), ptr);
 }
+
+#[test]
+fn try_get_int_sign_extends() {
+    use ::bytes::TryGetError;
+    // 3-byte big-endian 0xffffff == -1; must match get_int
+    let mut a = &[0xff, 0xff, 0xff][..];
+    assert_eq!(a.try_get_int(3), Ok(-1));
+    assert_eq!(a.remaining(), 0);
+    let mut ctrl = &[0xff, 0xff, 0xff][..];
+    assert_eq!(ctrl.get_int(3), -1);
+    // little-endian variant
+    let mut le = &[0xff, 0xff, 0xff][..];
+    assert_eq!(le.try_get_int_le(3), Ok(-1));
+    // native-endian delegates
+    let mut ne = &[0xff, 0xff, 0xff][..];
+    assert_eq!(ne.try_get_int_ne(3), Ok(-1));
+    // positive value unchanged
+    let mut pos = &[0x01, 0x02, 0x03][..];
+    assert_eq!(pos.try_get_int(3), Ok(0x010203));
+    // full width
+    let mut full = &[0xff; 8][..];
+    assert_eq!(full.try_get_int(8), Ok(-1));
+    // insufficient data still errors with the documented shape
+    let mut short = &[0x01, 0x02, 0x03][..];
+    assert_eq!(
+        short.try_get_int(4),
+        Err(TryGetError {
+            requested: 4,
+            available: 3
+        })
+    );
+}

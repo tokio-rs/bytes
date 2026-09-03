@@ -2084,7 +2084,7 @@ pub trait Buf {
     ///
     /// This function panics if `nbytes` is greater than 8.
     fn try_get_int(&mut self, nbytes: usize) -> Result<i64, TryGetError> {
-        buf_try_get_impl!(be => self, i64, nbytes);
+        Ok(sign_extend(self.try_get_uint(nbytes)?, nbytes))
     }
 
     /// Gets a signed n-byte integer from `self` in little-endian byte order.
@@ -2116,7 +2116,7 @@ pub trait Buf {
     ///
     /// This function panics if `nbytes` is greater than 8.
     fn try_get_int_le(&mut self, nbytes: usize) -> Result<i64, TryGetError> {
-        buf_try_get_impl!(le => self, i64, nbytes);
+        Ok(sign_extend(self.try_get_uint_le(nbytes)?, nbytes))
     }
 
     /// Gets a signed n-byte integer from `self` in native-endian byte order.
