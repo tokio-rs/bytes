@@ -1,7 +1,7 @@
 #![warn(rust_2018_idioms)]
 
 use bytes::buf::UninitSlice;
-use bytes::{BufMut, BytesMut};
+use bytes::{Buf, BufMut, BytesMut};
 use core::fmt::Write;
 use core::mem::MaybeUninit;
 
@@ -281,4 +281,172 @@ fn test_bytes_mut_reuse() {
     buf.put(&[] as &[u8]);
     let mut buf = BytesMut::new();
     buf.put(&[1u8, 2, 3] as &[u8]);
+}
+
+#[test]
+fn test_bytes_mut_try_shrink_to_fit_empty() {
+    let mut buf = BytesMut::new();
+
+    assert!(buf.try_shrink_to_fit());
+    assert!(buf.is_empty());
+    assert_eq!(buf.capacity(), 0);
+}
+
+#[test]
+fn test_bytes_mut_try_shrink_to_fit_already_tight() {
+    let mut buf = BytesMut::from(&b"abc"[..]);
+
+    assert!(buf.try_shrink_to_fit());
+    assert_eq!(buf.capacity(), buf.len());
+    assert_eq!(&buf[..], b"abc");
+}
+
+#[test]
+fn test_bytes_mut_try_shrink_to_fit_cant_shrink_with_refs() {
+    let mut buf = BytesMut::from(&b"abc"[..]);
+    buf.reserve(3);
+
+    let mut other = buf.split_off(2);
+
+    assert!(!buf.try_shrink_to_fit());
+    assert_eq!(buf.capacity(), 2);
+    assert_eq!(&buf[..], b"ab");
+
+    assert!(!other.try_shrink_to_fit());
+    assert_eq!(other.capacity(), 6);
+    assert_eq!(other.len(), 1);
+    assert_eq!(&other[..], b"c");
+}
+
+#[test]
+fn test_bytes_mut_try_shrink_to_fit_after_split_off() {
+    let data = b"hello world";
+    let mut buf = BytesMut::with_capacity(64);
+
+    assert_eq!(buf.capacity(), 64);
+    buf.extend_from_slice(data);
+    assert_eq!(buf.capacity(), 64);
+
+    let mut other = buf.split_off(5);
+    assert_eq!(&buf[..], b"hello");
+    assert_eq!(&other[..], b" world");
+    assert_eq!(buf.capacity(), 5);
+    assert_eq!(other.capacity(), 59);
+
+    drop(buf);
+    assert!(other.try_shrink_to_fit());
+    assert_eq!(other.capacity(), 6);
+}
+
+#[test]
+fn test_bytes_mut_try_shrink_to_fit_unique_front_after_split_off() {
+    let mut buf = BytesMut::with_capacity(64);
+    buf.extend_from_slice(b"hello world");
+
+    let other = buf.split_off(5);
+    drop(other);
+
+    assert!(buf.try_shrink_to_fit());
+    assert_eq!(buf.capacity(), buf.len());
+    assert_eq!(buf.capacity(), 5);
+    assert_eq!(&buf[..], b"hello");
+}
+
+#[test]
+fn test_bytes_mut_try_shrink_to_fit_unique_empty_tail_past_len() {
+    let mut buf = BytesMut::with_capacity(64);
+    buf.extend_from_slice(b"abc");
+
+    let mut other = buf.split_off(10);
+    drop(buf);
+
+    assert!(other.try_shrink_to_fit());
+    assert!(other.is_empty());
+    assert_eq!(other.capacity(), 0);
+}
+
+#[test]
+fn test_bytes_mut_try_shrink_to_fit_after_advance() {
+    let mut buf = BytesMut::with_capacity(64);
+    buf.extend_from_slice(b"hello world");
+    buf.advance(6);
+
+    assert!(buf.try_shrink_to_fit());
+    assert_eq!(buf.capacity(), buf.len());
+    assert_eq!(buf.capacity(), 5);
+    assert_eq!(&buf[..], b"world");
+}
+
+#[test]
+fn test_bytes_mut_try_shrink_to_fit_empty_after_advance() {
+    let mut buf = BytesMut::with_capacity(64);
+    buf.extend_from_slice(b"abc");
+    buf.advance(3);
+
+    assert!(buf.try_shrink_to_fit());
+    assert!(buf.is_empty());
+    assert_eq!(buf.capacity(), 0);
+}
+
+#[test]
+fn test_bytes_mut_try_shrink_to_fit_cant_shrink_with_bytes_ref() {
+    let mut buf = BytesMut::from(&b"abcdef"[..]);
+    buf.reserve(8);
+
+    let bytes = buf.split_off(3).freeze();
+
+    assert!(!buf.try_shrink_to_fit());
+    assert_eq!(buf.capacity(), 3);
+    assert_eq!(&buf[..], b"abc");
+    assert_eq!(&bytes[..], b"def");
+}
+
+#[test]
+fn test_bytes_mut_try_shrink_to_capacity() {
+    let mut buf = BytesMut::with_capacity(64);
+    buf.extend_from_slice(b"hello");
+
+    assert!(buf.try_shrink_to_capacity(16));
+    assert_eq!(buf.capacity(), 16);
+    assert_eq!(&buf[..], b"hello");
+}
+
+#[test]
+fn test_bytes_mut_try_shrink_to_capacity_does_not_shrink_below_len() {
+    let mut buf = BytesMut::with_capacity(64);
+    buf.extend_from_slice(b"hello world");
+
+    assert!(buf.try_shrink_to_capacity(5));
+    assert_eq!(buf.capacity(), buf.len());
+    assert_eq!(buf.capacity(), 11);
+    assert_eq!(&buf[..], b"hello world");
+}
+
+#[test]
+fn test_bytes_mut_try_shrink_to_capacity_after_advance() {
+    let mut buf = BytesMut::with_capacity(64);
+    buf.extend_from_slice(b"hello world");
+    buf.advance(6);
+
+    assert!(buf.try_shrink_to_capacity(16));
+    assert_eq!(buf.capacity(), 16);
+    assert_eq!(&buf[..], b"world");
+}
+
+#[test]
+fn test_bytes_mut_try_shrink_to_capacity_cant_shrink_with_refs() {
+    let mut buf = BytesMut::from(&b"abcdef"[..]);
+    buf.reserve(8);
+
+    let mut other = buf.split_off(3);
+    let buf_cap = buf.capacity();
+    let other_cap = other.capacity();
+
+    assert!(!buf.try_shrink_to_capacity(4));
+    assert_eq!(buf.capacity(), buf_cap);
+    assert_eq!(&buf[..], b"abc");
+
+    assert!(!other.try_shrink_to_capacity(4));
+    assert_eq!(other.capacity(), other_cap);
+    assert_eq!(&other[..], b"def");
 }
