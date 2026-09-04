@@ -142,6 +142,26 @@ fn slice() {
 }
 
 #[test]
+fn try_slice() {
+    let a = Bytes::from(&b"hello world"[..]);
+
+    assert_eq!(a.try_slice(3..5), Some(Bytes::from(&b"lo"[..])));
+    assert_eq!(a.try_slice(..5), Some(Bytes::from(&b"hello"[..])));
+    assert_eq!(a.try_slice(3..), Some(Bytes::from(&b"lo world"[..])));
+    assert_eq!(a.try_slice(3..3), Some(Bytes::new()));
+}
+
+#[test]
+fn try_slice_invalid_range() {
+    let a = Bytes::from(&b"hello world"[..]);
+
+    assert_eq!(a.try_slice(5..44), None);
+    assert_eq!(a.try_slice(44..49), None);
+    assert_eq!(a.try_slice(5..3), None);
+    assert_eq!(a.try_slice(..=usize::MAX), None);
+}
+
+#[test]
 #[should_panic]
 fn slice_oob_1() {
     let a = Bytes::from(&b"hello world"[..]);
