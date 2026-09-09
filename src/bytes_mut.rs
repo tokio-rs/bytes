@@ -1523,7 +1523,7 @@ impl<'a> Extend<&'a u8> for BytesMut {
                 // Update the info
                 self.ptr = vptr(v.as_mut_ptr().add(off));
                 self.cap = v.capacity() - off;
-                debug_assert_eq!(self.len, v.len() - off);
+                self.len = off + v.len();
             }
         } else {
             self.extend(iter.into_iter().copied())
