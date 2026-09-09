@@ -1491,8 +1491,6 @@ impl Extend<u8> for BytesMut {
         let (lower, _) = iter.size_hint();
         self.reserve(lower);
 
-        // TODO: optimize
-        // 1. If self.kind() == KIND_VEC, use Vec::extend
         for b in iter {
             self.put_u8(b);
         }
@@ -1504,7 +1502,29 @@ impl<'a> Extend<&'a u8> for BytesMut {
     where
         T: IntoIterator<Item = &'a u8>,
     {
-        self.extend(iter.into_iter().copied())
+        // defer to Vec's Extend implementation to allow faster copy if the
+        // passed in [`iter`] is a slice iterator ([`std::slice::Iter<'a, u8>`]).
+        //
+        // Need to defer to std::Vec's implementation (rather than rolling our
+        // own specialization) because trait specialization is unstable.
+        // Tracking issue for stabilizing specialization:
+        // https://github.com/rust-lang/rust/issues/31844
+        if self.kind() == KIND_VEC {
+            unsafe {
+                let off = self.get_vec_pos();
+
+                let mut v =
+                    ManuallyDrop::new(rebuild_vec(self.ptr.as_ptr(), self.len, self.cap, off));
+                v.extend(iter);
+
+                // Update the info
+                self.ptr = vptr(v.as_mut_ptr().add(off));
+                self.cap = v.capacity() - off;
+                debug_assert_eq!(self.len, v.len() - off);
+            }
+        } else {
+            self.extend(iter.into_iter().copied())
+        }
     }
 }
 
