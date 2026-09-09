@@ -1502,14 +1502,17 @@ impl<'a> Extend<&'a u8> for BytesMut {
     where
         T: IntoIterator<Item = &'a u8>,
     {
-        // defer to Vec's Extend implementation to allow faster copy if the
-        // passed in [`iter`] is a slice iterator ([`std::slice::Iter<'a, u8>`]).
-        //
-        // Need to defer to std::Vec's implementation (rather than rolling our
-        // own specialization) because trait specialization is unstable.
-        // Tracking issue for stabilizing specialization:
-        // https://github.com/rust-lang/rust/issues/31844
         if self.kind() == KIND_VEC {
+            // defer to Vec's Extend implementation to allow faster copy if the
+            // passed in [`iter`] is a slice iterator ([`std::slice::Iter<'a,
+            // u8>`]).
+            //
+            // Need to defer to std::Vec's implementation (rather than rolling
+            // our own specialization) because trait specialization is unstable.
+            // Tracking issue for stabilizing specialization:
+            // https://github.com/rust-lang/rust/issues/31844
+            //
+            // See issue #848 and #849.
             unsafe {
                 let off = self.get_vec_pos();
 
