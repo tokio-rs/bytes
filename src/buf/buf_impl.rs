@@ -86,6 +86,11 @@ macro_rules! buf_get_impl {
 
 // https://en.wikipedia.org/wiki/Sign_extension
 fn sign_extend(val: u64, nbytes: usize) -> i64 {
+    // Every caller below is fed by get_uint/try_get_uint, which reject more
+    // than 8 bytes before this runs, so a wider nbytes would mean `shift`
+    // underflowed rather than that the read was short. Asserted over the whole
+    // range the zero branch handles, instead of subtracting blind.
+    debug_assert!(nbytes <= 8, "nbytes must be in [0, 8]");
     if nbytes == 0 {
         // avoid `val << 64` panic
         0
@@ -2965,3 +2970,27 @@ impl<T: AsRef<[u8]>> Buf for std::io::Cursor<T> {
 // The existence of this function makes the compiler catch if the Buf
 // trait is "object-safe" or not.
 fn _assert_trait_object(_b: &dyn Buf) {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // The range is asserted rather than reachable: get_uint and try_get_uint
+    // reject more than 8 bytes before sign_extend is called, so the assertion
+    // is exercised here by calling it directly. Guarded, because debug_assert
+    // is compiled out of a release build.
+    #[test]
+    #[cfg(debug_assertions)]
+    #[should_panic(expected = "nbytes must be in [0, 8]")]
+    fn sign_extend_asserts_more_than_eight_bytes() {
+        let _ = sign_extend(0, 9);
+    }
+
+    // A zero-length read is a real input, and it is the one the issue's own
+    // suggested assertion of `nbytes >= 1` rejects: it returns zero instead of
+    // shifting by 64.
+    #[test]
+    fn sign_extend_accepts_a_zero_length_read() {
+        assert_eq!(0, sign_extend(u64::MAX, 0));
+    }
+}
