@@ -11,7 +11,7 @@ cargo hack "${cmd}" --each-feature --optional-deps
 # Run with all features
 cargo "${cmd}" --all-features
 
-if [[ "${RUST_VERSION}" == "nightly"* ]]; then
+if [[ "$(rustc --version)" == *nightly* ]]; then
     # Check benchmarks
     cargo check --benches
 
