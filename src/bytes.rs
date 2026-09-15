@@ -408,8 +408,11 @@ impl Bytes {
     ///
     /// # Panics
     ///
-    /// Requires that the given `sub` slice is in fact contained within the
-    /// `Bytes` buffer; otherwise this function will panic.
+    /// Panics if the given `subset` slice is not in fact contained within the
+    /// `Bytes` buffer.
+    ///
+    /// An empty `subset` is exempt: it is accepted even when it does not point
+    /// into `self`, and returns an empty `Bytes`.
     pub fn slice_ref(&self, subset: &[u8]) -> Self {
         // Empty slice and empty Bytes may have their pointers reset
         // so explicitly allow empty slice to be a subslice of any slice.
