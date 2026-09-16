@@ -1216,6 +1216,25 @@ impl BytesMut {
             slice::from_raw_parts_mut(ptr.cast(), len)
         }
     }
+
+    /// Appends bytes from `iter` into the spare capacity, without growing.
+    ///
+    /// Goes through `Vec::extend`, which carries std's `TrustedLen`
+    /// specialization (slice-like iterators become a memcpy).
+    ///
+    /// # SAFETY
+    ///
+    /// The caller must ensure that `self.kind()` is `KIND_VEC`.
+    #[inline(always)]
+    unsafe fn extend_vec<I: Iterator<Item = u8>>(&mut self, iter: I) {
+        debug_assert_eq!(self.kind(), KIND_VEC);
+
+        let off = self.get_vec_pos();
+        let spare = self.cap - self.len;
+        let mut vec = ManuallyDrop::new(rebuild_vec(self.ptr.as_ptr(), self.len, self.cap, off));
+        vec.extend(iter.take(spare));
+        self.len = vec.len() - off;
+    }
 }
 
 impl Drop for BytesMut {
@@ -1486,13 +1505,15 @@ impl Extend<u8> for BytesMut {
     where
         T: IntoIterator<Item = u8>,
     {
-        let iter = iter.into_iter();
+        let mut iter = iter.into_iter();
 
         let (lower, _) = iter.size_hint();
         self.reserve(lower);
 
-        // TODO: optimize
-        // 1. If self.kind() == KIND_VEC, use Vec::extend
+        if self.kind() == KIND_VEC {
+            unsafe { self.extend_vec(&mut iter) };
+        }
+
         for b in iter {
             self.put_u8(b);
         }
