@@ -365,6 +365,31 @@ fn truncate_to_zero_releases_shared_reference() {
 }
 
 #[test]
+fn advance_to_end_releases_shared_reference() {
+    let mut bytes = BytesMut::from(&b"hello"[..]);
+    drop(bytes.split_off(bytes.len()));
+    let mut advanced = bytes.freeze();
+    let remaining = advanced.clone();
+
+    advanced.advance(5);
+
+    assert!(advanced.is_empty());
+    let mut remaining = remaining.try_into_mut().unwrap();
+    remaining[0] = b'H';
+    assert_eq!(remaining, b"Hello"[..]);
+
+    let mut bytes = BytesMut::from(&b"hello"[..]);
+    drop(bytes.split_off(bytes.len()));
+    let mut nonempty = bytes.freeze();
+    let remaining = nonempty.clone();
+
+    nonempty.advance(4);
+
+    assert_eq!(nonempty, b"o"[..]);
+    assert!(remaining.try_into_mut().is_err());
+}
+
+#[test]
 fn freeze_clone_shared() {
     let s = &b"abcdefgh"[..];
     let b = BytesMut::from(s).split().freeze();
