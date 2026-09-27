@@ -126,6 +126,15 @@ pub trait Buf {
     /// This value is greater than or equal to the length of the slice returned
     /// by `chunk()`.
     ///
+    /// When `remaining()` is less than [`usize::MAX`], it is the exact number of
+    /// bytes that can still be read from `self` before the buffer is exhausted.
+    /// In other words, after reading every remaining byte (for example by
+    /// repeatedly calling [`Buf::get_u8`] or [`Buf::copy_to_slice`]), a
+    /// subsequent call to `remaining()` must return `0`.
+    ///
+    /// Callers and adapters such as [`crate::BufMut::put`] rely on this: producing more
+    /// readable bytes than `remaining()` reported is a contract violation.
+    ///
     /// # Examples
     ///
     /// ```
@@ -144,7 +153,18 @@ pub trait Buf {
     ///
     /// Implementations of `remaining` should ensure that the return value does
     /// not change unless a call is made to `advance` or any other function that
-    /// is documented to change the `Buf`'s current position.
+    /// is documented to change the `Buf`'s current position. In particular,
+    /// `remaining()` must not spontaneously increase or decrease while the
+    /// buffer is only being used through the `Buf` trait.
+    ///
+    /// After a call to `advance(cnt)` with `cnt <= remaining()`, the next
+    /// `remaining()` value must be exactly `old_remaining - cnt`, except when
+    /// the true unread length cannot be represented in a `usize`. In that edge
+    /// case (for example a [`Buf::chain`] of clones whose combined length would
+    /// overflow), `remaining()` may saturate at [`usize::MAX`]. While
+    /// `remaining() == usize::MAX`, it is not required to decrease on every
+    /// `advance`, but it must never under-report the bytes still available in
+    /// the current chunk.
     fn remaining(&self) -> usize;
 
     /// Returns a slice starting at the current position and of length between 0
@@ -252,6 +272,10 @@ pub trait Buf {
     /// behave as if `cnt == self.remaining()`.
     ///
     /// A call with `cnt == 0` should never panic and be a no-op.
+    ///
+    /// When `remaining()` is less than [`usize::MAX`], advancing by `cnt` must
+    /// decrease `remaining()` by exactly `cnt` (see [`Buf::remaining`]
+    /// implementer notes for the `usize::MAX` saturation case).
     fn advance(&mut self, cnt: usize);
 
     /// Returns true if there are any more bytes to consume
