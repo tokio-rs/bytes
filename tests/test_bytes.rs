@@ -67,6 +67,18 @@ fn from_slice() {
     assert_eq!(Vec::from(&b"abcdefgh"[..]), a);
 }
 
+#[cfg(bytes_has_atomic_ptr)]
+#[test]
+fn from_arc() {
+    let source: Arc<[u8]> = Arc::from(&b"abcdefgh"[..]);
+    let source_ptr = source.as_ptr();
+    let bytes = Bytes::from(source.clone());
+    drop(source);
+
+    assert_eq!(bytes, b"abcdefgh"[..]);
+    assert_eq!(bytes.as_ptr(), source_ptr);
+}
+
 #[test]
 fn fmt() {
     let a = format!("{:?}", Bytes::from(&b"abcdefg"[..]));
