@@ -5,7 +5,7 @@ use core::{cmp, fmt, hash, ptr, slice};
 
 use alloc::{
     alloc::{dealloc, Layout},
-    borrow::Borrow,
+    borrow::{Borrow, Cow},
     boxed::Box,
     string::String,
     vec::Vec,
@@ -943,6 +943,15 @@ impl From<&'static [u8]> for Bytes {
 impl From<&'static str> for Bytes {
     fn from(slice: &'static str) -> Bytes {
         Bytes::from_static(slice.as_bytes())
+    }
+}
+
+impl From<Cow<'static, [u8]>> for Bytes {
+    fn from(cow: Cow<'static, [u8]>) -> Bytes {
+        match cow {
+            Cow::Borrowed(slice) => Bytes::from(slice),
+            Cow::Owned(vec) => Bytes::from(vec),
+        }
     }
 }
 

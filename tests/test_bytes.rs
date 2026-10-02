@@ -1,6 +1,7 @@
 #![warn(rust_2018_idioms)]
 
 use bytes::{Buf, BufMut, Bytes, BytesMut};
+use std::borrow::Cow;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
@@ -65,6 +66,56 @@ fn from_slice() {
     assert_eq!(b"abcdefgh"[..], a);
     assert_eq!(&b"abcdefgh"[..], a);
     assert_eq!(Vec::from(&b"abcdefgh"[..]), a);
+}
+
+#[test]
+fn from_cow_borrowed() {
+    let slice: &'static [u8] = b"borrowed bytes";
+    let bytes = Bytes::from(Cow::Borrowed(slice));
+
+    assert_eq!(bytes.as_ptr(), slice.as_ptr());
+    assert_eq!(bytes, slice);
+
+    let cloned = bytes.clone();
+    assert_eq!(cloned.as_ptr(), slice.as_ptr());
+    assert_eq!(cloned.slice(1..4), &b"orr"[..]);
+}
+
+#[test]
+fn from_cow_owned_preserves_vec_allocation() {
+    for vec in [vec![1, 2, 3], {
+        let mut vec = Vec::with_capacity(16);
+        vec.extend_from_slice(&[1, 2, 3]);
+        vec
+    }] {
+        let ptr = vec.as_ptr();
+        let capacity = vec.capacity();
+        let bytes = Bytes::from(Cow::Owned(vec));
+
+        assert_eq!(bytes.as_ptr(), ptr);
+        assert_eq!(bytes, &[1, 2, 3][..]);
+
+        let vec: Vec<u8> = bytes.into();
+        assert_eq!(vec.as_ptr(), ptr);
+        assert_eq!(vec.capacity(), capacity);
+    }
+
+    let vec = Vec::with_capacity(16);
+    let ptr = vec.as_ptr();
+    let capacity = vec.capacity();
+    let bytes = Bytes::from(Cow::Owned(vec));
+    let vec: Vec<u8> = bytes.into();
+
+    assert!(vec.is_empty());
+    assert_eq!(vec.as_ptr(), ptr);
+    assert_eq!(vec.capacity(), capacity);
+}
+
+#[test]
+fn from_cow_empty() {
+    let borrowed: &'static [u8] = b"";
+    assert!(Bytes::from(Cow::Borrowed(borrowed)).is_empty());
+    assert!(Bytes::from(Cow::Owned(Vec::new())).is_empty());
 }
 
 #[test]
