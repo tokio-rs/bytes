@@ -700,6 +700,15 @@ impl Buf for Bytes {
             self.len(),
         );
 
+        if cnt == self.len() {
+            // Advancing to the end leaves an empty `Bytes`, whose length can
+            // never grow again. Release the shared reference instead of
+            // retaining it, matching `truncate(0)` and `split_to(self.len())`.
+            let end_ptr = self.ptr.wrapping_add(cnt);
+            drop(mem::replace(self, Bytes::new_empty_with_ptr(end_ptr)));
+            return;
+        }
+
         unsafe {
             self.inc_start(cnt);
         }
