@@ -90,7 +90,8 @@ fn from_cow_owned_preserves_vec_allocation() {
     }] {
         let ptr = vec.as_ptr();
         let capacity = vec.capacity();
-        let bytes = Bytes::from(Cow::Owned(vec));
+        let cow: Cow<'static, [u8]> = Cow::Owned(vec);
+        let bytes = Bytes::from(cow);
 
         assert_eq!(bytes.as_ptr(), ptr);
         assert_eq!(bytes, &[1, 2, 3][..]);
@@ -103,7 +104,8 @@ fn from_cow_owned_preserves_vec_allocation() {
     let vec = Vec::with_capacity(16);
     let ptr = vec.as_ptr();
     let capacity = vec.capacity();
-    let bytes = Bytes::from(Cow::Owned(vec));
+    let cow: Cow<'static, [u8]> = Cow::Owned(vec);
+    let bytes = Bytes::from(cow);
     let vec: Vec<u8> = bytes.into();
 
     assert!(vec.is_empty());
@@ -112,10 +114,65 @@ fn from_cow_owned_preserves_vec_allocation() {
 }
 
 #[test]
+fn from_cow_str_borrowed() {
+    let string: &'static str = "borrowed λ bytes";
+    let cow: Cow<'static, str> = Cow::Borrowed(string);
+    let bytes = Bytes::from(cow);
+
+    assert_eq!(bytes, string.as_bytes());
+    assert_eq!(bytes.as_ptr(), string.as_ptr());
+
+    let cloned = bytes.clone();
+    assert_eq!(cloned.as_ptr(), string.as_ptr());
+    assert_eq!(cloned.slice(1..5), &string.as_bytes()[1..5]);
+}
+
+#[test]
+fn from_cow_str_owned_preserves_string_allocation() {
+    let exact_vec = "owned λ bytes"
+        .as_bytes()
+        .to_vec()
+        .into_boxed_slice()
+        .into_vec();
+    let exact = String::from_utf8(exact_vec).unwrap();
+    assert_eq!(exact.capacity(), exact.len());
+
+    let mut spare = String::with_capacity(128);
+    spare.push_str("owned λ bytes");
+    assert!(spare.capacity() > spare.len());
+
+    for string in [exact, spare] {
+        let expected = string.as_bytes().to_vec();
+        let ptr = string.as_ptr();
+        let capacity = string.capacity();
+        let cow: Cow<'static, str> = Cow::Owned(string);
+        let bytes = Bytes::from(cow);
+
+        assert_eq!(bytes, expected);
+        assert_eq!(bytes.as_ptr(), ptr);
+
+        let vec: Vec<u8> = bytes.into();
+        assert_eq!(vec, expected);
+        assert_eq!(vec.as_ptr(), ptr);
+        assert_eq!(vec.capacity(), capacity);
+    }
+}
+
+#[test]
+fn from_cow_str_empty() {
+    let borrowed: Cow<'static, str> = Cow::Borrowed("");
+    let owned: Cow<'static, str> = Cow::Owned(String::new());
+
+    assert!(Bytes::from(borrowed).is_empty());
+    assert!(Bytes::from(owned).is_empty());
+}
+
+#[test]
 fn from_cow_empty() {
     let borrowed: &'static [u8] = b"";
     assert!(Bytes::from(Cow::Borrowed(borrowed)).is_empty());
-    assert!(Bytes::from(Cow::Owned(Vec::new())).is_empty());
+    let owned: Cow<'static, [u8]> = Cow::Owned(Vec::new());
+    assert!(Bytes::from(owned).is_empty());
 }
 
 #[test]

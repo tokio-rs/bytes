@@ -955,6 +955,15 @@ impl From<Cow<'static, [u8]>> for Bytes {
     }
 }
 
+impl From<Cow<'static, str>> for Bytes {
+    fn from(cow: Cow<'static, str>) -> Bytes {
+        match cow {
+            Cow::Borrowed(slice) => Bytes::from(slice),
+            Cow::Owned(string) => Bytes::from(string),
+        }
+    }
+}
+
 impl From<Vec<u8>> for Bytes {
     fn from(vec: Vec<u8>) -> Bytes {
         // Avoid an extra allocation if possible.
