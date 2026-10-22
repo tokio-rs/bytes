@@ -623,6 +623,19 @@ fn extend_mut() {
 }
 
 #[test]
+fn extend_mut_after_advance() {
+    let mut bytes = BytesMut::with_capacity(16);
+    bytes.extend_from_slice(b"abcdef");
+    bytes.advance(2);
+
+    bytes.extend([b'g', b'h']);
+
+    assert_eq!(bytes.len(), 6);
+    assert_eq!(&bytes[..], b"cdefgh");
+    assert_eq!(bytes.capacity(), 14);
+}
+
+#[test]
 fn extend_from_slice_mut() {
     for &i in &[3, 34] {
         let mut bytes = BytesMut::new();
