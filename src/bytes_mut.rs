@@ -1297,6 +1297,7 @@ unsafe impl BufMut for BytesMut {
     // Specialize these methods so they can skip checking `remaining_mut`
     // and `advance_mut`.
 
+    #[inline]
     fn put<T: Buf>(&mut self, mut src: T)
     where
         Self: Sized,
@@ -1330,6 +1331,29 @@ unsafe impl BufMut for BytesMut {
         self.extend_from_slice(src);
     }
 
+    #[inline]
+    fn put_u8(&mut self, n: u8) {
+        // Same shape as `Vec::push`: one capacity check with growth out of
+        // line, one store, one length bump. The default (`put_slice(&[n])`)
+        // goes through a 1-byte `copy_nonoverlapping` and re-checks capacity
+        // in `advance_mut`, which dominates byte-at-a-time writers such as
+        // varint encoders.
+        self.reserve(1);
+        let len = self.len();
+        // SAFETY: `reserve(1)` guarantees `len < capacity`, so `ptr + len` is
+        // in bounds; the byte is initialized before `len` is bumped over it.
+        unsafe {
+            self.ptr.as_ptr().add(len).write(n);
+            self.set_len(len + 1);
+        }
+    }
+
+    #[inline]
+    fn put_i8(&mut self, n: i8) {
+        self.put_u8(n as u8);
+    }
+
+    #[inline]
     fn put_bytes(&mut self, val: u8, cnt: usize) {
         self.reserve(cnt);
         unsafe {
