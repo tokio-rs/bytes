@@ -1314,7 +1314,9 @@ unsafe impl BufMut for BytesMut {
             }
         } else {
             // In case the src isn't contiguous, reserve upfront.
-            self.reserve(src.remaining());
+            if src.chunk().len() < src.remaining() {
+                self.reserve(src.remaining());
+            }
 
             while src.has_remaining() {
                 let s = src.chunk();
