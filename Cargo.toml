@@ -24,7 +24,7 @@ default = ["std"]
 std = []
 
 [dependencies]
-serde = { version = "1.0.60", optional = true, default-features = false, features = ["alloc"] }
+serde = { package = "serde_core", version = "1.0.220", optional = true, default-features = false, features = ["alloc"] }
 # Use portable-atomic crate to support platforms without atomic CAS.
 # See "no_std support" section in readme for more information.
 #
