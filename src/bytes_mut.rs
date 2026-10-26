@@ -1305,13 +1305,18 @@ unsafe impl BufMut for BytesMut {
             // prevent calling `copy_to_bytes`->`put`->`copy_to_bytes` infintely when src is empty
             return;
         } else if self.capacity() == 0 {
-            // When capacity is zero, try reusing allocation of `src`.
-            let src_copy = src.copy_to_bytes(src.remaining());
-            drop(src);
-            match src_copy.try_into_mut() {
-                Ok(bytes_mut) => *self = bytes_mut,
-                Err(bytes) => self.extend_from_slice(&bytes),
+            #[cold]
+            fn put_reuse_allocation<U: Buf>(dst: &mut BytesMut, mut src: U) {
+                // When capacity is zero, try reusing allocation of `src`.
+                let src_copy = src.copy_to_bytes(src.remaining());
+                drop(src);
+                match src_copy.try_into_mut() {
+                    Ok(bytes_mut) => *dst = bytes_mut,
+                    Err(bytes) => dst.extend_from_slice(&bytes),
+                }
             }
+
+            put_reuse_allocation(self, src);
         } else {
             // In case the src isn't contiguous, reserve upfront.
             self.reserve(src.remaining());
