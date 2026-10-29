@@ -85,4 +85,16 @@ impl<B: BufMut + Sized> io::Write for Writer<B> {
     fn flush(&mut self) -> io::Result<()> {
         Ok(())
     }
+
+    #[inline]
+    fn write_all(&mut self, src: &[u8]) -> io::Result<()> {
+        if src.len() <= self.buf.remaining_mut() {
+            self.buf.put_slice(src);
+            Ok(())
+        } else {
+            let n = self.buf.remaining_mut();
+            self.buf.put_slice(&src[..n]);
+            Err(io::ErrorKind::WriteZero.into())
+        }
+    }
 }
