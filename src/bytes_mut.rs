@@ -902,7 +902,8 @@ impl BytesMut {
         }
 
         unsafe {
-            self.advance_mut(cnt);
+            // Reserved above
+            self.set_len(self.len() + cnt);
         }
     }
 
