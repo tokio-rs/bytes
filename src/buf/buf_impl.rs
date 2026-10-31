@@ -86,6 +86,7 @@ macro_rules! buf_get_impl {
 
 // https://en.wikipedia.org/wiki/Sign_extension
 fn sign_extend(val: u64, nbytes: usize) -> i64 {
+    debug_assert!(nbytes <= 8, "nbytes must be in [0, 8]");
     if nbytes == 0 {
         // avoid `val << 64` panic
         0
@@ -2965,3 +2966,20 @@ impl<T: AsRef<[u8]>> Buf for std::io::Cursor<T> {
 // The existence of this function makes the compiler catch if the Buf
 // trait is "object-safe" or not.
 fn _assert_trait_object(_b: &dyn Buf) {}
+
+#[cfg(test)]
+mod tests {
+    use super::sign_extend;
+
+    #[test]
+    fn sign_extend_zero_bytes() {
+        assert_eq!(sign_extend(u64::MAX, 0), 0);
+    }
+
+    #[test]
+    #[cfg(debug_assertions)]
+    #[should_panic(expected = "nbytes must be in [0, 8]")]
+    fn sign_extend_more_than_eight_bytes_panics_in_debug() {
+        sign_extend(0, 9);
+    }
+}
