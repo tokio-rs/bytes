@@ -142,6 +142,23 @@ fn slice() {
 }
 
 #[test]
+fn slice_with_excluded_start() {
+    use core::ops::Bound::Excluded;
+
+    let bytes = Bytes::from_static(b"hello");
+    assert_eq!(&bytes.slice((Excluded(1), Excluded(4)))[..], b"ll");
+}
+
+#[test]
+#[should_panic]
+fn slice_excluded_start_overflow() {
+    use core::ops::Bound::{Excluded, Unbounded};
+
+    let bytes = Bytes::from_static(b"hello");
+    bytes.slice((Excluded(usize::MAX), Unbounded));
+}
+
+#[test]
 #[should_panic]
 fn slice_oob_1() {
     let a = Bytes::from(&b"hello world"[..]);
