@@ -9,7 +9,7 @@ use alloc::{boxed::Box, vec::Vec};
 
 /// A trait for values that provide sequential write access to bytes.
 ///
-/// Write bytes to a buffer
+/// Write bytes to a buffer.
 ///
 /// A buffer stores bytes in memory such that write operations are infallible.
 /// The underlying storage may or may not be in contiguous memory. A `BufMut`
@@ -130,8 +130,14 @@ pub unsafe trait BufMut {
     }
 
     /// Returns a mutable slice starting at the current BufMut position and of
-    /// length between 0 and `BufMut::remaining_mut()`. Note that this *can* be shorter than the
-    /// whole remainder of the buffer (this allows non-continuous implementation).
+    /// length between 0 and `BufMut::remaining_mut()`. Note that this *can* be
+    /// shorter than the whole remainder of the buffer (this allows
+    /// non-continuous implementation).
+    ///
+    /// Writing to a `BufMut` may involve allocating more memory on the fly.
+    /// Generally, such allocations happen when this method is called on a
+    /// container that has run out of capacity. Containers that behave this way
+    /// include [`Vec<u8>`](std::vec::Vec) and [`BytesMut`](crate::BytesMut).
     ///
     /// This is a lower level function. Most operations are done with other
     /// functions.
