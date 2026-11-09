@@ -636,6 +636,17 @@ fn extend_mut_after_advance() {
 }
 
 #[test]
+fn extend_mut_non_fused() {
+    // Yields 1, None, 3.
+    let mut items = [Some(1), None, Some(3)].into_iter();
+    let iter = core::iter::from_fn(|| items.next().flatten());
+
+    let mut bytes = BytesMut::with_capacity(16);
+    bytes.extend(iter);
+    assert_eq!(&bytes[..], [1]);
+}
+
+#[test]
 fn extend_from_slice_mut() {
     for &i in &[3, 34] {
         let mut bytes = BytesMut::new();

@@ -1226,7 +1226,7 @@ impl BytesMut {
     ///
     /// The caller must ensure that `self.kind()` is `KIND_VEC`.
     #[inline(always)]
-    unsafe fn extend_vec<I: Iterator<Item = u8>>(&mut self, iter: I) {
+    unsafe fn extend_vec<I: Iterator<Item = u8>>(&mut self, iter: I) -> bool {
         debug_assert_eq!(self.kind(), KIND_VEC);
 
         let off = self.get_vec_pos();
@@ -1234,6 +1234,8 @@ impl BytesMut {
         let mut vec = ManuallyDrop::new(rebuild_vec(self.ptr.as_ptr(), self.len, self.cap, off));
         vec.extend(iter.take(spare));
         self.len = vec.len() - off;
+        debug_assert_eq!(vec.capacity(), self.cap + off);
+        self.len == self.cap
     }
 }
 
@@ -1510,8 +1512,12 @@ impl Extend<u8> for BytesMut {
         let (lower, _) = iter.size_hint();
         self.reserve(lower);
 
+        // Stop if the iterator ran dry; it may not be fused.
         if self.kind() == KIND_VEC {
-            unsafe { self.extend_vec(&mut iter) };
+            let may_have_more = unsafe { self.extend_vec(&mut iter) };
+            if !may_have_more {
+                return;
+            }
         }
 
         for b in iter {
