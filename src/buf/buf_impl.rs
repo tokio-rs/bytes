@@ -255,6 +255,39 @@ pub trait Buf {
     /// A call with `cnt == 0` should never panic and be a no-op.
     fn advance(&mut self, cnt: usize);
 
+    /// Advance the internal cursor, returning an error if there are not enough bytes.
+    ///
+    /// On success, the next call to `chunk()` will return a slice starting `cnt`
+    /// bytes further into the underlying buffer. If `cnt > self.remaining()`,
+    /// the buffer is unchanged and a [`TryGetError`] is returned.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bytes::{Buf, TryGetError};
+    ///
+    /// let mut buf = &b"hello world"[..];
+    /// assert_eq!(buf.try_advance(6), Ok(()));
+    /// assert_eq!(buf.chunk(), b"world");
+    /// assert_eq!(buf.try_advance(6), Err(TryGetError {
+    ///     requested: 6,
+    ///     available: 5,
+    /// }));
+    /// assert_eq!(buf.chunk(), b"world");
+    /// ```
+    fn try_advance(&mut self, cnt: usize) -> Result<(), TryGetError> {
+        let remaining = self.remaining();
+        if cnt > remaining {
+            return Err(TryGetError {
+                requested: cnt,
+                available: remaining,
+            });
+        }
+
+        self.advance(cnt);
+        Ok(())
+    }
+
     /// Returns true if there are any more bytes to consume
     ///
     /// This is equivalent to `self.remaining() != 0`.
@@ -2480,6 +2513,11 @@ macro_rules! deref_forward_buf {
         #[inline]
         fn advance(&mut self, cnt: usize) {
             (**self).advance(cnt)
+        }
+
+        #[inline]
+        fn try_advance(&mut self, cnt: usize) -> Result<(), TryGetError> {
+            (**self).try_advance(cnt)
         }
 
         #[inline]

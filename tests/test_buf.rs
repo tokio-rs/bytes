@@ -1,6 +1,6 @@
 #![warn(rust_2018_idioms)]
 
-use ::bytes::{Buf, Bytes, BytesMut};
+use ::bytes::{Buf, Bytes, BytesMut, TryGetError};
 use core::{cmp, mem};
 use std::collections::VecDeque;
 #[cfg(feature = "std")]
@@ -69,6 +69,48 @@ macro_rules! buf_tests {
 
             let chunk = buf.chunk();
             assert!(chunk.is_empty());
+        }
+
+        #[test]
+        fn try_advance() {
+            let mut buf = $make_input(INPUT);
+            assert_eq!(buf.try_advance(8), Ok(()));
+            assert_eq!(buf.remaining(), INPUT.len() - 8);
+            let remaining = buf.remaining();
+            assert_eq!(buf.copy_to_bytes(remaining), &INPUT[8..]);
+        }
+
+        #[test]
+        fn try_advance_past_end_preserves_contents() {
+            for requested in [INPUT.len() + 1, usize::MAX] {
+                let mut buf = $make_input(INPUT);
+                assert_eq!(
+                    buf.try_advance(requested),
+                    Err(TryGetError {
+                        requested,
+                        available: INPUT.len(),
+                    })
+                );
+                assert_eq!(buf.remaining(), INPUT.len());
+                assert_eq!(buf.copy_to_bytes(INPUT.len()), INPUT);
+            }
+        }
+
+        #[test]
+        fn try_advance_zero_and_to_end() {
+            let mut buf = $make_input(INPUT);
+            assert_eq!(buf.try_advance(0), Ok(()));
+            assert_eq!(buf.remaining(), INPUT.len());
+            assert_eq!(buf.try_advance(INPUT.len()), Ok(()));
+            assert!(!buf.has_remaining());
+            assert_eq!(buf.try_advance(0), Ok(()));
+            assert_eq!(
+                buf.try_advance(1),
+                Err(TryGetError {
+                    requested: 1,
+                    available: 0,
+                })
+            );
         }
 
         #[test]
@@ -440,6 +482,11 @@ fn test_deref_buf_forwards() {
             // specialized!
             b'x'
         }
+
+        fn try_advance(&mut self, cnt: usize) -> Result<(), TryGetError> {
+            assert_eq!(cnt, 1);
+            Ok(())
+        }
     }
 
     // these should all use the specialized method
@@ -447,6 +494,11 @@ fn test_deref_buf_forwards() {
     assert_eq!((&mut Special as &mut dyn Buf).get_u8(), b'x');
     assert_eq!((Box::new(Special) as Box<dyn Buf>).get_u8(), b'x');
     assert_eq!(Box::new(Special).get_u8(), b'x');
+
+    assert_eq!(Special.try_advance(1), Ok(()));
+    assert_eq!((&mut Special as &mut dyn Buf).try_advance(1), Ok(()));
+    assert_eq!((Box::new(Special) as Box<dyn Buf>).try_advance(1), Ok(()));
+    assert_eq!(Box::new(Special).try_advance(1), Ok(()));
 }
 
 #[test]
