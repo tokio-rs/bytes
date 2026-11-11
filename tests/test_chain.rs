@@ -133,10 +133,19 @@ fn vectored_read() {
     }
 }
 
+/// A `Buf` which only ever exposes a single byte per chunk, so that the
+/// default `chunks_vectored` does not cover all of its remaining bytes.
 #[cfg(feature = "std")]
 struct PartialBuf {
     data: &'static [u8],
     pos: usize,
+}
+
+#[cfg(feature = "std")]
+impl PartialBuf {
+    fn new(data: &'static [u8]) -> Self {
+        PartialBuf { data, pos: 0 }
+    }
 }
 
 #[cfg(feature = "std")]
@@ -146,7 +155,7 @@ impl Buf for PartialBuf {
     }
 
     fn chunk(&self) -> &[u8] {
-        &self.data[self.pos..self.pos.saturating_add(1).min(self.data.len())]
+        &self.data[self.pos..(self.pos + 1).min(self.data.len())]
     }
 
     fn advance(&mut self, cnt: usize) {
@@ -155,98 +164,102 @@ impl Buf for PartialBuf {
     }
 }
 
+/// Collects the bytes exposed by a single `chunks_vectored` call
+/// with `N` slots.
+#[cfg(feature = "std")]
+fn vectored_bytes<const N: usize>(buf: &impl Buf) -> Vec<u8> {
+    let mut iovecs = [IoSlice::new(&[]); N];
+    let n = buf.chunks_vectored(&mut iovecs);
+    iovecs[..n].iter().flat_map(|s| s.iter().copied()).collect()
+}
+
 #[cfg(feature = "std")]
 #[test]
-fn vectored_read_partial_first_buffer_preserves_order() {
-    let first = PartialBuf {
-        data: b"hello",
-        pos: 0,
-    };
-    let mut chain = first.chain(&b"world"[..]);
-    let empty: &[u8] = &[];
-    let mut iovecs = [IoSlice::new(empty), IoSlice::new(empty)];
-    let count = chain.chunks_vectored(&mut iovecs);
-    let flattened: Vec<u8> = iovecs[..count]
-        .iter()
-        .flat_map(|slice| slice.iter().copied())
-        .collect();
-    assert!(b"helloworld".starts_with(&flattened));
+fn vectored_read_partial_first_buf() {
+    let mut buf = PartialBuf::new(b"hello").chain(&b"world"[..]);
+    let mut out = Vec::new();
 
-    let mut output = Vec::new();
-    let mut iterations = 0;
-    while chain.has_remaining() {
-        let empty: &[u8] = &[];
-        let mut iovecs = [IoSlice::new(empty), IoSlice::new(empty)];
-        let count = chain.chunks_vectored(&mut iovecs);
-        let flattened: Vec<u8> = iovecs[..count]
-            .iter()
-            .flat_map(|slice| slice.iter().copied())
-            .collect();
-        assert!(!flattened.is_empty());
-        assert!(b"helloworld"[output.len()..].starts_with(&flattened));
-        output.extend_from_slice(&flattened);
-        let len = flattened.len();
-        chain.advance(len);
-        iterations += 1;
-        assert!(iterations <= b"helloworld".len());
+    while buf.has_remaining() {
+        let bytes = vectored_bytes::<2>(&buf);
+        assert!(!bytes.is_empty());
+        assert!(b"helloworld"[out.len()..].starts_with(&bytes));
+
+        buf.advance(bytes.len());
+        out.extend_from_slice(&bytes);
     }
-    assert_eq!(output, b"helloworld");
+
+    assert_eq!(out, b"helloworld");
 }
 
 #[cfg(feature = "std")]
 #[test]
-fn vectored_read_complete_first_buffer_keeps_second_buffer_control() {
-    let chain = (&b"hello"[..]).chain(&b"world"[..]);
-    let empty: &[u8] = &[];
-    let mut iovecs = [IoSlice::new(empty), IoSlice::new(empty)];
-
-    let count = chain.chunks_vectored(&mut iovecs);
-    let flattened: Vec<u8> = iovecs[..count]
-        .iter()
-        .flat_map(|slice| slice.iter().copied())
-        .collect();
-    assert_eq!(flattened, b"helloworld");
+fn vectored_read_empty_dst() {
+    let buf = (&b"hello"[..]).chain(&b"world"[..]);
+    assert_eq!(0, buf.chunks_vectored(&mut []));
 }
 
 #[cfg(feature = "std")]
 #[test]
-fn vectored_read_chain_controls() {
-    let empty: &[u8] = &[];
+fn vectored_read_short_dst() {
+    let buf = (&b"hello"[..]).chain(&b"world"[..]);
+    let mut iovecs = [IoSlice::new(&[])];
 
-    let zero_destination = &mut (&b"hello"[..]).chain(&b"world"[..]);
-    assert_eq!(zero_destination.chunks_vectored(&mut []), 0);
-    assert_eq!(zero_destination.chunk(), b"hello");
+    assert_eq!(1, buf.chunks_vectored(&mut iovecs));
+    assert_eq!(iovecs[0][..], b"hello"[..]);
+}
 
-    let first_empty = empty.chain(&b"world"[..]);
-    let mut first_empty_slots = [IoSlice::new(empty), IoSlice::new(empty)];
-    let count = first_empty.chunks_vectored(&mut first_empty_slots);
-    assert_eq!(count, 1);
-    assert_eq!(&first_empty_slots[0][..], b"world");
+#[cfg(feature = "std")]
+#[test]
+fn vectored_read_empty_first_buf() {
+    let buf = (&b""[..]).chain(&b"world"[..]);
+    let mut iovecs = [IoSlice::new(&[]); 2];
 
-    let second_empty = (&b"hello"[..]).chain(empty);
-    let mut second_empty_slots = [IoSlice::new(empty), IoSlice::new(empty)];
-    let count = second_empty.chunks_vectored(&mut second_empty_slots);
-    assert_eq!(count, 1);
-    assert_eq!(&second_empty_slots[0][..], b"hello");
+    assert_eq!(1, buf.chunks_vectored(&mut iovecs));
+    assert_eq!(iovecs[0][..], b"world"[..]);
+}
 
-    let short_destination = (&b"hello"[..]).chain(&b"world"[..]);
-    let mut short_slots = [IoSlice::new(empty)];
-    let count = short_destination.chunks_vectored(&mut short_slots);
-    assert_eq!(count, 1);
-    assert_eq!(&short_slots[0][..], b"hello");
+#[cfg(feature = "std")]
+#[test]
+fn vectored_read_empty_second_buf() {
+    let buf = (&b"hello"[..]).chain(&b""[..]);
+    let mut iovecs = [IoSlice::new(&[]); 2];
 
-    let first = (&b"he"[..]).chain(&b"llo"[..]);
-    let nested = first.chain(&b"world"[..]);
-    let mut nested_slots = [
-        IoSlice::new(empty),
-        IoSlice::new(empty),
-        IoSlice::new(empty),
-    ];
-    let count = nested.chunks_vectored(&mut nested_slots);
-    assert_eq!(count, 3);
-    assert_eq!(&nested_slots[0][..], b"he");
-    assert_eq!(&nested_slots[1][..], b"llo");
-    assert_eq!(&nested_slots[2][..], b"world");
+    assert_eq!(1, buf.chunks_vectored(&mut iovecs));
+    assert_eq!(iovecs[0][..], b"hello"[..]);
+}
+
+#[cfg(feature = "std")]
+#[test]
+fn vectored_read_nested() {
+    let buf = (&b"he"[..]).chain(&b"llo"[..]).chain(&b"world"[..]);
+    let mut iovecs = [IoSlice::new(&[]); 4];
+
+    assert_eq!(3, buf.chunks_vectored(&mut iovecs));
+    assert_eq!(iovecs[0][..], b"he"[..]);
+    assert_eq!(iovecs[1][..], b"llo"[..]);
+    assert_eq!(iovecs[2][..], b"world"[..]);
+}
+
+#[cfg(feature = "std")]
+#[test]
+fn vectored_read_nested_partial() {
+    // Left-nested, the inner chain's second buf is partial.
+    let buf = (&b"ab"[..]).chain(PartialBuf::new(b"cd")).chain(&b"ef"[..]);
+    assert_eq!(vectored_bytes::<4>(&buf), b"abc");
+
+    // Right-nested, the inner chain's first buf is partial.
+    let buf = (&b"ab"[..]).chain(PartialBuf::new(b"cd").chain(&b"ef"[..]));
+    assert_eq!(vectored_bytes::<4>(&buf), b"abc");
+}
+
+#[cfg(feature = "std")]
+#[test]
+fn vectored_read_take() {
+    let buf = (&b"ab"[..]).chain((&b"cd"[..]).chain(&b"ef"[..]));
+    assert_eq!(vectored_bytes::<4>(&buf.take(5)), b"abcde");
+
+    let buf = (&b"ab"[..]).chain(PartialBuf::new(b"cd").chain(&b"ef"[..]));
+    assert_eq!(vectored_bytes::<4>(&buf.take(5)), b"abc");
 }
 
 #[test]
