@@ -902,7 +902,8 @@ impl BytesMut {
         }
 
         unsafe {
-            self.advance_mut(cnt);
+            // Reserved above
+            self.set_len(self.len() + cnt);
         }
     }
 
@@ -1387,7 +1388,8 @@ unsafe impl BufMut for BytesMut {
 
             ptr::write_bytes(dst.as_mut_ptr(), val, cnt);
 
-            self.advance_mut(cnt);
+            // Reserved above
+            self.set_len(self.len() + cnt);
         }
     }
 }
