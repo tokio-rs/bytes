@@ -1,3 +1,24 @@
+# 1.12.2 (November 17th, 2026)
+
+### Fixed
+- Fix sign extension in `try_get_int` and `try_get_int_le` (#839)
+- Release shared reference when truncating `Bytes` to zero length (#842)
+- Preserve buffer order in `Chain::chunks_vectored` (#872)
+
+### Changed
+- Inline `BytesMut::put_slice` (#860)
+- Optimize `BytesMut::put` cold reuse path (#866)
+- Only reserve in `BytesMut::put` if the source isn't contiguous (#867)
+- Specialize `BytesMut::extend<u8>` when it is `Vec`-backed (#829)
+- Inline `BytesMut`'s specialized `BufMut` methods and add `put_u8` fast paths (#850)
+- Improve performance of `Writer::write_all` and `BytesMut::put_bytes` (#871)
+- Assert `nbytes <= 8` in `sign_extend` (#862)
+- Simplify shared alignment assertions (#841)
+- Raise minimum `serde` version to 1.0.70 (#863)
+
+### Documented
+- Correct the Panics section of `Bytes::slice_ref` (#873)
+
 # 1.12.1 (July 8th, 2026)
 
 ### Fixed
