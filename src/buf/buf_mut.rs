@@ -1655,12 +1655,13 @@ unsafe impl BufMut for Vec<u8> {
 
     #[inline]
     fn put_u8(&mut self, n: u8) {
-        self.push(n);
+        // `push`'s growth call is not `#[cold]`, so use `extend` instead
+        self.extend(core::iter::once(n));
     }
 
     #[inline]
     fn put_i8(&mut self, n: i8) {
-        self.push(n as u8);
+        self.put_u8(n as u8);
     }
 
     #[inline]
