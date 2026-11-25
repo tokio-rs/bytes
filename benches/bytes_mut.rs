@@ -264,3 +264,30 @@ fn put_u8_vec_push(b: &mut Bencher) {
         }
     });
 }
+
+#[bench]
+fn put_varint_vec(b: &mut Bencher) {
+    // Same loop as prost's `encode_varint`.
+    #[inline]
+    fn put_varint(buf: &mut impl BufMut, mut value: u64) {
+        for _ in 0..10 {
+            if value < 0x80 {
+                buf.put_u8(value as u8);
+                return;
+            }
+            buf.put_u8(((value & 0x7F) | 0x80) as u8);
+            value >>= 7;
+        }
+    }
+
+    // Varints of 1 to 6 bytes.
+    let values: Vec<u64> = (0..128).map(|i| 1 << (i % 36)).collect();
+    let mut buf = Vec::<u8>::with_capacity(1024);
+    b.iter(|| {
+        for &v in &values {
+            put_varint(&mut buf, test::black_box(v));
+        }
+        test::black_box(&buf);
+        buf.clear();
+    });
+}
