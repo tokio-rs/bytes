@@ -1578,7 +1578,13 @@ impl Extend<Bytes> for BytesMut {
 
 impl FromIterator<u8> for BytesMut {
     fn from_iter<T: IntoIterator<Item = u8>>(into_iter: T) -> Self {
-        BytesMut::from_vec(Vec::from_iter(into_iter))
+        // Collect through `extend` instead of `Vec::from_iter`. The latter has a
+        // specialization that adopts the allocation of a `Vec<u8>` source, which
+        // would leak the spare capacity of that `Vec` (and expose `BytesMut`'s
+        // internal representation) through `BytesMut::capacity`.
+        let mut buf = BytesMut::new();
+        buf.extend(into_iter);
+        buf
     }
 }
 
