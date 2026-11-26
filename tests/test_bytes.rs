@@ -1003,6 +1003,21 @@ fn from_iter_no_size_hint() {
     assert_eq!(&actual[..], &expect[..]);
 }
 
+/// `FromIterator` must not adopt the allocation of a `Vec<u8>` source, since that would
+/// expose the source's spare capacity (and `BytesMut`'s internal representation) via
+/// `BytesMut::capacity`.
+#[test]
+fn from_iter_does_not_adopt_spare_vec_capacity() {
+    let mut src = Vec::with_capacity(2048);
+    src.extend([7u8; 1024]);
+    assert_eq!(src.capacity(), 2048);
+
+    let buf = BytesMut::from_iter(src);
+
+    assert_eq!(buf.len(), 1024);
+    assert_eq!(buf.capacity(), 1024);
+}
+
 fn test_slice_ref(bytes: &Bytes, start: usize, end: usize, expected: &[u8]) {
     let slice = &(bytes.as_ref()[start..end]);
     let sub = bytes.slice_ref(slice);
